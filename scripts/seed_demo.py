@@ -302,6 +302,47 @@ UNITS = [
      "", ["type:event"], ["Zoe", "Ava", "Marco"], 5, 1, None, None),
     ("wk-food", "note", "weekend", "New ramen place near the lab is worth trying",
      "", [], ["Leo", "Yuki"], 3, 2, None, None),
+
+    # --- course homework (students in the group) ---
+    ("hw-rl3", "todo", "rl-control", "Deep RL homework 3: implement PPO on a continuous task",
+     "Assignment for the Deep RL course — implement and tune PPO on a continuous-control env.",
+     ["type:homework", "course:deep-rl"], ["Tom", "Ravi"], 4, 0, None, "high"),
+    ("hw-rl4", "todo", "rl-control", "Deep RL homework 4: offline RL on a fixed dataset",
+     "", ["type:homework", "course:deep-rl"], ["Ravi"], 2, 1, None, "medium"),
+    ("hw-oc2", "todo", "rl-control", "Optimal Control homework 2: LQR and iLQR derivations",
+     "", ["type:homework", "course:optimal-control"], ["Leo", "Kai"], 3, 0, None, "high"),
+    ("hw-rlr", "todo", "rl-control", "Robot Learning: reading response on imitation learning",
+     "", ["type:homework", "course:robot-learning"], ["Diego"], 2, 0, None, "medium"),
+    ("hw-opt", "todo", "rl-control", "Optimization homework: convergence of gradient descent",
+     "", ["type:homework", "course:optimization"], ["Elsa", "Marco"], 2, 2, None, "low"),
+    ("hw-perc", "todo", "manip", "Perception homework: calibrate a stereo rig",
+     "", ["type:homework", "course:perception"], ["Pablo", "Priya"], 3, 1, None, "medium"),
+    ("hw-rl-ann", "announcement", "rl-control", "Deep RL homework 5 released (due in two weeks)",
+     "", ["course:deep-rl"], ["Tom"], 2, 0, None, None),
+
+    # --- more deadlines ---
+    ("dl-cr", "deadline", "rl-control", "Camera-ready deadline for the accepted workshop paper",
+     "", ["type:deadline"], ["Lena", "Tom"], 3, 1, None, "high"),
+    ("dl-reb", "deadline", "rl-control", "Rebuttal due for the conference submission",
+     "", ["type:deadline"], ["Mia", "Ava"], 4, 0, None, "high"),
+    ("dl-grant", "deadline", "rl-control", "Compute-grant progress report due",
+     "", ["type:deadline"], ["Lena"], 2, 2, None, "medium"),
+
+    # --- dated events for the calendar (next ~2 weeks) ---
+    ("ev-lab", "event", "rl-control", "Lab meeting: real-robot deployment results",
+     "", ["type:event"], ["Zoe", "Kai"], 3, 0, None, None),
+    ("ev-talk", "event", "paper-club", "Guest talk: scaling world models",
+     "", ["type:event", "topic:papers"], ["Mia"], 4, 1, None, "medium"),
+    ("ev-read", "event", "paper-club", "Reading group: offline RL methods",
+     "", ["type:event", "topic:rl-methods"], ["Ravi"], 3, 1, None, None),
+    ("ev-hwsync", "event", "hardware", "Hardware sync: actuator and foot-sole review",
+     "", ["type:event", "topic:hardware"], ["Omar", "Nina"], 2, 0, None, None),
+    ("ev-rehearse", "event", "rl-control", "Demo-day rehearsal for the biped",
+     "", ["type:event", "topic:sim2real"], ["Zoe", "Kai", "Omar"], 3, 1, None, "medium"),
+    ("ev-poster", "event", "rl-control", "Poster session: group projects showcase",
+     "", ["type:event"], ["Lena", "Tom"], 4, 2, None, None),
+    ("ev-career", "event", "rl-control", "Career panel: research vs industry",
+     "", ["type:event"], ["Marco"], 2, 3, None, None),
 ]
 
 # Extra cross-links so units can have several parents (a richer "knot" graph). (parent_ref, child_ref)
@@ -313,6 +354,20 @@ EXTRA_LINKS = [
     ("nav", "loco"), ("mpc", "wm-bptt"), ("tac", "grasp-tac"), ("hw-foot", "s2r-sysid"),
     ("rlm", "reward"),
 ]
+
+# Dates, in days from "now" (positive = upcoming). Events get a start time; everything else a due date.
+WHEN = {
+    # homework due dates
+    "hw-rl3": 2, "hw-rl4": 9, "hw-oc2": 5, "hw-rlr": 1, "hw-opt": 4, "hw-perc": 7,
+    # deadlines
+    "hw-dl": 3, "deploy-dl": 4, "dl-cr": 11, "dl-reb": 6, "dl-grant": 8,
+    # misc todos worth a due date
+    "rlm-todo": 3, "s2r-todo": 2, "grasp-todo": 5, "mimic-todo": 4, "pc-todo": 2,
+    # events (start times)
+    "ev-standup": 1, "ev-lab": 1, "ev-hwsync": 2, "wk-hike": 2, "ev-weekend": 2,
+    "pc-meeting": 3, "ev-talk": 4, "ev-read": 6, "ev-visit": 7, "ev-rehearse": 8,
+    "ev-box": 10, "ev-poster": 12, "ev-career": 13,
+}
 
 
 def seed(db_path: str) -> None:
@@ -331,8 +386,15 @@ def seed(db_path: str) -> None:
     refs = {}
     for (ref, kind, chan, title, summary, tags, people, n_msgs, days_ago, parent, importance) in UNITS:
         act = now - days_ago * DAY - 3600
+        due = start = None
+        if ref in WHEN:                                # dated events / deadlines / homework
+            t = now + WHEN[ref] * DAY + 9 * 3600       # ~9am-ish on the target day
+            if kind == "event":
+                start = t
+            else:
+                due = t
         uid = U.upsert(store, f"demo:{ref}", kind=kind, title=title, summary=summary or None,
-                       origin="ai", activity_at=act)
+                       origin="ai", activity_at=act, due_at=due, start_at=start)
         store.q("UPDATE units SET created_at=?, updated_at=? WHERE id=?", (act, act, uid))
         all_tags = [f"type:{kind}", f"source:{SOURCE}", f"channel:{chan_name[chan]}"] + list(tags) \
             + [f"person:{p}" for p in people] + ([f"importance:{importance}"] if importance else [])
@@ -356,9 +418,12 @@ def seed(db_path: str) -> None:
         if parent in refs and child in refs:
             U.link(store, refs[parent], refs[child])
     for ref in ("hw-dl", "ev-visit", "ev-box", "wm", "mimic", "deploy-dl", "rlm-todo",
-                "s2r-todo", "grasp-todo", "pc-meeting", "ev-standup"):
+                "s2r-todo", "grasp-todo", "pc-meeting", "ev-standup", "ev-lab"):
         if ref in refs:
             store.q("UPDATE units SET for_me=1 WHERE id=?", (refs[ref],))
+    # homework and deadlines are personal obligations -> always "for me"
+    store.q("UPDATE units SET for_me=1 WHERE id IN "
+            "(SELECT unit_id FROM unit_tags WHERE tag IN ('type:homework','type:deadline'))")
     store.db.commit()
     nu = store.q("SELECT count(*) FROM units").fetchone()[0]
     nl = store.q("SELECT count(*) FROM unit_links").fetchone()[0]
