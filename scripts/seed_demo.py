@@ -23,11 +23,12 @@ from infohub.organize import units as U            # noqa: E402
 from infohub.store import Store                     # noqa: E402
 
 SOURCE = "team"                                     # a generic, platform-neutral source
-PEOPLE = ["Tom", "Mia", "Andy", "Lena", "Kai", "Priya", "Diego", "Milo",
-          "Noah", "Ava", "Leo", "Zoe", "Omar", "Nina"]
+PEOPLE = ["Tom", "Mia", "Andy", "Lena", "Kai", "Priya", "Diego", "Milo", "Noah", "Ava",
+          "Leo", "Zoe", "Omar", "Nina", "Ravi", "Yuki", "Elsa", "Marco", "Hana", "Pablo"]
 CHANNELS = [
     ("rl-control", "Robotics RL & Control", "watch"),
     ("paper-club", "Paper Club", "watch"),
+    ("manip", "Manipulation Lab", "watch"),
     ("hardware", "Hardware & Motors", "digest"),
     ("weekend", "Weekend Plans", "store"),
 ]
@@ -156,6 +157,161 @@ UNITS = [
      "", ["topic:competition"], ["Diego"], 5, 1, "fight", None),
     ("fight-ref", "resource", "rl-control", "A pack of 800 motion clips for choreographed moves",
      "", ["topic:competition", "topic:motion-imitation"], ["Noah"], 2, 2, "fight", None),
+
+    # --- more world-model children ---
+    ("wm-ensemble", "note", "rl-control", "Model ensembles cut imagination over-optimism a lot",
+     "", ["topic:world-model"], ["Ava", "Ravi"], 4, 1, "wm", None),
+    ("wm-horizon", "question", "rl-control", "What imagination horizon actually helps on hardware?",
+     "", ["topic:world-model"], ["Tom", "Yuki"], 5, 1, "wm", None),
+    ("wm-latent", "note", "rl-control", "Stochastic latent beats deterministic on contact-rich tasks",
+     "", ["topic:world-model"], ["Kai"], 3, 2, "wm", None),
+    ("wm-replay", "todo", "rl-control", "Add prioritised sim replay to the world-model trainer",
+     "", ["project:WorldRL"], ["Ravi"], 2, 1, "wm-bptt", "medium"),
+    ("wm-grad", "note", "rl-control", "tanh squashing stabilises analytical-gradient policy updates",
+     "", ["topic:world-model", "topic:optimization"], ["Leo"], 3, 2, "wm-bptt", None),
+
+    # --- reward shaping topic ---
+    ("reward", "topic", "rl-control", "Reward shaping without reward hacking",
+     "Thread on dense vs sparse rewards and how shaping leaks into exploit behaviour.",
+     ["topic:reward-shaping", "topic:rl-methods"], ["Ava", "Tom", "Elsa"], 17, 1, None, "medium"),
+    ("reward-sparse", "note", "rl-control", "Sparse reward + curriculum beat hand-tuned dense reward here",
+     "", ["topic:reward-shaping"], ["Elsa"], 4, 1, "reward", None),
+    ("reward-pbrs", "resource", "paper-club", "Potential-based reward shaping: the invariance result",
+     "", ["topic:reward-shaping", "topic:papers"], ["Mia"], 2, 3, "reward", None),
+    ("reward-q", "question", "rl-control", "Does reward normalisation change the optimal policy?",
+     "", ["topic:reward-shaping"], ["Yuki"], 3, 2, "reward", None),
+
+    # --- RL methods topic ---
+    ("rlm", "topic", "rl-control", "PPO vs SAC vs offline RL for legged control",
+     "Comparison of on-policy, off-policy and offline methods for the group's tasks.",
+     ["topic:rl-methods"], ["Leo", "Kai", "Ravi", "Marco"], 22, 0, None, "high"),
+    ("rlm-ppo", "note", "rl-control", "PPO is still the most robust default for locomotion",
+     "", ["topic:rl-methods", "topic:locomotion"], ["Kai"], 4, 0, "rlm", None),
+    ("rlm-sac", "note", "rl-control", "SAC needs careful entropy tuning on high-DoF humanoids",
+     "", ["topic:rl-methods"], ["Marco"], 3, 1, "rlm", None),
+    ("rlm-offline", "topic", "rl-control", "Offline RL from teleop logs: promising but brittle",
+     "", ["topic:rl-methods", "topic:datasets"], ["Ravi", "Priya"], 9, 1, "rlm", None),
+    ("rlm-todo", "todo", "rl-control", "Benchmark PPO and SAC on the shared terrain suite",
+     "", ["topic:rl-methods"], ["Marco"], 2, 0, "rlm", "medium"),
+
+    # --- sim-to-real topic ---
+    ("s2r", "topic", "rl-control", "Sim-to-real: domain randomisation vs system identification",
+     "Long debate on closing the reality gap for the new biped.",
+     ["topic:sim2real"], ["Zoe", "Kai", "Hana"], 19, 0, None, "high"),
+    ("s2r-dr", "note", "rl-control", "Randomising actuator latency mattered more than mass",
+     "", ["topic:sim2real"], ["Hana"], 4, 1, "s2r", None),
+    ("s2r-sysid", "note", "rl-control", "A quick sys-id of the gearbox halved the gap",
+     "", ["topic:sim2real", "topic:hardware"], ["Omar", "Zoe"], 3, 1, "s2r", None),
+    ("s2r-q", "question", "rl-control", "How much randomisation before the policy gets too conservative?",
+     "", ["topic:sim2real"], ["Zoe"], 4, 2, "s2r", None),
+    ("s2r-todo", "todo", "rl-control", "Measure real actuator latency and feed it into randomisation",
+     "", ["topic:sim2real"], ["Hana"], 2, 0, "s2r", "medium"),
+
+    # --- datasets topic ---
+    ("data", "topic", "rl-control", "Building a shared motion & teleop dataset",
+     "Plan for a common dataset the group can train imitation and offline RL on.",
+     ["topic:datasets"], ["Priya", "Lena", "Ravi"], 14, 1, None, "medium"),
+    ("data-format", "decision", "rl-control", "Standardise on a single trajectory schema",
+     "", ["topic:datasets"], ["Lena"], 5, 1, "data", None),
+    ("data-clean", "todo", "rl-control", "Write a cleaner that drops corrupt teleop episodes",
+     "", ["topic:datasets"], ["Ravi"], 2, 1, "data", "low"),
+    ("data-aug", "note", "rl-control", "Mirror augmentation doubled effective demo count",
+     "", ["topic:datasets", "topic:motion-imitation"], ["Diego"], 3, 2, "data", None),
+
+    # --- benchmarking / evaluation ---
+    ("bench", "topic", "rl-control", "A shared terrain & task benchmark suite",
+     "Proposal for a common benchmark so results are comparable across members.",
+     ["topic:evaluation"], ["Marco", "Kai", "Elsa"], 12, 1, None, "medium"),
+    ("bench-metrics", "question", "rl-control", "Which metrics beyond success rate should we report?",
+     "", ["topic:evaluation"], ["Elsa"], 4, 1, "bench", None),
+    ("bench-repo", "resource", "rl-control", "Draft benchmark harness repo",
+     "", ["topic:evaluation", "project:BenchBot"], ["Marco"], 2, 1, "bench", None),
+
+    # --- manipulation lab channel ---
+    ("grasp", "topic", "manip", "Diffusion policy for cluttered-bin grasping",
+     "Manipulation-lab thread on diffusion policies for grasping in clutter.",
+     ["topic:manipulation"], ["Priya", "Omar", "Pablo"], 18, 0, None, "high"),
+    ("grasp-cond", "note", "manip", "Conditioning on a goal image beats one-hot object id",
+     "", ["topic:manipulation"], ["Pablo"], 4, 0, "grasp", None),
+    ("grasp-tac", "note", "manip", "Tactile feedback cut slip failures by half",
+     "", ["topic:manipulation", "topic:tactile"], ["Priya"], 3, 1, "grasp", None),
+    ("grasp-todo", "todo", "manip", "Collect 200 more clutter scenes for the grasp set",
+     "", ["topic:manipulation", "topic:datasets"], ["Pablo"], 2, 0, "grasp", "medium"),
+    ("grasp-q", "question", "manip", "Does an end-effector cam help over a wrist cam for clutter?",
+     "", ["topic:manipulation"], ["Omar"], 3, 1, "grasp", None),
+    ("bimanual", "topic", "manip", "Bimanual handover: coordination and timing",
+     "", ["topic:manipulation"], ["Priya", "Hana"], 9, 2, None, None),
+    ("bimanual-note", "note", "manip", "Shared latent for both arms reduced jerky handoffs",
+     "", ["topic:manipulation"], ["Hana"], 3, 2, "bimanual", None),
+
+    # --- deployment / real robot ---
+    ("deploy", "topic", "rl-control", "Deploying the locomotion policy on the real biped",
+     "Field notes from first real-robot deployment of the trained policy.",
+     ["topic:sim2real", "topic:locomotion"], ["Zoe", "Omar", "Kai"], 16, 0, None, "high"),
+    ("deploy-safe", "note", "rl-control", "A torque clamp saved the ankles during the first run",
+     "", ["topic:sim2real", "topic:hardware"], ["Omar"], 4, 0, "deploy", None),
+    ("deploy-todo", "todo", "rl-control", "Log joint temperatures during long real-robot runs",
+     "", ["topic:hardware"], ["Nina"], 2, 0, "deploy", "medium"),
+    ("deploy-dl", "deadline", "rl-control", "Freeze the deployment build before the lab demo",
+     "", ["type:deadline", "topic:sim2real"], ["Zoe", "Kai"], 3, 1, None, "high"),
+
+    # --- navigation ---
+    ("nav", "topic", "rl-control", "Perceptive navigation on rough terrain",
+     "", ["topic:locomotion", "topic:navigation"], ["Kai", "Zoe", "Yuki"], 13, 2, None, None),
+    ("nav-height", "note", "rl-control", "Heightmap smoothing removed a nasty foot-trap failure",
+     "", ["topic:navigation"], ["Yuki"], 3, 2, "nav", None),
+
+    # --- more paper club ---
+    ("pc-diff", "resource", "paper-club", "Paper: diffusion policies for manipulation (arXiv)",
+     "", ["topic:papers", "topic:manipulation"], ["Pablo"], 2, 2, "pc", None),
+    ("pc-s2r", "resource", "paper-club", "Survey: sim-to-real transfer methods",
+     "", ["topic:papers", "topic:sim2real"], ["Hana"], 2, 3, None, None),
+    ("pc-offline", "resource", "paper-club", "Paper: conservative Q-learning for offline RL (arXiv)",
+     "", ["topic:papers", "topic:rl-methods"], ["Ravi"], 2, 4, None, None),
+    ("pc-meeting", "event", "paper-club", "Paper club: Thursday 4pm, two world-model papers",
+     "", ["type:event", "topic:papers"], ["Mia"], 3, 1, None, None),
+    ("pc-todo", "todo", "paper-club", "Prepare slides for the latent-imagination paper",
+     "", ["topic:papers"], ["Ava"], 2, 1, "pc", "medium"),
+
+    # --- more hardware ---
+    ("hw-foot", "topic", "hardware", "Foot-sole material and contact sensing options",
+     "", ["topic:hardware", "topic:tactile"], ["Omar", "Nina", "Pablo"], 10, 2, None, None),
+    ("hw-foot-note", "note", "hardware", "Softer soles improved contact estimation but cost torque",
+     "", ["topic:hardware"], ["Nina"], 3, 2, "hw-foot", None),
+    ("hw-cal", "todo", "hardware", "Recalibrate the IMU after the mount change",
+     "", ["topic:hardware"], ["Omar"], 2, 1, "hw-beni", "low"),
+    ("hw-order", "note", "hardware", "Spare actuators ordered; ETA next week",
+     "", ["topic:hardware"], ["Nina"], 2, 3, None, None),
+
+    # --- more tooling ---
+    ("llm-eval", "note", "rl-control", "A small eval harness caught two silent prompt regressions",
+     "", ["topic:tooling"], ["Leo"], 3, 1, "llm", None),
+    ("tool-wandb", "resource", "rl-control", "Shared experiment-tracking dashboard template",
+     "", ["topic:tooling"], ["Marco"], 2, 2, None, None),
+    ("tool-env", "note", "rl-control", "Pinned the sim version to stop flaky reward drift",
+     "", ["topic:tooling", "topic:sim2real"], ["Ravi"], 2, 1, None, None),
+
+    # --- more events / announcements / weekend ---
+    ("ev-standup", "event", "rl-control", "Weekly standup moved to Monday 10am",
+     "", ["type:event"], ["Tom"], 2, 1, None, None),
+    ("ann-grant", "announcement", "rl-control", "Lab compute grant approved: more GPU hours",
+     "", ["topic:tooling"], ["Lena"], 5, 2, None, "medium"),
+    ("ann-intern", "announcement", "rl-control", "Two summer research interns joining next month",
+     "", [], ["Lena"], 3, 3, None, None),
+    ("wk-hike", "event", "weekend", "Saturday hike + robotics-movie night",
+     "", ["type:event"], ["Zoe", "Ava", "Marco"], 5, 1, None, None),
+    ("wk-food", "note", "weekend", "New ramen place near the lab is worth trying",
+     "", [], ["Leo", "Yuki"], 3, 2, None, None),
+]
+
+# Extra cross-links so units can have several parents (a richer "knot" graph). (parent_ref, child_ref)
+EXTRA_LINKS = [
+    ("wm", "wm-bptt"), ("pc", "wm"), ("pc-wmp", "wm"), ("rlm", "loco-sgs"),
+    ("reward", "wm-reward"), ("reward", "mimic-imag"), ("data", "mimic"),
+    ("data", "rlm-offline"), ("s2r", "deploy"), ("s2r", "loco"), ("deploy", "loco"),
+    ("bench", "rlm"), ("bench", "loco"), ("grasp", "tac"), ("bimanual", "grasp"),
+    ("nav", "loco"), ("mpc", "wm-bptt"), ("tac", "grasp-tac"), ("hw-foot", "s2r-sysid"),
+    ("rlm", "reward"),
 ]
 
 
@@ -196,7 +352,11 @@ def seed(db_path: str) -> None:
     for (ref, kind, chan, title, summary, tags, people, n_msgs, days_ago, parent, importance) in UNITS:
         if parent and parent in refs:
             U.link(store, refs[parent], refs[ref])
-    for ref in ("hw-dl", "ev-visit", "ev-box", "wm", "mimic", "hw-dl"):
+    for parent, child in EXTRA_LINKS:                 # cross-links (cycle-safe; ignored if they'd loop)
+        if parent in refs and child in refs:
+            U.link(store, refs[parent], refs[child])
+    for ref in ("hw-dl", "ev-visit", "ev-box", "wm", "mimic", "deploy-dl", "rlm-todo",
+                "s2r-todo", "grasp-todo", "pc-meeting", "ev-standup"):
         if ref in refs:
             store.q("UPDATE units SET for_me=1 WHERE id=?", (refs[ref],))
     store.db.commit()
