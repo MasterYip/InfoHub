@@ -244,6 +244,8 @@ function unitCard(u, depth = 0) {
   const post = async body => { await api(`/api/unit/${u.id}`, body); };
   const addTag = async tag => {
     tag = (tag || "").trim(); if (!tag) return;
+    const m = tag.toLowerCase().match(/^(?:type:)?([a-z]+)$/);     // "type:todo" or bare "todo" -> reclassify
+    if (m && Object.keys(KIND_COLOR).includes(m[1])) { await setKind(m[1]); return; }
     await post({add_tags: [tag]});
     if (!u.tags.includes(tag)) u.tags = [...u.tags, tag].sort();
     paintTags(); paintEditor();

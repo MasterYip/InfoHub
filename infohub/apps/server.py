@@ -514,16 +514,22 @@ def serve(cfg, store, poll_fn):
                     fields = {k: body[k] for k in ("status", "title", "summary") if body.get(k)}
                     if fields.get("status") not in (None, "open", "done", "dropped"):
                         return self._send(400, {"error": "bad status"})
-                    if body.get("kind"):                       # reclassify the unit (e.g. topic -> todo)
-                        if body["kind"] not in U.KINDS:
+                    # `type:<kind>` is reserved: adding one means "reclassify this unit", not a literal tag.
+                    add = [t for t in (body.get("add_tags") or []) if isinstance(t, str)]
+                    kind = body.get("kind")
+                    type_kinds = [t.split(":", 1)[1].strip().lower() for t in add
+                                  if t.lower().startswith("type:") and t.split(":", 1)[1].strip().lower() in U.KINDS]
+                    if type_kinds and not kind:
+                        kind = type_kinds[-1]
+                    add = [t for t in add if not t.lower().startswith("type:")]   # type tags are managed via kind
+                    if kind:
+                        if kind not in U.KINDS:
                             return self._send(400, {"error": "bad kind"})
-                        old = store.q("SELECT kind FROM units WHERE id=?", (uid,)).fetchone()[0]
-                        fields["kind"] = body["kind"]
-                        if old and old != body["kind"]:        # keep the type:<kind> tag in sync with kind
-                            U.remove_tags(store, uid, [f"type:{old}"])
-                            U.add_tags(store, uid, [f"type:{body['kind']}"])
+                        fields["kind"] = kind
+                        store.q("DELETE FROM unit_tags WHERE unit_id=? AND tag LIKE 'type:%'", (uid,))  # exactly one type tag
+                        U.add_tags(store, uid, [f"type:{kind}"])
                     U.update(store, uid, **fields)
-                    U.add_tags(store, uid, body.get("add_tags"))
+                    U.add_tags(store, uid, add)
                     U.remove_tags(store, uid, body.get("remove_tags"))
                     if body.get("parent_id") and not U.link(store, int(body["parent_id"]), uid):
                         return self._send(400, {"error": "link would create a cycle"})
