@@ -1,0 +1,96 @@
+# Copy to config/hub.local.yaml (git-ignored) and edit. IDs and names stay on this machine.
+hub:
+  timezone_offset_hours: 8
+  poll_minutes: 5
+  initial_backfill_hours: 24      # first poll looks back this far
+  dashboard: {bind: 127.0.0.1, port: 8765}   # keep local; use a VPN/tunnel for remote viewing
+  database: data/hub.db
+  retention_days: 90              # low-priority and done items older than this are pruned
+
+me:
+  names: []                       # your display names in groups: drives @mention detection and the "For me" filter
+
+sources:
+  lark:
+    enabled: true
+    cli: lark-cli                 # resolved to node_modules/.bin/lark-cli when installed via npm
+    accounts:                     # one entry per Lark/Feishu organization (lark-cli profile)
+      - {name: org1, profile: org1, calendar: true}    # calendar: false to skip an organization's calendar
+      - {name: org2, profile: org2, calendar: true}
+    default_policy: store
+    watch: {channels: [], people: []}
+    digest_only: []
+    ignore: {channels: [], name_patterns: [], muted: true}   # respects Lark do-not-disturb
+    calendar_days: 7
+    max_chats_per_poll: 60
+    stop_after_quiet: 6           # stop walking chats after this many in a row had nothing new
+    parallel: 4
+
+# Default policy for a chat, from its own properties. First match wins; anything you set by
+# hand (dashboard Settings, or the watch/digest/ignore lists above) always wins over these.
+# Default policy for a chat, from its own properties. First match wins; anything you set by
+# hand always wins. Each source plugin also ships its own defaults (merged at load).
+policy_defaults:
+  lark:
+    - {when: {is_group: false}, policy: watch}       # direct chats
+    - {when: {chat_mode: topic}, policy: watch}      # topic chats
+    - {when: {name_matches: ["*课*", "*班*", "*class*", "*course*"]}, policy: watch}
+    - {when: {muted: true}, policy: ignore}
+    - {policy: watch}
+
+segment_gap_minutes: 30          # a pause this long starts a new conversation segment
+segment_max_messages: 80         # and a segment never grows past this, so nothing is truncated
+
+# ---------------- Layer 1 triage ----------------
+# Top to bottom; the best (lowest) priority among matching rules wins, labels accumulate.
+# when: source, channels, channel_names (glob), people, keywords, mentions_me, policy, is_group
+rules:
+  - name: deadlines-meetings
+    when: {keywords: ["DDL", "deadline", "截止", "会议", "meeting", "答辩", "提交", "汇报"], actionable: true}
+    priority: P1
+    extract: [task]
+  - name: research-topics
+    when: {keywords: ["humanoid", "WBC", "VLA", "diffusion policy", "PredActor"]}
+    priority: P2
+  - name: urgent-words
+    when: {keywords: ["紧急", "urgent", "ASAP", "尽快"], policy: [watch, store]}
+    priority: P1
+
+# ---------------- Layer 2: reorganization ----------------
+organize:
+  rule_organizer: true
+  polish: true                    # let the AI rewrite rule-made titles into brief, plain ones            # deterministic units (todo, event, announcement, resource, question); no AI
+  tag_rules:                      # add tags (and optionally force a unit kind) by message match
+    - when: {keywords: ["作业", "homework", "assignment"]}
+      tags: [type:homework]
+      create: todo
+
+    #   tags: [course:ai-engineering]
+
+ai:
+  enabled: false                  # AI organizer: main-idea units, nesting, closing finished todos. Sync never depends on it.
+  provider: openai_compatible     # openai_compatible (DeepSeek, any /chat/completions API) | anthropic (Claude)
+  base_url: https://api.deepseek.com
+  model: deepseek-flash
+  api_key_env: DEEPSEEK_API_KEY   # the key lives in this environment variable, never in a file
+  price_usd_per_mtok: {input: 0.3, output: 1.2, cache_read: 0.03}   # used for the daily budget; set your provider's real prices
+  policies: [watch]               # only chats with these policies ever send text to the API
+  daily_budget_usd: 1.0
+  interval_minutes: 15
+  polish_policies: [watch, store] # whose card titles may be sent for rewriting
+  # Claude instead:  provider: anthropic, model: claude-opus-5-5, ANTHROPIC_API_KEY (pip install -r requirements-ai.txt)
+
+# ---------------- scheduled external agents (Codex, Claude Code, ...) ----------------
+agent:
+  command: ""                     # e.g. "codex exec --full-auto"; run by scripts/agent-run.ps1 with agents/scheduled-run.md
+  max_jobs: 30
+  lease_minutes: 60               # leased jobs go back to the queue if no result arrives in time
+
+# ---------------- Layer 3: applications ----------------
+apps:
+  today_scope: mine               # Today tab default: mine | all
+  reminders: {enabled: true, toast: true, todo_lead_hours: 24, event_lead_minutes: 60}
+  views:                          # extra dashboard tabs = saved tag filters (shown in full,
+                                  # independent of the global For-me toggle; add mine:true to limit)
+    - {name: Homework, tags: [type:homework], status: open, order: due}
+    - {name: Deadlines, tags: [type:deadline], status: open, order: due}

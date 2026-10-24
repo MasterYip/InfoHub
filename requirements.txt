@@ -1,0 +1,2 @@
+# Info Hub core (standard library does most of the work)
+PyYAML>=6.0

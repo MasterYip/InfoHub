@@ -1,0 +1,8 @@
+{
+  "name": "info-hub",
+  "private": true,
+  "description": "Pins the official Lark/Feishu CLI used by the Lark collector.",
+  "dependencies": {
+    "@larksuite/cli": "1.0.98"
+  }
+}

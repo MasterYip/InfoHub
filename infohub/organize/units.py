@@ -1,0 +1,301 @@
+"""Info units: the Layer 2 data model.
+
+An info unit is one *main idea* (a task, an event, a topic people discuss, a decision, a
+resource...), not a sentence. Units form a graph (a "knot" map): `unit_links(parent, child)`
+allows several parents and children, so a todo can sit under both a course and a chat-day;
+cycles are refused. Tags are namespaced strings; filtering by tags reorganizes the same
+units into different views (todos, homework, a project, a person...).
+
+Tag namespaces (see TAXONOMY): type:, topic:, project:, course:, person:, source:, channel:, status:
+"""
+from __future__ import annotations
+
+import time
+from datetime import datetime, timezone
+
+KINDS = ["topic", "todo", "event", "decision", "question", "announcement", "resource", "digest", "note"]
+
+TAXONOMY = {
+    "type": "what the unit is: todo, deadline, event, homework, decision, question, announcement, "
+            "resource, discussion, digest, note",
+    "topic": "subject in a few words, e.g. topic:gpu-scheduling, topic:paper-revision",
+    "project": "a long-running effort, e.g. project:predactor",
+    "course": "a class, e.g. course:ai-engineering",
+    "person": "people involved (display names)",
+    "source": "lark:<org> or another source",
+    "channel": "chat or group name",
+    "status": "derived: open | done",
+}
+
+
+def norm_tag(tag: str) -> str | None:
+    tag = (tag or "").strip()
+    if not tag:
+        return None
+    ns, _, val = tag.partition(":")
+    if not val:                                   # bare word -> topic
+        ns, val = "topic", ns
+    ns = ns.strip().lower()
+    val = " ".join(val.split())
+    if ns in ("type", "topic", "project", "course", "status"):
+        val = val.lower().replace(" ", "-")
+    return f"{ns}:{val[:60]}" if val else None
+
+
+def upsert(store, key: str | None, *, kind: str, title: str, summary: str | None = None, status: str | None = None,
+           priority: str | None = None, due_at=None, start_at=None, end_at=None, origin="rule",
+           confidence=None, activity_at=None, for_me: bool | None = None) -> int:
+    now = int(time.time())
+    act = int(activity_at or now)
+    row = store.q("SELECT id FROM units WHERE key=?", (key,)).fetchone() if key else None
+    if row:
+        store.q("""UPDATE units SET title=coalesce(?,title), summary=coalesce(?,summary), status=coalesce(?,status),
+                   priority=coalesce(?,priority), due_at=coalesce(?,due_at), start_at=coalesce(?,start_at),
+                   end_at=coalesce(?,end_at), for_me=max(for_me, ?), updated_at=?,
+                   last_activity_at=max(coalesce(last_activity_at,0),?) WHERE id=?""",
+                (title, summary, status, priority, due_at, start_at, end_at, int(bool(for_me)), now, act, row["id"]))
+        return row["id"]
+    return store.q("""INSERT INTO units(key,kind,title,summary,status,priority,due_at,start_at,end_at,origin,confidence,
+                      created_at,updated_at,last_activity_at,for_me) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   (key, kind, title, summary, status or "open", priority, due_at, start_at, end_at, origin, confidence,
+                    now, now, act, int(bool(for_me)))).lastrowid
+
+
+def update(store, uid: int, **fields):
+    allowed = {k: v for k, v in fields.items() if k in ("title", "summary", "status", "priority", "due_at", "start_at", "end_at", "kind")}
+    if not allowed:
+        return
+    sets = ", ".join(f"{k}=?" for k in allowed)
+    store.q(f"UPDATE units SET {sets}, updated_at=? WHERE id=?", (*allowed.values(), int(time.time()), uid))
+
+
+def add_tags(store, uid: int, tags) -> None:
+    for t in tags or []:
+        if (t := norm_tag(t)):
+            store.q("INSERT OR IGNORE INTO unit_tags VALUES(?,?)", (uid, t))
+
+
+def remove_tags(store, uid: int, tags) -> None:
+    for t in tags or []:
+        if (t := norm_tag(t)):
+            store.q("DELETE FROM unit_tags WHERE unit_id=? AND tag=?", (uid, t))
+
+
+def ancestors(store, uid: int, limit=200) -> set[int]:
+    seen, frontier = set(), [uid]
+    while frontier and len(seen) < limit:
+        nxt = []
+        for u in frontier:
+            for (p,) in store.q("SELECT parent_id FROM unit_links WHERE child_id=?", (u,)):
+                if p not in seen:
+                    seen.add(p)
+                    nxt.append(p)
+        frontier = nxt
+    return seen
+
+
+def link(store, parent: int, child: int, relation="part_of") -> bool:
+    """Add parent -> child. Refuses self-links and links that would create a cycle."""
+    if parent == child or child in ancestors(store, parent):
+        return False
+    store.q("INSERT OR IGNORE INTO unit_links VALUES(?,?,?)", (parent, child, relation))
+    return True
+
+
+def attach(store, uid: int, message_ids) -> None:
+    store.db.executemany("INSERT OR IGNORE INTO unit_messages VALUES(?,?)", [(uid, m) for m in message_ids])
+
+
+def _row(store, r) -> dict:
+    d = dict(r)
+    d["tags"] = [t for (t,) in store.q("SELECT tag FROM unit_tags WHERE unit_id=? ORDER BY tag", (d["id"],))]
+    d["n_children"] = store.q("SELECT count(*) FROM unit_links WHERE parent_id=?", (d["id"],)).fetchone()[0]
+    d["n_messages"] = store.q("SELECT count(*) FROM unit_messages WHERE unit_id=?", (d["id"],)).fetchone()[0]
+    return d
+
+
+def get(store, uid: int, depth: int = 1, with_messages=True) -> dict | None:
+    r = store.q("SELECT * FROM units WHERE id=?", (uid,)).fetchone()
+    if not r:
+        return None
+    d = _row(store, r)
+    d["parents"] = [dict(x) for x in store.q(
+        "SELECT u.id, u.kind, u.title, l.relation FROM unit_links l JOIN units u ON u.id=l.parent_id WHERE l.child_id=?", (uid,))]
+    kids = store.q("""SELECT u.* FROM unit_links l JOIN units u ON u.id=l.child_id WHERE l.parent_id=?
+                      ORDER BY coalesce(u.due_at, u.start_at, u.last_activity_at)""", (uid,)).fetchall()
+    d["children"] = [get(store, k["id"], depth - 1, False) if depth > 1 else _row(store, k) for k in kids]
+    if with_messages:
+        d["messages"] = [dict(x) for x in store.q(
+            """SELECT m.id, m.source, m.account, m.channel_name, m.sender_name, m.sent_at, m.text, m.link
+               FROM unit_messages um JOIN messages m ON m.id=um.message_id WHERE um.unit_id=? ORDER BY m.sent_at LIMIT 200""", (uid,))]
+    return d
+
+
+def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before=None, roots_only=False,
+          order="activity", limit=200, mine=False) -> list[dict]:
+    where, args = [], []
+    groups = {}                                   # namespace -> [tags]: OR within a namespace, AND across
+    for t in tags or ():
+        if (t := norm_tag(t)):
+            groups.setdefault(t.split(":", 1)[0], []).append(t)
+    for _, gtags in groups.items():
+        where.append(f"u.id IN (SELECT unit_id FROM unit_tags WHERE tag IN ({','.join('?' * len(gtags))}))")
+        args += gtags
+    if kind:
+        kinds = kind if isinstance(kind, (list, tuple)) else [kind]
+        where.append(f"u.kind IN ({','.join('?' * len(kinds))})")
+        args += list(kinds)
+    if status:
+        where.append("u.status=?")
+        args.append(status)
+    else:
+        where.append("u.status != 'dropped'")
+    if since:
+        where.append("coalesce(u.last_activity_at, u.updated_at) >= ?")
+        args.append(int(since))
+    if due_before:
+        where.append("coalesce(u.due_at, u.start_at) IS NOT NULL AND coalesce(u.due_at, u.start_at) <= ?")
+        args.append(int(due_before))
+    if roots_only:
+        where.append("u.id NOT IN (SELECT child_id FROM unit_links)")
+    if mine:
+        where.append("u.for_me=1")
+    if q:
+        where.append("u.id IN (SELECT rowid FROM units_fts WHERE units_fts MATCH ?)" if len(q) >= 3
+                     else "(u.title LIKE ? OR u.summary LIKE ?)")
+        args += ['"' + q.replace('"', '""') + '"'] if len(q) >= 3 else [f"%{q}%", f"%{q}%"]
+    order_sql = {
+        "activity": "u.last_activity_at DESC",
+        "oldest": "u.last_activity_at ASC",
+        "due": "coalesce(u.due_at, u.start_at) IS NULL, coalesce(u.due_at, u.start_at)",
+        "created": "u.created_at DESC",
+        "messages": "(SELECT count(*) FROM unit_messages um WHERE um.unit_id=u.id) DESC, u.last_activity_at DESC",
+        "title": "u.title COLLATE NOCASE ASC",
+    }.get(order, "u.last_activity_at DESC")
+    sql = f"SELECT u.* FROM units u {'WHERE ' + ' AND '.join(where) if where else ''} ORDER BY {order_sql} LIMIT ?"
+    return [_row(store, r) for r in store.q(sql, (*args, int(limit)))]
+
+
+def tag_counts(store, since=None, prefix=None, status=None, limit=300) -> list[dict]:
+    where, args = [], []
+    if since:
+        where.append("coalesce(u.last_activity_at, u.updated_at) >= ?")
+        args.append(int(since))
+    if prefix:
+        where.append("t.tag LIKE ?")
+        args.append(prefix + "%")
+    if status:
+        where.append("u.status=?")
+        args.append(status)
+    sql = (f"SELECT t.tag, count(*) AS n FROM unit_tags t JOIN units u ON u.id=t.unit_id "
+           f"{'WHERE ' + ' AND '.join(where) if where else ''} GROUP BY t.tag ORDER BY n DESC LIMIT ?")
+    return [dict(r) for r in store.q(sql, (*args, limit))]
+
+
+def iso_to_epoch(value, tz) -> int | None:
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=tz)
+    return int(dt.timestamp())
+
+
+def apply_result(store, result: dict, *, origin: str, job_key: str, tz=timezone.utc,
+                 allowed_message_ids: set[int] | None = None, default_parent: int | None = None,
+                 base_tags: list[str] | None = None) -> dict:
+    """Apply an organizer result (AI or external agent) to the graph. Shared by both paths.
+
+    result = {"units": [{ref, existing_id, kind, title, summary, tags, people, due, start, status, parent, message_ids}],
+              "close_units": [id, ...]}
+    `parent` is another ref in the same result, "unit:<id>" for an existing unit, or null.
+    """
+    refs, created, updated, linked = {}, 0, 0, 0
+    items = result.get("units") or []
+    for u in items:
+        kind = u.get("kind") if u.get("kind") in KINDS else "topic"
+        title = (u.get("title") or "").strip()[:200]
+        if not title:
+            continue
+        due, start = iso_to_epoch(u.get("due"), tz), iso_to_epoch(u.get("start"), tz)
+        status = u.get("status") if u.get("status") in ("open", "done") else None
+        ex = u.get("existing_id")
+        if ex and store.q("SELECT 1 FROM units WHERE id=?", (int(ex),)).fetchone():
+            uid = int(ex)
+            update(store, uid, **{k: v for k, v in dict(title=title, summary=u.get("summary"), status=status,
+                                                       due_at=due, start_at=start).items() if v})
+            updated += 1
+        else:
+            uid = upsert(store, f"{job_key}:{u.get('ref') or len(refs)}", kind=kind, title=title, summary=u.get("summary"),
+                         status=status, due_at=due, start_at=start, origin=origin)
+            created += 1
+        refs[u.get("ref") or str(uid)] = uid
+        add_tags(store, uid, [f"type:{kind}"] + list(base_tags or []) + list(u.get("tags") or [])
+                 + [f"person:{p}" for p in u.get("people") or []])
+        mids = [int(m) for m in u.get("message_ids") or [] if str(m).isdigit()]
+        if allowed_message_ids is not None:
+            mids = [m for m in mids if m in allowed_message_ids]
+        attach(store, uid, mids)
+        mark_for_me(store, uid)
+    for u in items:
+        uid = refs.get(u.get("ref"))
+        if not uid:
+            continue
+        p = u.get("parent")
+        pid = None
+        if isinstance(p, str) and p.startswith("unit:") and p[5:].isdigit():
+            pid = int(p[5:]) if store.q("SELECT 1 FROM units WHERE id=?", (int(p[5:]),)).fetchone() else None
+        elif p in refs:
+            pid = refs[p]
+        pid = pid or default_parent
+        if pid and link(store, pid, uid):
+            linked += 1
+    closed = 0
+    for cid in result.get("close_units") or []:
+        if str(cid).isdigit():
+            closed += store.q("UPDATE units SET status='done', updated_at=? WHERE id=? AND status='open'",
+                              (int(time.time()), int(cid))).rowcount
+    store.db.commit()
+    return {"created": created, "updated": updated, "linked": linked, "closed": closed}
+
+
+def mark_for_me(store, uid: int) -> bool:
+    """A unit concerns you when its evidence is directed at you (an @mention of you, an @everyone
+    announcement, your own message or a one-to-one chat), or it is a homework/deadline obligation."""
+    row = store.q("""SELECT max(m.mentions_me), max(m.from_me), max(m.is_group=0) FROM unit_messages um
+                     JOIN messages m ON m.id=um.message_id WHERE um.unit_id=?""", (uid,)).fetchone()
+    obligation = store.q("SELECT 1 FROM unit_tags WHERE unit_id=? AND tag IN ('type:homework','type:deadline')", (uid,)).fetchone()
+    if (row and any(row)) or obligation:
+        store.q("UPDATE units SET for_me=1 WHERE id=?", (uid,))
+        return True
+    return False
+
+
+def rescan_mentions(store, names: list[str]) -> int:
+    """Re-flag stored messages that @mention you or @everyone, after me.names changed."""
+    from ..sync.triage import ALL_MENTIONS
+    changed = 0
+    for name in names or []:
+        changed += store.q("UPDATE messages SET mentions_me=1 WHERE mentions_me=0 AND text LIKE ?",
+                           (f"%@{name}%",)).rowcount
+    for tok in ALL_MENTIONS:
+        changed += store.q("UPDATE messages SET mentions_me=1 WHERE mentions_me=0 AND text LIKE ?",
+                           (f"%{tok}%",)).rowcount
+    store.db.commit()
+    return changed
+
+
+def recompute_for_me(store) -> int:
+    """Recompute 'for me' authoritatively. A unit is yours when its evidence is directed at you
+    (an @mention of you, an @everyone announcement, your own message, or a one-to-one chat), or
+    when it is an obligation you act on (homework or a deadline). A VIP person's own task is theirs."""
+    store.q("""UPDATE units SET for_me = CASE WHEN (
+                 id IN (SELECT um.unit_id FROM unit_messages um JOIN messages m ON m.id=um.message_id
+                        WHERE m.mentions_me=1 OR m.from_me=1 OR m.is_group=0)
+                 OR id IN (SELECT unit_id FROM unit_tags WHERE tag IN ('type:homework','type:deadline'))
+               ) THEN 1 ELSE 0 END""")
+    store.db.commit()
+    return store.q("SELECT count(*) FROM units WHERE for_me=1").fetchone()[0]

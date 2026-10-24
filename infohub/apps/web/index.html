@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Info Hub</title>
+<style>
+:root{
+  --bg:#0f141c;--lane:#161d27;--card:#1d2532;--line:#232c39;--ink:#e8eef6;--sub:#93a2b6;--mute:#6f7d90;
+  --accent:#2563eb;--on-accent:#fff;
+  --input-bg:#1c2430;--input-border:#2a3442;
+  --btn:#28334a;--btn-ink:#cfe0ff;--btn-hover:#344264;
+  --sum:#c4cfdd;--link:#8ab4ff;
+  --tag-border:#2f3b4d;--tag-hover-border:#5b7bd5;--tag-hover-ink:#cfe0ff;
+  --chip-bg:#1c2430;--chip-ink:#aeb9c8;
+  --scroll:#39465a;--scroll-hover:#4d5e78;--dash:#2f3b4d;--stripe:#121926;
+  --wx:#07c160;--lark:#3370ff;--p0:#ef4444;--p1:#f59e0b;--p2:#3b82f6;--p3:#3a4658;--ok:#22c55e}
+:root[data-theme="light"]{
+  --bg:#f6f7f9;--lane:#ffffff;--card:#ffffff;--line:#e3e6ea;--ink:#1b2130;--sub:#5b6474;--mute:#8a93a0;
+  --accent:#2563eb;--on-accent:#fff;
+  --input-bg:#ffffff;--input-border:#cfd5dc;
+  --btn:#eaf0fb;--btn-ink:#1d4ed8;--btn-hover:#dce6f8;
+  --sum:#3a4250;--link:#1d4ed8;
+  --tag-border:#d4dae2;--tag-hover-border:#2563eb;--tag-hover-ink:#1d4ed8;
+  --chip-bg:#f1f3f6;--chip-ink:#5b6474;
+  --scroll:#c7cfda;--scroll-hover:#aab3bf;--dash:#d4dae2;--stripe:#f3f5f8;
+  --p3:#cbd2db}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,"Segoe UI","Microsoft YaHei",sans-serif}
+header{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:3}
+header b{font-size:16px;margin-right:8px;flex:0 0 auto}
+header>#themeBtn,header>#scopeToggle,header>#q,header>#poll,header>.status,header>form{flex:0 0 auto}
+#tabs{display:flex;gap:2px;flex:1 1 auto;min-width:40px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab{background:none;border:0;color:var(--sub);padding:6px 11px;border-radius:7px;cursor:pointer;font-size:13.5px;flex:0 0 auto;white-space:nowrap}
+.tab.on{background:var(--accent);color:var(--on-accent)}
+.sp{flex:0 0 0}
+input{background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;color:var(--ink);padding:6px 10px;width:220px}
+button.b{background:var(--btn);color:var(--btn-ink);border:0;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer}
+button.b:hover{background:var(--btn-hover)}
+button.b.ok-btn{background:#1f6f43;color:#dff3e6}
+#themeBtn{background:none;border:1px solid var(--input-border);color:var(--sub);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:13px}
+.status{font-size:12px;color:var(--mute)}
+main{padding:12px 16px}
+.grid{display:grid;gap:12px;align-items:start}
+.grid.resizable{gap:0}
+.col-resizer{cursor:col-resize;position:relative;align-self:stretch;min-height:120px}
+.col-resizer::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;transform:translateX(-50%);background:var(--line);border-radius:2px}
+.col-resizer:hover::before,.col-resizer.dragging::before{background:var(--link);width:3px}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}
+@media(max-width:1000px){.g3,.g2{grid-template-columns:1fr}}
+.lane{background:var(--lane);border:1px solid var(--line);border-radius:12px;padding:10px;max-height:calc(100vh - 90px);overflow:auto}
+.lane h2{margin:2px 2px 10px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--sub);display:flex;justify-content:space-between}
+.it{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:8px;border-left:3px solid var(--p3)}
+.it.P0{border-left-color:var(--p0)}.it.P1{border-left-color:var(--p1)}.it.P2{border-left-color:var(--p2)}.it.done{opacity:.55}
+.meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin-bottom:3px}
+.src{font-weight:700;font-size:10.5px;border-radius:4px;padding:0 5px;color:#fff;background:#555}
+.src.lark{background:#3370ff}.src.linkedin{background:#0a66c2}
+.src.x{background:#101419}.src.instagram{background:#c13584}.src.whatsapp{background:#25d366}
+.src.slack{background:#611f69}.src.telegram{background:#229ed9}
+.title{font-weight:600}.text{white-space:pre-wrap;word-break:break-word;max-height:8em;overflow:hidden}
+.chat-text{white-space:pre-wrap;word-break:break-word;line-height:1.55}
+.md{line-height:1.55;word-break:break-word}
+.md p{margin:.4em 0}.md h4{margin:.6em 0 .3em;font-size:14px}.md h5{margin:.5em 0 .3em;font-size:13px;color:var(--sub)}
+.md ul,.md ol{margin:.3em 0;padding-left:1.4em}.md li{margin:.15em 0}
+.md code{background:var(--chip-bg);border:1px solid var(--input-border);border-radius:4px;padding:0 4px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+.md pre{position:relative;background:var(--stripe);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin:.5em 0;overflow:auto}
+.md pre code{background:none;border:0;padding:0;white-space:pre}
+.md blockquote{margin:.4em 0;padding:2px 10px;border-left:3px solid var(--dash);color:var(--sum)}
+.md a{text-decoration:underline}
+.code-copy{position:absolute;right:6px;top:6px;opacity:.6;font-size:11px}.md pre:hover .code-copy{opacity:1}
+.msg-copy{margin-left:auto;font-size:11px}
+.caret{animation:blink 1s step-end infinite;color:var(--link);font-weight:700}
+@keyframes blink{50%{opacity:0}}
+.chip.ref{cursor:pointer;background:var(--btn);color:var(--btn-ink);border-color:transparent;font-weight:600}
+.chip.ref:hover{background:var(--btn-hover)}
+.float-card{position:fixed;width:min(380px,92vw);max-height:72vh;overflow:auto;background:var(--lane);border:1px solid var(--line);border-radius:12px;padding:10px 12px 12px;box-shadow:0 10px 36px rgba(0,0,0,.45);z-index:60}
+.fc-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px -4px 4px;position:sticky;top:-10px;background:var(--lane);padding:2px 4px}
+.fc-grip{cursor:move;color:var(--mute);user-select:none;letter-spacing:2px}
+.float-close{padding:1px 8px}
+.sum{color:var(--sum);font-size:12.5px;margin-top:2px}
+.acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.tag{display:inline-block;font-size:11px;border:1px solid var(--tag-border);border-radius:4px;padding:0 5px;color:var(--sub);margin:1px 2px 1px 0;cursor:pointer}
+.tag:hover{border-color:var(--tag-hover-border);color:var(--tag-hover-ink)}
+.tag.rm{cursor:pointer;background:var(--chip-bg)}.tag.rm:hover{border-color:#ef4444;color:#ef4444}
+.tag-editor{margin-top:7px;padding:8px;border:1px dashed var(--dash);border-radius:8px;background:var(--stripe)}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.chip{font-size:12px;background:var(--chip-bg);border:1px solid var(--input-border);border-radius:99px;padding:2px 9px;color:var(--chip-ink);cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}.chip i{color:var(--mute);font-style:normal}
+.when{color:var(--p1);font-weight:600}.overdue{color:var(--p0)}.ago{color:var(--mute)}
+.kids{margin-left:14px;border-left:1px dashed var(--dash);padding-left:8px;margin-top:6px}
+.msg{font-size:12.5px;color:var(--sum);margin:3px 0;white-space:pre-wrap;word-break:break-word}.msg i{color:var(--mute);font-style:normal}
+.empty{color:var(--mute);font-size:12.5px;padding:6px}
+.graph-controls{padding:6px 14px 2px;display:flex;flex-direction:column;gap:5px}
+.graph-row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;color:var(--sub)}
+.graph-row b{color:var(--ink);font-size:11px;text-transform:uppercase;letter-spacing:.04em;min-width:52px}
+.graph-sel{background:var(--input-bg);color:var(--ink);border:1px solid var(--input-border);border-radius:6px;padding:1px 5px;font-size:12px}
+.graph-row .gsep{color:var(--mute)}
+.kind-chip{text-transform:capitalize;padding:1px 8px}.kind-chip:not(.on){opacity:.5}
+.kind-chip i{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:4px;vertical-align:middle}
+.gs{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mute)}.gs input[type=range]{width:92px;accent-color:var(--link)}
+.graph-host{position:relative;flex:1 1 auto;min-height:340px;width:100%}
+.graph-host canvas{display:block;cursor:grab}.graph-host canvas:active{cursor:grabbing}
+.graph-legend{position:absolute;left:10px;bottom:8px;display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11px;color:var(--mute);background:var(--lane);border:1px solid var(--line);border-radius:8px;padding:5px 8px;max-width:72%;pointer-events:none}
+.graph-legend i{display:inline-block;width:9px;height:9px;border-radius:99px;margin-right:4px;vertical-align:middle}
+.graph-hint{position:absolute;right:10px;top:8px;font-size:11px;color:var(--mute);pointer-events:none}
+.graph-count{position:absolute;left:10px;top:8px;font-size:11px;color:var(--mute);pointer-events:none}
+.graph-overlay{position:absolute;right:12px;top:30px;width:min(360px,80%);max-height:calc(100% - 46px);overflow:auto;background:var(--lane);border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:5}
+.graph-close{position:absolute;right:8px;top:8px;z-index:6}
+.day{font-size:12px;color:var(--sub);margin:10px 2px 4px;font-weight:600}
+table.kv td{padding:2px 8px;font-size:12.5px;color:var(--sum)}
+a{color:var(--link)}
+*{scrollbar-width:thin;scrollbar-color:var(--scroll) var(--lane)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--lane);border-radius:8px}
+::-webkit-scrollbar-thumb{background:var(--scroll);border:2px solid var(--lane);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:var(--scroll-hover)}
+::-webkit-scrollbar-corner{background:var(--lane)}
+select,option{background:var(--input-bg);color:var(--ink)}
+.src.s-ok{background:#1f6f43}.src.s-wait{background:#8a6212}.src.s-err{background:#9b2c2c}
+.run{display:grid;grid-template-columns:62px 58px minmax(120px,auto) 1fr 42px;gap:8px;align-items:baseline;
+padding:4px 6px;border-radius:6px;font-size:12.5px;border-left:3px solid transparent}
+.run:nth-child(odd){background:var(--stripe)}
+.run.ok{border-left-color:#22c55e}.run.waiting{border-left-color:var(--p1)}.run.error{border-left-color:var(--p0)}
+.run .t{color:var(--mute);font-variant-numeric:tabular-nums}
+.run .who{color:#c4cfdd}.run .det{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run .secs{color:var(--mute);text-align:right;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<header>
+  <b>Info Hub</b>
+  <span id="tabs"></span>
+  <span class="sp"></span>
+  <button id="themeBtn" title="Toggle light / dark"></button>
+  <span id="scopeToggle" class="chips" style="margin:0"></span>
+  <input id="q" placeholder="Search (Enter)">
+  <button class="b" id="poll">Sync now</button>
+  <span class="status" id="status"></span>
+  <form method="post" action="/logout" style="margin:0"><button class="b" type="submit">Log out</button></form>
+</header>
+<main id="main"></main>
+<datalist id="tagsuggest">
+  <option value="importance:high"></option><option value="importance:medium"></option><option value="importance:low"></option>
+  <option value="project:"></option><option value="course:"></option><option value="topic:"></option><option value="type:deadline"></option>
+</datalist>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let CHAT = [];   // conversation history for the assistant
+function el(tag, attrs = {}, ...kids) {             // message/unit text is only ever inserted as text nodes
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v; else if (k.startsWith("on")) n[k] = v; else n.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) n.append(k instanceof Node ? k : String(k));
+  return n;
+}
+const now = () => Date.now() / 1000;
+const fmt = t => t ? new Date(t * 1000).toLocaleString([], {month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"}) : "";
+const dayKey = t => new Date(t * 1000).toLocaleDateString([], {weekday: "short", month: "numeric", day: "numeric"});
+const safeLink = u => /^(https?:|lark:|feishu:)/i.test(u || "") ? u : null;
+const SRC_LABEL = {lark: "LK", linkedin: "in", x: "X", instagram: "IG", whatsapp: "WA", slack: "SL", telegram: "TG"};
+const SRC = s => { const k = (s || "").split(":")[0]; return SRC_LABEL[k] || k.slice(0, 2).toUpperCase(); };
+async function api(path, body) {
+  const r = await fetch(path, body ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)} : {});
+  if (r.status === 401) { location.href = "/login?next=" + encodeURIComponent(location.pathname); throw new Error("login required"); }
+  return (r.headers.get("content-type") || "").includes("json") ? r.json() : r.text();
+}
+let TAB = "today", SEL = new Set(), VIEWS = [], SCOPE = localStorage.getItem("scope") || "mine";
+let EXPLORE_SORT = localStorage.getItem("exploreSort") || "activity";
+let EXPLORE_VIEW = localStorage.getItem("exploreView") || "list";   // "list" | "graph"
+const GRAPH_POS = {};   // node id -> {x,y,vx,vy}: positions persist across refreshes so the graph doesn't jump
+const GRAPH_DEF = {repulsion: 5000, distance: 110, gravity: 0.0022};
+const GRAPH_CFG = Object.assign({kinds: [], days: 0}, GRAPH_DEF,
+  JSON.parse(localStorage.getItem("graphCfg") || "{}"));   // physics + graph-only filters (kind, time window)
+const saveGraphCfg = () => localStorage.setItem("graphCfg", JSON.stringify(GRAPH_CFG));
+const mineQ = () => SCOPE === "mine" ? "&mine=1" : "";
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  localStorage.setItem("theme", t);
+  const b = document.getElementById("themeBtn"); if (b) b.textContent = t === "light" ? "\u263E Dark" : "\u2600 Light";
+}
+applyTheme(localStorage.getItem("theme") || "dark");
+document.getElementById("themeBtn").onclick = () =>
+  applyTheme(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light");
+function drawScope() {
+  const pick = (v, label) => el("span", {class: "chip" + (SCOPE === v ? " on" : ""),
+    onclick: () => { SCOPE = v; localStorage.setItem("scope", v); render(false); }}, label);
+  $("scopeToggle").replaceChildren(pick("mine", "For me"), pick("all", "Everything"));
+}
+
+function lane(title, count, nodes, empty) {
+  return el("section", {class: "lane"}, el("h2", {}, title, el("span", {}, count ?? "")),
+    nodes.length ? nodes : el("div", {class: "empty"}, empty || "Nothing here."));
+}
+function srcBadge(source, account) { return el("span", {class: "src " + (source || "").split(":")[0]}, SRC(source) + (account ? ":" + account : "")); }
+function teach(kind, source, value, label) {
+  return el("button", {class: "b", onclick: async e => {
+    e.target.disabled = true;
+    await api("/api/teach", {kind, source, value, label});
+    $("status").textContent = "✓ " + label.replace(/^[★→]\s*/, "") + " applied";
+    const visible = kind === "mute" || kind === "watch" || kind === "digest";   // these move the card
+    if (visible) { render(); } else { e.target.textContent = "✓ done"; e.target.classList.add("ok-btn"); }
+  }}, label);
+}
+function msgCard(m, opts = {}) {
+  const link = safeLink(m.link);
+  return el("div", {class: "it " + (m.priority || "")},
+    el("div", {class: "meta"}, srcBadge(m.source, m.account), m.channel_name, m.sender_name && "· " + m.sender_name, "· " + fmt(m.sent_at)),
+    el("div", {class: "text"}, m.text || ""),
+    el("div", {class: "acts"},
+      opts.extra || null,
+      el("button", {class: "b", onclick: async e => { e.target.disabled = true; await api("/api/done", {id: m.id}); render(); }}, "✓ Done"),
+      link && el("a", {href: link, target: "_blank", rel: "noopener"}, el("button", {class: "b"}, "Open")),
+      opts.teach !== false && m.sender && teach("vip", m.source, m.sender, "★ VIP " + (m.sender_name || "")),
+      opts.teach !== false && teach("mute", m.source, m.channel, "Mute chat")));
+}
+function whenLabel(u) {
+  const t = u.due_at || u.start_at; if (!t) return null;
+  return el("span", {class: "when" + (t < now() && u.kind === "todo" ? " overdue" : "")}, (u.kind === "todo" ? "due " : "") + fmt(t));
+}
+function timeLabel(u) {                      // every unit shows when it is from
+  const t = u.last_activity_at || u.updated_at || u.created_at;
+  return t ? el("span", {class: "ago", title: new Date(t * 1000).toLocaleString()}, fmt(t)) : null;
+}
+function tagChips(tags) {
+  return (tags || []).filter(t => !t.startsWith("source:")).map(t => el("span", {class: "tag", onclick: () => { SEL = new Set([t]); TAB = "explore"; render(); }}, t));
+}
+const IMPORTANCE = [["high", "⭐ High"], ["medium", "● Medium"], ["low", "○ Low"]];
+function unitCard(u, depth = 0) {
+  u.tags = u.tags || [];
+  const tagRow = el("div", {});
+  const box = el("div", {class: "it " + (u.priority || "") + (u.status !== "open" ? " done" : "")},
+    el("div", {class: "meta"}, el("span", {class: "src"}, u.kind), whenLabel(u), timeLabel(u),
+       u.n_children ? `· ${u.n_children} inside` : "", u.n_messages ? `· ${u.n_messages} msgs` : ""),
+    el("div", {class: "title"}, u.title),
+    u.summary && el("div", {class: "sum"}, u.summary),
+    tagRow);
+  // ---- tags: filter chips + an in-place editor (importance presets + free-form add/remove) ----
+  const editor = el("div", {class: "tag-editor"}); editor.hidden = true;
+  const paintTags = () => tagRow.replaceChildren(...tagChips(u.tags));
+  const post = async body => { await api(`/api/unit/${u.id}`, body); };
+  const addTag = async tag => {
+    tag = (tag || "").trim(); if (!tag) return;
+    await post({add_tags: [tag]});
+    if (!u.tags.includes(tag)) u.tags = [...u.tags, tag].sort();
+    paintTags(); paintEditor();
+  };
+  const removeTag = async tag => { await post({remove_tags: [tag]}); u.tags = u.tags.filter(t => t !== tag); paintTags(); paintEditor(); };
+  const setImportance = async level => {
+    const cur = u.tags.filter(t => t.startsWith("importance:")), want = "importance:" + level, off = cur.includes(want);
+    await post({remove_tags: cur, add_tags: off ? [] : [want]});
+    u.tags = u.tags.filter(t => !t.startsWith("importance:")); if (!off) u.tags = [...u.tags, want].sort();
+    paintTags(); paintEditor();
+  };
+  function paintEditor() {
+    const removable = u.tags.filter(t => !t.startsWith("source:") && t !== "type:" + u.kind);
+    const chips = removable.map(t => el("span", {class: "tag rm", title: "Remove tag", onclick: () => removeTag(t)}, t, " ✕"));
+    const inp = el("input", {placeholder: "add tag — e.g. project:x, importance:high", list: "tagsuggest",
+      style: "flex:1;min-width:150px;padding:3px 7px;font-size:12px"});
+    inp.onkeydown = e => { if (e.key === "Enter") { addTag(inp.value); inp.value = ""; } };
+    editor.replaceChildren(
+      el("div", {class: "chips", style: "margin-bottom:5px"}, ...(chips.length ? chips : [el("span", {class: "status"}, "no custom tags yet")])),
+      el("div", {class: "chips"}, el("span", {class: "status"}, "importance:"),
+        ...IMPORTANCE.map(([v, label]) => el("span", {class: "chip" + (u.tags.includes("importance:" + v) ? " on" : ""), onclick: () => setImportance(v)}, label))),
+      el("div", {style: "display:flex;gap:5px;margin-top:6px"}, inp,
+        el("button", {class: "b", onclick: () => { addTag(inp.value); inp.value = ""; }}, "Add")));
+  }
+  paintTags();
+  const acts = el("div", {class: "acts"});
+  if (u.status === "open" && u.kind !== "digest") {
+    acts.append(el("button", {class: "b", onclick: async e => { e.target.disabled = true; await api(`/api/unit/${u.id}`, {status: "done"}); render(); }}, "✓ Done"));
+    acts.append(el("button", {class: "b", title: "Not relevant to me — hide it", onclick: async e => { e.target.disabled = true; await api(`/api/unit/${u.id}`, {status: "dropped"}); render(); }}, "⊘ Ignore"));
+  }
+  acts.append(el("button", {class: "b", title: "Add or remove tags", onclick: () => { if (editor.hidden) { paintEditor(); editor.hidden = false; } else editor.hidden = true; }}, "🏷 Tag"));
+  const more = el("div", {class: "kids"}); more.hidden = true;
+  acts.append(el("button", {class: "b", onclick: async () => {
+    if (!more.hidden) { more.hidden = true; return; }
+    const full = await api(`/api/unit/${u.id}?depth=1`);
+    more.replaceChildren(
+      ...(full.parents || []).map(p => el("div", {class: "msg"}, el("i", {}, "in: "), p.title)),
+      ...(full.children || []).map(c => unitCard(c, depth + 1)),
+      ...(full.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, `${fmt(m.sent_at)} ${m.sender_name || ""}: `), m.text || "")));
+    more.hidden = false;
+  }}, "Expand"));
+  box.append(acts, editor, more);
+  return box;
+}
+function byDay(units, key) {
+  const out = [], seen = {};
+  for (const u of units) { const d = dayKey(u[key] || u.due_at || u.start_at); if (!seen[d]) { seen[d] = 1; out.push(el("div", {class: "day"}, d)); } out.push(unitCard(u)); }
+  return out;
+}
+const KIND_COLOR = {topic: "#3b82f6", todo: "#ef4444", event: "#a855f7", decision: "#f59e0b",
+  question: "#eab308", announcement: "#14b8a6", resource: "#10b981", digest: "#64748b", note: "#94a3b8"};
+const kColor = k => KIND_COLOR[k] || "#94a3b8";
+
+// A live, force-directed view of the info-unit graph. Nodes = units (color by kind, size by #messages,
+// a ring if it's "for me"), edges = part-of links. Drag to pan, scroll to zoom, drag a node to move it,
+// click a node to open it. Positions persist in GRAPH_POS so refreshes don't reshuffle the layout.
+function buildGraph(panel, baseQ) {
+  let nodes = [], edges = [], view = {tx: 0, ty: 0, s: 1}, alpha = 1, hover = null, drag = null, pan = null, panned = false;
+  let W = 0, H = 0, dpr = Math.max(1, window.devicePixelRatio || 1);
+
+  // ---- controls: graph-only filters (kind, time window) + physics sliders ----
+  const controls = el("div", {class: "graph-controls"});
+  const kindChip = k => el("span", {class: "chip kind-chip" + (GRAPH_CFG.kinds.includes(k) ? " on" : ""),
+    onclick: e => {
+      const i = GRAPH_CFG.kinds.indexOf(k); i < 0 ? GRAPH_CFG.kinds.push(k) : GRAPH_CFG.kinds.splice(i, 1);
+      e.currentTarget.classList.toggle("on"); saveGraphCfg(); load();
+    }}, el("i", {style: `background:${kColor(k)}`}), k);
+  const daysSel = el("select", {class: "graph-sel"});
+  for (const [v, t] of [["0", "All time"], ["1", "Last 24h"], ["3", "Last 3 days"], ["7", "Last 7 days"], ["14", "Last 14 days"], ["30", "Last 30 days"]]) {
+    const o = el("option", {value: v}, t); if (+GRAPH_CFG.days === +v) o.selected = true; daysSel.append(o);
+  }
+  daysSel.onchange = () => { GRAPH_CFG.days = +daysSel.value; saveGraphCfg(); load(); };
+  const sliders = {};
+  const slider = (label, key, min, max, step) => {
+    const inp = el("input", {type: "range", min, max, step, value: GRAPH_CFG[key]});
+    sliders[key] = inp;
+    inp.oninput = () => { GRAPH_CFG[key] = +inp.value; saveGraphCfg(); alpha = 1; };   // live, no refetch
+    return el("label", {class: "gs"}, label, inp);
+  };
+  controls.append(
+    el("div", {class: "graph-row"}, el("b", {}, "Show"), daysSel,
+      el("span", {class: "gsep"}, "kinds:"), ...Object.keys(KIND_COLOR).map(kindChip),
+      el("button", {class: "b", title: "Show all kinds", onclick: () => { GRAPH_CFG.kinds = []; saveGraphCfg(); render(); }}, "all")),
+    el("div", {class: "graph-row"}, el("b", {}, "Physics"),
+      slider("repulsion", "repulsion", 400, 9000, 100),
+      slider("link length", "distance", 30, 320, 5),
+      slider("gravity", "gravity", 0, 0.02, 0.001),
+      el("button", {class: "b", onclick: () => { Object.assign(GRAPH_CFG, GRAPH_DEF); for (const k in GRAPH_DEF) sliders[k].value = GRAPH_DEF[k]; saveGraphCfg(); alpha = 1; }}, "reset"),
+      el("button", {class: "b", title: "Re-layout from scratch", onclick: () => { for (const k in GRAPH_POS) delete GRAPH_POS[k]; load(); }}, "relayout")));
+  panel.append(controls);
+
+  const host = el("div", {class: "graph-host"});
+  const cv = el("canvas"); host.append(cv);
+  host.append(el("div", {class: "graph-legend"}, ...Object.keys(KIND_COLOR).map(k =>
+    el("span", {}, el("i", {style: `background:${kColor(k)}`}), k))));
+  host.append(el("div", {class: "graph-hint"}, "drag to pan · scroll to zoom · drag a node to move it · click to open"));
+  host.append(el("div", {class: "graph-count"}));
+  panel.append(host);
+  const ctx = cv.getContext("2d");
+
+  function queryNow() {
+    let q = baseQ + "&roots=0&limit=400";
+    if (GRAPH_CFG.kinds.length) q += "&kind=" + encodeURIComponent(GRAPH_CFG.kinds.join(","));
+    if (GRAPH_CFG.days) q += "&days=" + GRAPH_CFG.days;
+    return q;
+  }
+
+  function resize() {
+    W = host.clientWidth; H = host.clientHeight || 420;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  const ro = new ResizeObserver(resize); ro.observe(host); resize();
+
+  async function load() {
+    const d = await api("/api/graph?" + queryNow());
+    const present = new Set(d.nodes.map(n => n.id));
+    const cnt = host.querySelector(".graph-count"); if (cnt) cnt.textContent = `${d.nodes.length} nodes · ${d.edges.length} links`;
+    nodes = d.nodes.map(n => {
+      const p = GRAPH_POS[n.id] || (GRAPH_POS[n.id] = {x: W / 2 + (Math.random() - 0.5) * Math.max(400, W * 0.7), y: H / 2 + (Math.random() - 0.5) * Math.max(300, H * 0.7), vx: 0, vy: 0});
+      return Object.assign({}, n, {p, r: 5 + Math.min(13, Math.sqrt((n.n_messages || 0) + (n.n_children || 0) * 2) * 2.2)});
+    });
+    const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+    edges = d.edges.map(e => ({a: byId[e.source], b: byId[e.target], relation: e.relation})).filter(e => e.a && e.b);
+    for (const n of nodes) n.deg = 0;
+    for (const e of edges) { e.a.deg++; e.b.deg++; }
+    for (const id of Object.keys(GRAPH_POS)) if (!present.has(+id)) delete GRAPH_POS[id];   // forget stale
+    alpha = 1;
+  }
+
+  function step() {
+    if (alpha < 0.02) return;
+    const cx = W / 2, cy = H / 2;
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i];
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j];
+        let dx = a.p.x - b.p.x, dy = a.p.y - b.p.y, d2 = dx * dx + dy * dy || 0.01;
+        const f = GRAPH_CFG.repulsion / d2, d = Math.sqrt(d2);
+        dx = dx / d * f; dy = dy / d * f;
+        a.p.vx += dx; a.p.vy += dy; b.p.vx -= dx; b.p.vy -= dy;
+      }
+      a.p.vx += (cx - a.p.x) * GRAPH_CFG.gravity; a.p.vy += (cy - a.p.y) * GRAPH_CFG.gravity;   // gravity to centre
+    }
+    for (const e of edges) {
+      let dx = e.b.p.x - e.a.p.x, dy = e.b.p.y - e.a.p.y, d = Math.hypot(dx, dy) || 0.01;
+      const f = (d - GRAPH_CFG.distance) * 0.02; dx = dx / d * f; dy = dy / d * f;
+      e.a.p.vx += dx; e.a.p.vy += dy; e.b.p.vx -= dx; e.b.p.vy -= dy;
+    }
+    for (const n of nodes) {
+      if (n === (drag && drag.node)) continue;
+      n.p.vx *= 0.86; n.p.vy *= 0.86;
+      n.p.x += Math.max(-30, Math.min(30, n.p.vx)); n.p.y += Math.max(-30, Math.min(30, n.p.vy));
+    }
+    alpha *= 0.985;
+  }
+
+  const light = () => document.documentElement.getAttribute("data-theme") === "light";
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.save(); ctx.translate(view.tx, view.ty); ctx.scale(view.s, view.s);
+    const nb = hover ? new Set(edges.filter(e => e.a === hover || e.b === hover).flatMap(e => [e.a, e.b])) : null;
+    for (const e of edges) {
+      const on = hover && (e.a === hover || e.b === hover);
+      ctx.strokeStyle = on ? "#f59e0b" : (light() ? "rgba(0,0,0,.14)" : "rgba(255,255,255,.14)");
+      ctx.lineWidth = (on ? 1.6 : 0.8) / view.s;
+      ctx.beginPath(); ctx.moveTo(e.a.p.x, e.a.p.y); ctx.lineTo(e.b.p.x, e.b.p.y); ctx.stroke();
+    }
+    for (const n of nodes) {
+      const dim = hover && n !== hover && !(nb && nb.has(n));
+      ctx.globalAlpha = dim ? 0.3 : (n.status === "open" ? 1 : 0.5);
+      ctx.beginPath(); ctx.arc(n.p.x, n.p.y, n.r, 0, 7);
+      ctx.fillStyle = kColor(n.kind); ctx.fill();
+      if (!n.seed) { ctx.lineWidth = 1.5 / view.s; ctx.strokeStyle = light() ? "#fff" : "#0b0e14"; ctx.stroke(); }
+      if (n.for_me) { ctx.lineWidth = 2.2 / view.s; ctx.strokeStyle = "#fbbf24"; ctx.beginPath(); ctx.arc(n.p.x, n.p.y, n.r + 2.5 / view.s, 0, 7); ctx.stroke(); }
+    }
+    ctx.globalAlpha = 1;
+    const showLabel = n => n === hover || (nb && nb.has(n)) || (view.s > 0.75 && n.r > 9) || (view.s > 1.4);
+    ctx.font = `${12 / view.s}px system-ui,sans-serif`; ctx.textAlign = "center";
+    ctx.fillStyle = light() ? "#1e293b" : "#e5e7eb";
+    for (const n of nodes) {
+      if (!showLabel(n)) continue;
+      const t = (n.title || "").slice(0, 34);
+      ctx.save();
+      ctx.strokeStyle = light() ? "rgba(255,255,255,.85)" : "rgba(0,0,0,.6)"; ctx.lineWidth = 3 / view.s; ctx.lineJoin = "round";
+      ctx.strokeText(t, n.p.x, n.p.y + n.r + 12 / view.s); ctx.fillText(t, n.p.x, n.p.y + n.r + 12 / view.s);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function loop() {
+    if (!cv.isConnected) { ro.disconnect(); clearInterval(timer); return; }   // tab changed → stop
+    step(); draw(); requestAnimationFrame(loop);
+  }
+
+  // screen (event) → world coords
+  const toWorld = e => {
+    const rect = cv.getBoundingClientRect();
+    return {x: (e.clientX - rect.left - view.tx) / view.s, y: (e.clientY - rect.top - view.ty) / view.s};
+  };
+  const pick = w => { let best = null, bd = 1e9; for (const n of nodes) { const d = Math.hypot(n.p.x - w.x, n.p.y - w.y); if (d < n.r + 6 && d < bd) { bd = d; best = n; } } return best; };
+
+  cv.onmousedown = e => {
+    const w = toWorld(e), n = pick(w);
+    if (n) drag = {node: n, dx: n.p.x - w.x, dy: n.p.y - w.y};
+    else pan = {x: e.clientX - view.tx, y: e.clientY - view.ty};
+    panned = false;
+  };
+  cv.onmousemove = e => {
+    const w = toWorld(e);
+    if (drag) { drag.node.p.x = w.x + drag.dx; drag.node.p.y = w.y + drag.dy; drag.node.p.vx = drag.node.p.vy = 0; alpha = Math.max(alpha, 0.3); panned = true; }
+    else if (pan) { view.tx = e.clientX - pan.x; view.ty = e.clientY - pan.y; panned = true; }
+    else { const h = pick(w); if (h !== hover) { hover = h; cv.style.cursor = h ? "pointer" : "grab"; } }
+  };
+  cv.onmouseup = e => {
+    if (drag && !panned) openUnit(drag.node.id);
+    else if (pan && !panned) { const n = pick(toWorld(e)); if (n) openUnit(n.id); }
+    drag = pan = null;
+  };
+  cv.onmouseleave = () => { drag = pan = null; hover = null; };
+  cv.onwheel = e => {
+    e.preventDefault();
+    const rect = cv.getBoundingClientRect(), mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const k = Math.exp(-e.deltaY * 0.0015), ns = Math.max(0.2, Math.min(4, view.s * k));
+    view.tx = mx - (mx - view.tx) * (ns / view.s); view.ty = my - (my - view.ty) * (ns / view.s); view.s = ns;
+  };
+
+  const timer = setInterval(() => { if (cv.isConnected) load(); }, 15000);   // real-time refresh
+  load().then(() => requestAnimationFrame(loop));
+}
+
+const MOUSE = {x: innerWidth / 2, y: 160};
+addEventListener("mousemove", e => { MOUSE.x = e.clientX; MOUSE.y = e.clientY; }, {passive: true});
+addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".float-card").forEach(c => c.remove()); });
+async function openUnit(id) {                      // floating card spawned next to the cursor; no backdrop, so the graph stays clickable
+  const full = await api(`/api/unit/${id}`);
+  if (!full || full.error) return;
+  document.querySelectorAll(".float-card").forEach(c => c.remove());
+  const card = el("div", {class: "float-card"});
+  const grip = el("span", {class: "fc-grip", title: "Drag to move"}, "⠿");
+  card.append(el("div", {class: "fc-bar"}, grip, el("button", {class: "b float-close", onclick: () => card.remove()}, "✕")), unitCard(full));
+  card.style.left = Math.min(Math.max(8, MOUSE.x + 14), innerWidth - 392) + "px";
+  card.style.top = Math.min(Math.max(8, MOUSE.y - 12), innerHeight - 140) + "px";
+  document.body.append(card);
+  grip.onmousedown = e => {                         // drag by the grip
+    e.preventDefault();
+    const ox = e.clientX - card.offsetLeft, oy = e.clientY - card.offsetTop;
+    const mv = ev => { card.style.left = Math.max(0, ev.clientX - ox) + "px"; card.style.top = Math.max(0, ev.clientY - oy) + "px"; };
+    const up = () => { removeEventListener("mousemove", mv); removeEventListener("mouseup", up); };
+    addEventListener("mousemove", mv); addEventListener("mouseup", up);
+  };
+}
+// Assistant replies cite things: [[u:<id>]] a unit, [[g:<chat name>]] a group, [[p:<name>]] a person.
+function refChip(kind, val) {
+  if (kind === "u") { const id = parseInt(val, 10); return el("span", {class: "chip ref", title: "Open unit " + id, onclick: () => openUnit(id)}, "▸ unit " + id); }
+  if (kind === "g") return el("span", {class: "chip ref", title: "Show this group", onclick: () => goTag("channel:" + val)}, "👥 " + val);
+  return el("span", {class: "chip ref", title: "Show this person", onclick: () => goTag("person:" + val)}, "@ " + val);
+}
+// Minimal, dependency-free Markdown → DOM (built as text nodes/elements, never innerHTML).
+const MD_INLINE = /`([^`]+)`|\*\*([^*]+)\*\*|(?:\*|_)([^*_]+)(?:\*|_)|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\[\[([ugp]):([^\]]+)\]\]/g;
+function mdInline(text) {
+  const frag = document.createDocumentFragment();
+  let last = 0, m; MD_INLINE.lastIndex = 0;
+  while ((m = MD_INLINE.exec(text))) {
+    if (m.index > last) frag.append(text.slice(last, m.index));
+    if (m[1] != null) frag.append(el("code", {}, m[1]));
+    else if (m[2] != null) frag.append(el("b", {}, m[2]));
+    else if (m[3] != null) frag.append(el("i", {}, m[3]));
+    else if (m[4] != null) frag.append(el("a", {href: m[5], target: "_blank", rel: "noopener"}, m[4]));
+    else frag.append(refChip(m[6], m[7]));
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) frag.append(text.slice(last));
+  return frag;
+}
+function renderMarkdown(md) {
+  const root = el("div", {class: "md"}), lines = (md || "").split("\n");
+  let i = 0;
+  const isBullet = s => /^\s*([-*+])\s+/.test(s), isNum = s => /^\s*\d+\.\s+/.test(s);
+  const isBlockStart = s => /^```/.test(s) || /^(#{1,6})\s/.test(s) || isBullet(s) || isNum(s) || /^\s*>\s?/.test(s) || /^\s*$/.test(s);
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line)) {
+      const buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      const code = buf.join("\n"), pre = el("pre", {});
+      pre.append(el("button", {class: "b code-copy", onclick: e => copyText(code, e.target)}, "copy"), el("code", {}, code));
+      root.append(pre); continue;
+    }
+    if (/^\s*$/.test(line)) { i++; continue; }
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { root.append(el(h[1].length <= 2 ? "h4" : "h5", {}, mdInline(h[2]))); i++; continue; }
+    if (/^\s*>\s?/.test(line)) {
+      const buf = []; while (i < lines.length && /^\s*>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
+      const bq = el("blockquote", {}); bq.append(mdInline(buf.join("\n"))); root.append(bq); continue;
+    }
+    if (isBullet(line) || isNum(line)) {
+      const ordered = isNum(line), list = el(ordered ? "ol" : "ul", {});
+      while (i < lines.length && (ordered ? isNum(lines[i]) : isBullet(lines[i])))
+        list.append(el("li", {}, mdInline(lines[i++].replace(/^\s*([-*+]|\d+\.)\s+/, ""))));
+      root.append(list); continue;
+    }
+    const buf = [line]; i++;
+    while (i < lines.length && !isBlockStart(lines[i])) buf.push(lines[i++]);
+    const p = el("p", {});
+    buf.join("\n").split("\n").forEach((pl, idx) => { if (idx) p.append(el("br")); p.append(mdInline(pl)); });
+    root.append(p);
+  }
+  return root;
+}
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); } catch (_) {}
+  if (btn) { const t = btn.textContent; btn.textContent = "✓ copied"; setTimeout(() => { btn.textContent = t; }, 1200); }
+}
+
+const TABS = {
+  async today() {
+    const d = await api("/api/today?scope=" + (SCOPE || "mine"));
+    const dated = d.needs.filter(u => u.due_at), undated = d.needs.filter(u => !u.due_at);
+    const promote = m => el("button", {class: "b", onclick: async e => {
+      e.target.disabled = true; await api("/api/units", {from_message: m.id, kind: "todo"}); render();
+    }}, "→ Todo");
+    return el("div", {}, el("div", {class: "grid g3"},
+      lane("To do", d.needs.length, [...dated.map(u => unitCard(u)),
+        ...(undated.length ? [el("div", {class: "day"}, "No date"), ...undated.map(u => unitCard(u))] : [])],
+        "Nothing to do. 🎉"),
+      lane("Events (7 days)", d.events.length, byDay(d.events, "start_at")),
+      lane("Flagged, not sorted yet", d.unsorted.length,
+        d.unsorted.map(m => msgCard(m, {extra: promote(m)})), "Everything has been organized.")));
+  },
+  async todos() {
+    const open = await api("/api/units?kind=todo&status=open&order=due&limit=300" + mineQ());
+    const done = await api("/api/units?kind=todo&status=done&limit=50" + mineQ());
+    return el("div", {class: "grid g2"}, lane("Open todos", open.length, open.map(u => unitCard(u))),
+                                         lane("Recently done", done.length, done.map(u => unitCard(u))));
+  },
+  async calendar() {
+    const ev = (await api("/api/units?kind=event&order=due&limit=300" + mineQ())).filter(u => (u.start_at || 0) >= now() - 86400);
+    return el("div", {class: "grid g2"}, lane("Upcoming", ev.length, byDay(ev, "start_at")),
+      lane("Deadlines", null, byDay(await api("/api/units?tags=type:deadline&status=open&order=due&limit=200"), "due_at")));
+  },
+  async groups() {
+    const d = await api("/api/summary?hours=72");
+    return el("div", {class: "grid g3"}, ...[0, 1, 2].map(col => el("div", {}, ...d.digest.filter((_, i) => i % 3 === col).map(c =>
+      el("div", {class: "it " + (c.policy === "watch" ? "P2" : "")},
+        el("div", {class: "meta"}, srcBadge(c.source, c.account), el("b", {}, c.channel_name || c.channel), el("span", {class: "tag"}, c.policy),
+           `${c.n} msgs`, c.important ? `· ${c.important} flagged` : ""),
+        ...(c.units || []).map(u => el("div", {class: "msg"}, el("i", {}, `[${u.kind}] `), u.title)),
+        ...(c.highlights || []).map(h => el("div", {class: "msg"}, el("i", {}, (h.sender_name || "") + ": "), h.text || "")),
+        el("div", {class: "acts"}, c.policy !== "watch" && teach("watch", c.source, c.channel, "👁 Watch"),
+           c.policy !== "digest" && teach("digest", c.source, c.channel, "Digest only"), teach("mute", c.source, c.channel, "Mute")))))));
+  },
+  async explore() {
+    const tags = await api("/api/tags?days=30");
+    const groups = {};
+    for (const t of tags) (groups[t.tag.split(":")[0]] ||= []).push(t);
+    const chips = Object.entries(groups).map(([ns, list]) => el("div", {class: "chips"}, el("span", {class: "status"}, ns + ":"),
+      ...list.slice(0, 40).map(t => el("span", {class: "chip" + (SEL.has(t.tag) ? " on" : ""), onclick: () => { SEL.has(t.tag) ? SEL.delete(t.tag) : SEL.add(t.tag); render(); }},
+        t.tag.slice(ns.length + 1), " ", el("i", {}, t.n)))));
+    const tagLane = lane("Tags — OR within a type, AND across", SEL.size ? [...SEL].join(" + ") : "", chips);
+    const modePick = (v, label) => el("span", {class: "chip" + (EXPLORE_VIEW === v ? " on" : ""),
+      onclick: () => { EXPLORE_VIEW = v; localStorage.setItem("exploreView", v); render(false); }}, label);
+    const modeToggle = el("span", {style: "display:flex;gap:4px"}, modePick("list", "☰ List"), modePick("graph", "⚹ Graph"));
+    const filterQ = `tags=${encodeURIComponent([...SEL].join(","))}` + mineQ();
+    if (EXPLORE_VIEW === "graph") {
+      const panel = el("section", {class: "lane", style: "padding:0;overflow:hidden;position:relative;display:flex;flex-direction:column;height:calc(100vh - 92px)"});
+      panel.append(el("h2", {style: "padding:10px 14px 0"}, "Info-unit graph",
+        el("span", {style: "display:flex;gap:8px;align-items:center"}, modeToggle)));
+      buildGraph(panel, filterQ);
+      return el("div", {class: "grid g2"}, tagLane, panel);
+    }
+    const units = await api(`/api/units?${filterQ}&roots=${SEL.size ? 0 : 1}&order=${EXPLORE_SORT}&limit=200`);
+    const sortSel = el("select", {style: "background:var(--input-bg);color:var(--ink);border:1px solid var(--input-border);border-radius:6px;padding:1px 5px;font-size:12px"});
+    for (const [v, t] of [["activity", "Recent activity"], ["oldest", "Oldest first"], ["due", "Due / date"],
+                          ["messages", "Most messages"], ["created", "Newest"], ["title", "Title A–Z"]]) {
+      const o = el("option", {value: v}, t); if (EXPLORE_SORT === v) o.selected = true; sortSel.append(o);
+    }
+    sortSel.onchange = () => { EXPLORE_SORT = sortSel.value; localStorage.setItem("exploreSort", sortSel.value); render(); };
+    const head = el("span", {style: "display:flex;gap:8px;align-items:center"}, modeToggle, "sort ", sortSel);
+    const ulane = lane(SEL.size ? "Matching units" : "Top-level units", units.length, units.map(u => unitCard(u)));
+    ulane.querySelector("h2 span:last-child").replaceWith(el("span", {style: "display:flex;gap:8px;align-items:center"}, head, el("span", {}, units.length)));
+    return el("div", {class: "grid g2"}, tagLane, ulane);
+  },
+  async live() {
+    const d = await api("/api/live");
+    const organizeNow = async (channel, btn) => {
+      btn.disabled = true; btn.textContent = "organizing…"; $("status").textContent = "organizing…";
+      const r = await api("/api/organize-now", channel ? {channel} : {});
+      const made = (r.ai && (r.ai.created || 0)) + (r.rules && r.rules.units || 0);
+      $("status").textContent = `organized — ${made} unit(s)`;
+      render();
+    };
+    const head = el("div", {class: "chips"}, el("span", {class: "status"},
+      `${d.segments.length} conversation(s) in progress, not yet organized into topics.`),
+      el("button", {class: "b", onclick: e => organizeNow(null, e.target)}, "⚡ Organize all now"));
+    const cards = d.segments.map(sg => el("div", {class: "it P2"},
+      el("div", {class: "meta"}, srcBadge(sg.source, sg.account), el("b", {}, sg.channel_name || sg.channel),
+        `${sg.n} msgs`, "· since " + fmt(sg.start_at), "· last " + fmt(sg.end_at)),
+      ...(sg.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, (m.sender_name || "") + ": "), m.text || "")),
+      el("div", {class: "acts"}, el("button", {class: "b", onclick: e => organizeNow(sg.channel, e.target)}, "⚡ Organize this now"))));
+    return el("div", {}, head, el("div", {class: "grid", style: "grid-template-columns:repeat(auto-fill,minmax(360px,1fr))"},
+      ...(cards.length ? cards : [el("div", {class: "empty"}, "No conversations in progress — everything is organized.")])));
+  },
+
+  async chat() {
+    const log = el("div", {class: "lane", style: "height:calc(100vh - 150px);max-height:none"});
+    let scrollPinned = true;
+    log.onscroll = () => { scrollPinned = log.scrollHeight - log.scrollTop - log.clientHeight < 60; };
+    const draw = () => {
+      const cards = CHAT.map(m => {
+        const meta = el("div", {class: "meta"}, el("b", {}, m.role === "user" ? "You" : "Assistant"),
+          m.changes && m.changes.length ? el("span", {class: "tag"}, m.changes.length + " change(s)") : null,
+          m.cost ? el("span", {class: "ago"}, "$" + m.cost) : null);
+        if (m.role === "assistant" && m.content && !m.streaming)
+          meta.append(el("button", {class: "b msg-copy", title: "Copy reply", onclick: e => copyText(m.content, e.target)}, "⧉ copy"));
+        const bodyEl = m.role === "assistant"
+          ? (m.content ? renderMarkdown(m.content) : el("span", {class: "status"}, m.streaming ? "…" : ""))
+          : el("div", {class: "chat-text"}, m.content || "");
+        if (m.streaming && m.content) bodyEl.append(el("span", {class: "caret"}, "▋"));
+        return el("div", {class: "it " + (m.role === "user" ? "P2" : "")}, meta, bodyEl);
+      });
+      if (!CHAT.length) cards.push(el("div", {class: "empty"},
+        "Ask about your hub, or tell me to do something — e.g. “what are my deadlines this week?”, "
+        + "“find todos the hub missed in the robotics group”, “mark unit 42 done”, “tag the Lisbon topic as travel”."));
+      log.replaceChildren(...cards);
+      if (scrollPinned) log.scrollTop = log.scrollHeight;
+    };
+    const input = el("input", {placeholder: "Message the assistant… (Enter)", style: "flex:1"});
+    const send = async () => {
+      const text = input.value.trim(); if (!text) return;
+      CHAT.push({role: "user", content: text}); input.value = "";
+      const payload = CHAT.map(m => ({role: m.role, content: m.content}));
+      const asst = {role: "assistant", content: "", changes: [], cost: 0, streaming: true};
+      CHAT.push(asst); scrollPinned = true; draw();
+      input.disabled = true; $("status").textContent = "thinking…";
+      let streamed = false;
+      try {
+        const resp = await fetch("/api/chat/stream", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({messages: payload})});
+        if (resp.status === 401) { location.href = "/login?next=" + encodeURIComponent(location.pathname); return; }
+        if (!resp.ok || !resp.body) throw new Error("no stream");
+        const reader = resp.body.getReader(), dec = new TextDecoder();
+        let buf = "";
+        for (;;) {
+          const {value, done} = await reader.read(); if (done) break;
+          buf += dec.decode(value, {stream: true});
+          let idx;
+          while ((idx = buf.indexOf("\n\n")) >= 0) {
+            const line = buf.slice(0, idx).split("\n").find(l => l.startsWith("data:")); buf = buf.slice(idx + 2);
+            if (!line) continue;
+            const ev = JSON.parse(line.slice(5).trim()); streamed = true;
+            if (ev.type === "delta") { asst.content += ev.text; draw(); }
+            else if (ev.type === "status") { $("status").textContent = ev.text; }
+            else if (ev.type === "error") { asst.content = (asst.content ? asst.content + "\n\n" : "") + "⚠ " + ev.text; }
+            else if (ev.type === "done") { asst.changes = ev.changes || []; asst.cost = ev.cost || 0; }
+          }
+        }
+      } catch (_) { streamed = false; }
+      if (!streamed) {                                  // fallback: non-streaming endpoint
+        const r = await api("/api/chat", {messages: payload});
+        if (r.error) asst.content = "⚠ " + r.error;
+        else { asst.content = r.reply; asst.changes = r.changes || []; asst.cost = r.cost || 0; }
+      }
+      asst.streaming = false;
+      $("status").textContent = (asst.changes && asst.changes.length) ? asst.changes.length + " change(s) applied" : "";
+      input.disabled = false; draw(); input.focus();
+    };
+    input.onkeydown = e => { if (e.key === "Enter") send(); };
+    draw();
+    const bar = el("div", {style: "display:flex;gap:6px;margin-top:8px"}, input,
+      el("button", {class: "b", onclick: send, style: "padding:6px 14px"}, "Send"),
+      el("button", {class: "b", onclick: () => { CHAT = []; draw(); }}, "Clear"));
+    return el("div", {}, log, bar);
+  },
+
+  async settings() {
+    const cfg = await api("/api/settings");
+    let chans = await api("/api/channels?days=30");
+    const save = async (key, value) => { await api("/api/settings", {[key]: value}); $("status").textContent = "saved " + key; };
+    const field = (key, label, type = "text") => {
+      const v = cfg.values[key];
+      const inp = el("input", {id: "f_" + key, type: type === "bool" ? "checkbox" : type,
+        style: type === "bool" ? "width:auto" : "width:160px"});
+      if (type === "bool") inp.checked = !!v; else inp.value = Array.isArray(v) ? v.join(", ") : (v ?? "");
+      inp.onchange = () => {
+        let out = type === "bool" ? inp.checked : inp.value;
+        if (type === "number") out = Number(out);
+        if (Array.isArray(v) || key.endsWith("names") || key.endsWith("policies")) out = String(out).split(/[,，]/).map(x => x.trim()).filter(Boolean);
+        save(key, out);
+      };
+      return el("tr", {}, el("td", {}, label), el("td", {}, inp),
+        el("td", {}, cfg.restart_needed_for.includes(key) ? el("span", {class: "tag"}, "restart") : ""));
+    };
+    const settingsTable = el("table", {class: "kv"},
+      field("me.names", "My names (for @mentions)"),
+      field("apps.today_scope", "Today shows"),
+      field("hub.poll_minutes", "Sync every N minutes", "number"),
+      field("ai.enabled", "AI organizing", "bool"),
+      field("ai.model", "AI model"),
+      field("ai.daily_budget_usd", "AI budget per day ($)", "number"),
+      field("ai.interval_minutes", "AI runs every N minutes", "number"),
+      field("ai.policies", "AI reads chats with policy"),
+      field("organize.polish", "Rewrite card titles", "bool"),
+      field("ai.polish_policies", "Rewrite titles for policy"),
+      field("apps.reminders.enabled", "Reminders", "bool"),
+      field("apps.reminders.todo_lead_hours", "Remind todos N hours ahead", "number"),
+      field("apps.reminders.event_lead_minutes", "Remind events N minutes ahead", "number"),
+      field("segment_max_messages", "Max messages per AI call", "number"));
+    // ---- chats: filters, multi-select, batch apply, rule defaults ----
+    const picked = new Set(), key = c => c.source + "|" + c.channel;
+    const q = el("input", {placeholder: "filter chats…", style: "width:100%"});
+    const list = el("div", {});
+    const count = el("span", {class: "status"});
+    let filter = "all";
+    const POLICIES = [["watch", "Watch (AI reads)"], ["store", "Store (searchable)"], ["digest", "Digest only"], ["ignore", "Ignore"]];
+    const shown = () => {
+      const needle = q.value.trim().toLowerCase();
+      return chans.filter(c => (!needle || (c.channel_name || "").toLowerCase().includes(needle))
+        && (filter === "all" || (filter === "groups" && c.is_group) || (filter === "direct" && !c.is_group)
+            || (filter === "muted" && c.muted) || (filter === "active" && c.recent > 0) || filter === c.policy));
+    };
+    const setPolicy = async (chats, want) => {
+      if (!chats.length) return;
+      $("status").textContent = "saving " + chats.length + " chats…";
+      await api("/api/channels/batch", {policy: want, chats: chats.map(c => ({source: c.source, channel: c.channel, channel_name: c.channel_name}))});
+      chats.forEach(c => c.policy = want);
+      picked.clear(); draw();
+      $("status").textContent = chats.length + " chats → " + want;
+    };
+    const filters = el("div", {class: "chips"}, ...[["all", "All"], ["groups", "Groups"], ["direct", "Direct"],
+        ["active", "Active 30d"], ["muted", "Muted"], ["watch", "Watch"], ["store", "Store"], ["digest", "Digest"], ["ignore", "Ignore"]]
+      .map(([v, t]) => el("span", {class: "chip" + (filter === v ? " on" : ""), onclick: () => { filter = v; draw(); }}, t)));
+    const bar = el("div", {class: "chips"},
+      el("span", {class: "chip", onclick: () => { shown().forEach(c => picked.add(key(c))); draw(); }}, "Select all shown"),
+      el("span", {class: "chip", onclick: () => { picked.clear(); draw(); }}, "Clear"), count,
+      ...POLICIES.map(([v, t]) => el("button", {class: "b",
+        onclick: () => setPolicy(shown().filter(c => picked.has(key(c))), v)}, "→ " + t.split(" ")[0])));
+    const draw = () => {
+      const rows = shown();
+      count.textContent = `${picked.size} selected · ${rows.length} shown`;
+      filters.querySelectorAll(".chip").forEach((n, i) => n.classList.toggle("on",
+        ["all", "groups", "direct", "active", "muted", "watch", "store", "digest", "ignore"][i] === filter));
+      list.replaceChildren(...rows.slice(0, 400).map(c => {
+        const box = el("input", {type: "checkbox", style: "width:auto;margin-right:8px"});
+        box.checked = picked.has(key(c));
+        box.onchange = () => { box.checked ? picked.add(key(c)) : picked.delete(key(c)); count.textContent = `${picked.size} selected · ${rows.length} shown`; };
+        const sel = el("select", {style: "background:#1c2430;color:#e8eef6;border:1px solid #2a3442;border-radius:6px;padding:2px 6px"});
+        for (const [v, t] of POLICIES) { const o = el("option", {value: v}, t); if (c.policy === v) o.selected = true; sel.append(o); }
+        sel.onchange = () => setPolicy([c], sel.value);
+        return el("div", {class: "it"}, el("div", {class: "meta"}, box, srcBadge(c.source, c.account),
+          el("b", {}, c.channel_name || c.channel), c.is_group ? "group" : "direct",
+          c.muted ? el("span", {class: "tag"}, "muted") : null,
+          `${c.recent} msgs/30d`, `${c.total} total`), sel);
+      }));
+    };
+    q.oninput = draw; draw();
+    const defaultsBox = el("div", {class: "empty"}, "Apply the rules in config (policy_defaults) to every chat you have not set by hand.");
+    const defaultsBtn = el("button", {class: "b", onclick: async () => {
+      const p = await api("/api/channels/defaults");
+      if (!p.changes) { defaultsBox.textContent = "Defaults already match: nothing to change."; return; }
+      defaultsBox.replaceChildren(el("div", {}, `${p.changes} chats would change: `
+        + Object.entries(p.summary).map(([k, v]) => `${k} ×${v}`).join(", ")),
+        ...p.sample.map(x => el("div", {class: "msg"}, `${x.channel_name || ""} — ${x.from} → ${x.to} (${x.recent} msgs/30d)`)),
+        el("button", {class: "b", onclick: async () => {
+          const r = await api("/api/channels/defaults", {apply: true});
+          defaultsBox.textContent = `Applied to ${r.changes} chats.`;
+          chans = await api("/api/channels?days=30"); draw();
+        }}, `Apply to ${p.changes} chats`));
+    }}, "Preview defaults");
+    // ---- VIP people ----
+    const vipBox = el("div", {});
+    const drawVip = async () => {
+      const data = await api("/api/people?limit=1");       // just the vip list
+      const vips = data.vips || [];
+      const search = el("input", {placeholder: "add VIP: type a name…", style: "width:100%"});
+      const results = el("div", {});
+      search.oninput = async () => {
+        const nq = search.value.trim();
+        if (!nq) { results.replaceChildren(); return; }
+        const r = await api("/api/people?q=" + encodeURIComponent(nq) + "&limit=12");
+        results.replaceChildren(...r.people.map(pp => el("div", {class: "it"},
+          el("div", {class: "meta"}, srcBadge(pp.source), el("b", {}, pp.sender_name), `${pp.n} msgs`,
+            pp.vip ? el("span", {class: "tag"}, "already VIP") : null),
+          pp.vip ? null : el("button", {class: "b", onclick: async e => {
+            e.target.disabled = true;
+            await api("/api/teach", {kind: "vip", source: pp.source, value: pp.sender, label: pp.sender_name});
+            search.value = ""; results.replaceChildren(); drawVip();
+            $("status").textContent = "★ " + pp.sender_name + " is now VIP";
+          }}, "★ Make VIP"))));
+      };
+      vipBox.replaceChildren(
+        el("div", {class: "empty"}, "VIP people: their topics show up under “For me”. Does not claim their own tasks as yours."),
+        ...vips.map(v => el("div", {class: "it"}, el("div", {class: "meta"}, srcBadge(v.source),
+          el("b", {}, v.sender_name || v.label || v.sender), "VIP"),
+          el("button", {class: "b", onclick: async () => {
+            await api("/api/teach", {kind: "vip", source: v.source, value: v.sender, undo: true});
+            drawVip(); $("status").textContent = "removed VIP";
+          }}, "Remove"))),
+        (vips.length ? null : el("div", {class: "empty"}, "No VIP people yet.")),
+        search, results);
+    };
+    drawVip();
+    return el("div", {class: "grid g2"},
+      lane("Settings", null, [settingsTable, el("div", {class: "empty"},
+        "Saved to config/settings.local.json. Chat policies live in the database."),
+        el("div", {class: "day"}, "VIP people"), vipBox,
+        el("div", {class: "day"}, "Chat defaults"), defaultsBtn, defaultsBox]),
+      lane("Chats", chans.length, [q, filters, bar, list]));
+  },
+
+  async status() {
+    const s = await api("/api/status?limit=150");
+    const dot = st => el("span", {class: "src " + ({ok: "s-ok", waiting: "s-wait", error: "s-err"}[st] || "")}, st);
+    const kv = (k, v) => el("tr", {}, el("td", {}, k), el("td", {}, v));
+    const t = s.totals, ai = s.ai;
+
+    const overview = el("table", {class: "kv"},
+      kv("Sources healthy", `${s.health.ok} ok · ${s.health.waiting} waiting · ${s.health.error} failing`),
+      kv("Messages", `${t.messages} total · ${t.messages_24h} in 24h`),
+      kv("Info units", String(t.units)),
+      kv("Open conversations", String(t.segments_open)),
+      kv("Chats", Object.entries(t.channels).map(([k, v]) => `${v} ${k}`).join(" · ")),
+      kv("Last 24h by source", Object.entries(t.sources).map(([k, v]) => `${SRC(k)}${k.includes(":") ? k.slice(k.indexOf(":")) : ""} ${v}`).join(" · ") || "—"));
+
+    const aiBox = el("table", {class: "kv"},
+      kv("AI organizer", ai.enabled ? `on · ${ai.provider} · ${ai.model}` : "off"),
+      kv("Spent today", `$${ai.spent_today_usd} of $${ai.budget_usd}`),
+      kv("Queue", Object.entries(s.jobs).map(([k, v]) => `${v} ${k}`).join(" · ") || "empty"),
+      ...ai.usage.slice(0, 5).map(u => kv(u.day, `$${u.cost_usd} · ${u.requests} calls · ${u.input_tokens}+${u.output_tokens} tok`)));
+
+    const problems = s.failing.length
+      ? s.failing.map(r => el("div", {class: "it " + (r.status === "error" ? "P0" : "P1")},
+          el("div", {class: "meta"}, dot(r.status), el("b", {}, `${r.layer} · ${r.source}`), fmt(r.finished_at)),
+          el("div", {class: "sum"}, r.error || "")))
+      : [el("div", {class: "empty"}, "Every source is healthy.")];
+
+    const units = el("table", {class: "kv"}, ...Object.entries(s.units)
+      .sort((a, b) => b[1] - a[1]).map(([k, v]) => kv(k, String(v))));
+
+    // time-ordered run log, newest first, grouped by day
+    const log = [];
+    let day = "";
+    for (const r of s.runs) {
+      const d = dayKey(r.finished_at);
+      if (d !== day) { day = d; log.push(el("div", {class: "day"}, d)); }
+      const detail = (() => {
+        try { const o = JSON.parse(r.detail || "null"); return o && typeof o === "object"
+          ? Object.entries(o).filter(([, v]) => typeof v !== "object" && v !== 0 && v !== false && v !== null)
+              .map(([k, v]) => `${k}=${v}`).join(" ") : ""; } catch { return ""; }
+      })();
+      log.push(el("div", {class: "run " + r.status},
+        el("span", {class: "t"}, new Date(r.finished_at * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"})),
+        dot(r.status),
+        el("span", {class: "who"}, `${r.layer}:${r.source}`),
+        el("span", {class: "det"}, r.error || detail || ""),
+        el("span", {class: "secs"}, r.seconds != null ? r.seconds + "s" : "")));
+    }
+    return el("div", {class: "grid g2"},
+      lane("Overview", null, [overview, el("div", {class: "day"}, "AI"), aiBox,
+        el("div", {class: "day"}, "Needs attention"), ...problems,
+        el("div", {class: "day"}, "Units by kind"), units]),
+      lane("Run log (newest first)", s.runs.length, log.length ? log : [el("div", {class: "empty"}, "No runs yet.")]));
+  },
+};
+async function viewTab(v) {
+  // a saved view is an explicit filter you defined, so it ignores the global For-me toggle
+  // unless the view itself sets `mine: true`.
+  const units = await api(`/api/units?tags=${encodeURIComponent((v.tags || []).join(","))}&kind=${v.kind || ""}&status=${v.status || ""}&order=${v.order || "activity"}&limit=300` + (v.mine ? "&mine=1" : ""));
+  return el("div", {class: "grid g2"}, lane(v.name, units.length, units.map(u => unitCard(u))));
+}
+function drawTabs() {
+  const names = [["today", "Today"], ["live", "Live"], ["todos", "Todos"], ["calendar", "Calendar"], ["groups", "Groups"], ["explore", "Explore"],
+                 ...VIEWS.map((v, i) => ["view" + i, v.name]), ["chat", "Chat"], ["status", "Status"], ["settings", "Settings"]];
+  $("tabs").replaceChildren(...names.map(([k, n]) => el("button", {class: "tab" + (TAB === k ? " on" : ""), onclick: () => { TAB = k; render(false); }}, n)));
+}
+// Lanes are keyed by tab + position, not by their heading: headings change
+// (e.g. "Top-level units" -> "Matching units") while the lane stays the same.
+function scrollState() {
+  const out = {};
+  document.querySelectorAll("#main .lane").forEach((l, i) => { if (l.scrollTop) out[TAB + ":" + i] = l.scrollTop; });
+  return {lanes: out, page: window.scrollY, tab: TAB};
+}
+function restoreScroll(state) {
+  if (state.tab !== TAB) return;
+  document.querySelectorAll("#main .lane").forEach((l, i) => {
+    const top = state.lanes[TAB + ":" + i];
+    if (top != null) {
+      l.scrollTop = top;
+      if (l.scrollTop !== top) requestAnimationFrame(() => { l.scrollTop = top; });  // content still settling
+    }
+  });
+  if (state.page) window.scrollTo(0, state.page);
+}
+// Make a multi-column grid's column widths draggable. A thin handle sits between columns; the
+// chosen widths persist per tab+column-count in localStorage. Skipped on narrow (single-column) layouts.
+function enhanceGrids(root) {
+  if (window.matchMedia("(max-width:1000px)").matches) return;
+  root.querySelectorAll(".grid.g2, .grid.g3").forEach(g => {
+    if (g.dataset.rz) return;
+    const cols = [...g.children], n = cols.length;
+    if (n < 2) return;
+    g.dataset.rz = "1"; g.classList.add("resizable");
+    const key = "cols:" + TAB + ":" + n;
+    let fr; try { fr = JSON.parse(localStorage.getItem(key)); } catch (_) { fr = null; }
+    if (!Array.isArray(fr) || fr.length !== n) fr = n === 2 ? [1, 1.3] : Array(n).fill(1);
+    const apply = () => {
+      const p = []; for (let i = 0; i < n; i++) { p.push(fr[i].toFixed(3) + "fr"); if (i < n - 1) p.push("10px"); }
+      g.style.gridTemplateColumns = p.join(" ");
+    };
+    for (let i = 1; i < n; i++) {
+      const rz = el("div", {class: "col-resizer", title: "Drag to resize columns"});
+      g.insertBefore(rz, cols[i]);
+      rz.onmousedown = e => {
+        e.preventDefault(); rz.classList.add("dragging"); document.body.style.cursor = "col-resize";
+        const rect = g.getBoundingClientRect(), usable = rect.width - 10 * (n - 1), total = fr.reduce((a, b) => a + b, 0);
+        let before = 0; for (let k = 0; k < i - 1; k++) before += fr[k];
+        const pair = fr[i - 1] + fr[i];
+        const move = ev => {
+          let x = Math.max(0, Math.min(usable, ev.clientX - rect.left - 10 * (i - 1)));
+          let left = (x / usable) * total - before;
+          left = Math.max(0.2, Math.min(pair - 0.2, left));
+          fr[i - 1] = left; fr[i] = pair - left; apply();
+        };
+        const up = () => {
+          rz.classList.remove("dragging"); document.body.style.cursor = "";
+          document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up);
+          try { localStorage.setItem(key, JSON.stringify(fr)); } catch (_) {}
+        };
+        document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+      };
+    }
+    apply();
+  });
+}
+async function render(keepScroll = true) {
+  const state = keepScroll ? scrollState() : {lanes: {}, page: 0};
+  drawTabs(); drawScope();
+  const node = TAB.startsWith("view") ? await viewTab(VIEWS[+TAB.slice(4)]) : await TABS[TAB]();
+  $("main").replaceChildren(node);
+  enhanceGrids($("main"));
+  if (keepScroll) restoreScroll(state);
+  $("status").textContent = "updated " + new Date().toLocaleTimeString();
+}
+$("poll").onclick = async e => { e.target.disabled = true; $("status").textContent = "syncing…"; await api("/api/poll", {}); e.target.disabled = false; render(); };
+// the tab bar scrolls horizontally with a plain mouse wheel (scrollbar itself is hidden)
+$("tabs").addEventListener("wheel", e => { if (e.deltaY && $("tabs").scrollWidth > $("tabs").clientWidth) { $("tabs").scrollLeft += e.deltaY; e.preventDefault(); } }, {passive: false});
+function goTag(tag) { SEL = new Set([tag]); TAB = "explore"; $("q").value = ""; render(false); }
+$("q").onkeydown = async e => {
+  if (e.key !== "Enter") return;
+  const q = e.target.value.trim(); if (!q) return render();
+  const d = await api("/api/search?q=" + encodeURIComponent(q));
+  const facet = (title, items, make) => items.length
+    ? el("div", {}, el("div", {class: "day"}, `${title} (${items.length})`), el("div", {class: "chips"}, ...items.map(make)))
+    : null;
+  const left = el("div", {},
+    facet("People", d.people, p => el("span", {class: "chip", title: `${p.n} msgs`,
+      onclick: () => goTag("person:" + p.sender_name)}, srcBadge(p.source), " ", p.sender_name, " ", el("i", {}, p.n))),
+    facet("Chats", d.channels, c => el("span", {class: "chip", title: `${c.policy} · ${c.n} msgs`,
+      onclick: () => goTag("channel:" + c.channel_name)}, srcBadge(c.source, c.account), " ", c.channel_name || c.channel, " ", el("i", {}, c.n))),
+    facet("Tags", d.tags, t => el("span", {class: "chip", onclick: () => goTag(t.tag)}, t.tag, " ", el("i", {}, t.n))));
+  const right = el("div", {class: "grid", style: "grid-template-columns:1fr"},
+    lane("Units", d.units.length, d.units.map(u => unitCard(u)), "No matching units."),
+    lane("Messages", d.messages.length, d.messages.map(m => msgCard(m, {teach: false})), "No matching messages."));
+  $("main").replaceChildren(el("div", {class: "grid g2"},
+    lane(`Matches for “${q}”`, d.people.length + d.channels.length + d.tags.length, [left],
+      "No people, chats or tags matched."), right));
+  enhanceGrids($("main"));
+};
+// optional ?tab=&scope= on first load (shareable deep link)
+const _p = new URLSearchParams(location.search);
+if (_p.get("theme")) applyTheme(_p.get("theme"));
+if (_p.get("scope")) SCOPE = _p.get("scope");
+if (_p.get("view") === "graph" || _p.get("view") === "list") EXPLORE_VIEW = _p.get("view");
+if (_p.get("demo") === "chat") CHAT = [                      // a sample conversation for docs/screenshots
+  {role: "user", content: "What are my deadlines this week, and what's the main thing happening in MimicNet?"},
+  {role: "assistant", cost: 0.0094, changes: [], content:
+    "**This week's deadline**\n- Submit the workshop paper draft [[u:34]] — flagged as high importance in [[g:Robotics RL & Control]].\n\n"
+    + "**MimicNet right now**\nThe big active thread is *MimicNet reproduction and cross-domain transfer* [[u:7]] — the group is reproducing the "
+    + "motion-imitation method and checking where it transfers. Two concrete follow-ups:\n"
+    + "1. Compare the two retargeting implementations and note the trade-offs [[u:12]] ([[p:Diego]])\n"
+    + "2. The merge decision was made: fold the RGMT-style variant into the main repo.\n\n"
+    + "Also worth a look: the action-plan-then-distill idea [[u:6]] from the world-model thread."},
+];
+const _tab0 = _p.get("tab");
+api("/api/views").then(v => { VIEWS = v || []; if (_tab0) TAB = _tab0; render(false); });
+setInterval(() => { if (!document.hidden && document.activeElement !== $("q")) render(); }, 120000);
+</script>
+</body>
+</html>

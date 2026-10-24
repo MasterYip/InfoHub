@@ -1,0 +1,12 @@
+# Private data: message store, local config, logs. Never commit.
+data/
+config/*.local.yaml
+config/*.local.json
+config/*.tmp
+*.pem
+logs/
+# Runtimes
+.venv/
+node_modules/
+__pycache__/
+*.pyc

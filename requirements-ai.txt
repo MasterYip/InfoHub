@@ -1,0 +1,2 @@
+# Optional Layer 2 AI organizer (Claude API). The hub runs without it.
+anthropic>=1.0
