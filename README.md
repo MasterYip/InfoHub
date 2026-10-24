@@ -18,7 +18,7 @@
   <img alt="Windows" src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white">
   <img alt="Local-first" src="https://img.shields.io/badge/Local--first-no_cloud-15803D">
   <img alt="Runs without AI" src="https://img.shields.io/badge/Runs_without_AI-optional_LLM-6D28D9">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-23_passing-2E7D32">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-26_passing-2E7D32">
 </p>
 
 <p align="center">
