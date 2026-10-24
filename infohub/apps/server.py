@@ -514,6 +514,14 @@ def serve(cfg, store, poll_fn):
                     fields = {k: body[k] for k in ("status", "title", "summary") if body.get(k)}
                     if fields.get("status") not in (None, "open", "done", "dropped"):
                         return self._send(400, {"error": "bad status"})
+                    if body.get("kind"):                       # reclassify the unit (e.g. topic -> todo)
+                        if body["kind"] not in U.KINDS:
+                            return self._send(400, {"error": "bad kind"})
+                        old = store.q("SELECT kind FROM units WHERE id=?", (uid,)).fetchone()[0]
+                        fields["kind"] = body["kind"]
+                        if old and old != body["kind"]:        # keep the type:<kind> tag in sync with kind
+                            U.remove_tags(store, uid, [f"type:{old}"])
+                            U.add_tags(store, uid, [f"type:{body['kind']}"])
                     U.update(store, uid, **fields)
                     U.add_tags(store, uid, body.get("add_tags"))
                     U.remove_tags(store, uid, body.get("remove_tags"))

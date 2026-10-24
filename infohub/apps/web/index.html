@@ -255,13 +255,18 @@ function unitCard(u, depth = 0) {
     u.tags = u.tags.filter(t => !t.startsWith("importance:")); if (!off) u.tags = [...u.tags, want].sort();
     paintTags(); paintEditor();
   };
+  const setKind = async k => { if (k === u.kind) return; await post({kind: k}); render(); };   // moves it into the right tab (e.g. Todos)
   function paintEditor() {
+    const kindSel = el("select", {class: "graph-sel", title: "Change this unit's kind"});
+    for (const k of Object.keys(KIND_COLOR)) { const o = el("option", {value: k}, k); if (k === u.kind) o.selected = true; kindSel.append(o); }
+    kindSel.onchange = () => setKind(kindSel.value);
     const removable = u.tags.filter(t => !t.startsWith("source:") && t !== "type:" + u.kind);
     const chips = removable.map(t => el("span", {class: "tag rm", title: "Remove tag", onclick: () => removeTag(t)}, t, " ✕"));
     const inp = el("input", {placeholder: "add tag — e.g. project:x, importance:high", list: "tagsuggest",
       style: "flex:1;min-width:150px;padding:3px 7px;font-size:12px"});
     inp.onkeydown = e => { if (e.key === "Enter") { addTag(inp.value); inp.value = ""; } };
     editor.replaceChildren(
+      el("div", {class: "chips", style: "margin-bottom:5px"}, el("span", {class: "status"}, "kind:"), kindSel),
       el("div", {class: "chips", style: "margin-bottom:5px"}, ...(chips.length ? chips : [el("span", {class: "status"}, "no custom tags yet")])),
       el("div", {class: "chips"}, el("span", {class: "status"}, "importance:"),
         ...IMPORTANCE.map(([v, label]) => el("span", {class: "chip" + (u.tags.includes("importance:" + v) ? " on" : ""), onclick: () => setImportance(v)}, label))),
