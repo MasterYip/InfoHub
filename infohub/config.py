@@ -23,6 +23,7 @@ DEFAULTS = {
                  "cookie_secure": False,          # force Secure cookies (set true when HTTPS terminates at a proxy)
                  "trust_forwarded_for": False},   # use X-Forwarded-For for login throttling behind your own proxy
         "database": "data/hub.db",
+        "backup": {"enabled": True, "interval_days": 7, "directory": "data/backups"},
         "retention_days": 90,
     },
     "me": {"names": []},            # your display names, for @mention detection and the "mine" filter
@@ -95,7 +96,7 @@ def _merge(base, extra):
 SETTINGS_FILE = ROOT / "config" / "settings.local.json"
 
 # Keys the settings page may write (everything else stays in the YAML file, with its comments).
-EDITABLE = ["me.names", "hub.poll_minutes", "hub.retention_days", "apps.today_scope",
+EDITABLE = ["hub.backup.enabled", "hub.backup.interval_days", "me.names", "hub.poll_minutes", "hub.retention_days", "apps.today_scope",
             "apps.reminders.enabled", "apps.reminders.toast", "apps.reminders.todo_lead_hours",
             "apps.reminders.event_lead_minutes", "organize.polish", "ai.enabled", "ai.model",
             "ai.daily_budget_usd", "ai.interval_minutes", "ai.policies", "ai.polish_policies",
@@ -116,6 +117,12 @@ def write_settings(flat: dict) -> dict:
     bad = [k for k in flat if k not in EDITABLE]
     if bad:
         raise ValueError(f"not editable: {', '.join(sorted(bad))}")
+    if "hub.backup.enabled" in flat and not isinstance(flat["hub.backup.enabled"], bool):
+        raise ValueError("Backup enabled must be true or false")
+    if "hub.backup.interval_days" in flat:
+        days = flat["hub.backup.interval_days"]
+        if isinstance(days, bool) or not isinstance(days, int) or not 1 <= days <= 3650:
+            raise ValueError("Backup interval must be a whole number of days from 1 to 3650")
     data = {**read_settings(), **flat}
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = SETTINGS_FILE.with_suffix(".tmp")

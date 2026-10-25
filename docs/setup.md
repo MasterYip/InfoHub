@@ -91,3 +91,8 @@ its file/folder and its config block.
 
 For a dedicated window, system tray and new-unit notifications, follow [desktop.md](desktop.md).
 The existing browser dashboard and service commands remain available.
+
+## Database backups
+
+Automatic backups are enabled every seven days. Set the interval and see verified-copy
+status under **Settings → Database backups**. See [backup configuration and recovery](backups.md).

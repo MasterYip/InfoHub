@@ -7,6 +7,7 @@ Layer 2  organize      python -m infohub organize [--ai] [--requeue DAYS] [--rec
 Layer 3  serve         python -m infohub serve                          (dashboard + API only)
          brief         python -m infohub brief [--days 7] [--tags a,b]  (Markdown for agents)
          desktop       python -m infohub desktop [--hidden]         (Windows window + tray + service)
+         backup        python -m infohub backup [--if-due]           (verified database snapshot)
          remind        python -m infohub remind
 Service  run           python -m infohub run    (sync+organize+remind every poll_minutes; AI in its own thread; dashboard)
 Admin    doctor | stats | source-init <name> (e.g. lark)
@@ -99,6 +100,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("doctor"); sub.add_parser("stats"); sub.add_parser("serve"); sub.add_parser("run"); sub.add_parser("remind")
     p = sub.add_parser("desktop"); p.add_argument("--hidden", action="store_true", help="start in the system tray")
+    p = sub.add_parser("backup"); p.add_argument("--if-due", action="store_true")
     p = sub.add_parser("source-init"); p.add_argument("source")
     p.add_argument("--pid", type=int); p.add_argument("--db-root")
     p = sub.add_parser("sync"); p.add_argument("--source")
@@ -129,6 +131,13 @@ def main():
     if args.cmd == "desktop":
         from .apps.desktop import run as desktop_run
         return desktop_run(cfg, hidden=args.hidden)
+    if args.cmd == "backup":
+        from .backup import BackupManager
+        result = BackupManager(cfg).run_once(force=not args.if_due)
+        pr(result)
+        if "error" in result:
+            raise SystemExit(1)
+        return
     if args.cmd == "doctor":
         return pr(doctor(cfg))
     if args.cmd == "channels":

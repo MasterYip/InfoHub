@@ -18,3 +18,9 @@ desktop-*.local.json
 desktop-*.tmp
 desktop-*.ico
 desktop-*.webview/
+
+# Generated snapshots, including custom backup directories inside this repository.
+hub-*.sqlite3
+.pending-*.db*
+.latest-*.tmp
+backup.lock

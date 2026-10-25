@@ -14,6 +14,8 @@ GET  /api/channels/defaults         preview what the default rules would change
 POST /api/channels/defaults         {"apply": true} apply them; {"source": "lark"} to limit
 POST /api/channels/batch            {"policy": "watch", "chats": [{"source","channel"}, ...]}
 GET  /api/people?q=&limit=40        senders (for VIP management); includes who is already VIP
+GET  /api/backups                   last verified backup, next due time, directory and errors
+POST /api/backups                   queue a manual backup without blocking the dashboard
 GET  /api/settings                  editable settings + current values
 POST /api/settings                  {"ai.enabled": true, ...} -> config/settings.local.json
 GET  /api/brief?days=7&tags=        Markdown brief for agents
@@ -42,6 +44,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
+from ..backup import BackupManager
 from ..organize import agent_bridge, ai_organizer
 from ..sync import policy as policy_mod
 from ..organize import units as U
@@ -257,6 +260,8 @@ def serve(cfg, store, poll_fn):
         raise SystemExit("Refusing to listen on a non-loopback address without login: run "
                          "`python -m infohub user add <name>` first (or set hub.auth.mode).")
 
+    backups = BackupManager(cfg)
+
     class H(BaseHTTPRequestHandler):
         user = None
 
@@ -365,6 +370,8 @@ def serve(cfg, store, poll_fn):
                                           "(SELECT max(sender_name) FROM messages m WHERE m.source=overrides.source AND m.sender=overrides.value) AS sender_name "
                                           "FROM overrides WHERE kind='vip'"))
                     return self._send(200, {"people": rows, "vips": vrows})
+                if u.path == "/api/backups":
+                    return self._send(200, backups.status())
                 if u.path == "/api/settings":
                     from .. import config as config_mod
                     current = {}
@@ -556,14 +563,22 @@ def serve(cfg, store, poll_fn):
                         n += 1
                     store.db.commit()
                     return self._send(200, {"ok": True, "updated": n, "policy": want})
+                elif p == "/api/backups":
+                    queued = backups.request()
+                    return self._send(202, {"queued": queued, **backups.status()})
                 elif p == "/api/settings":
                     from .. import config as config_mod
                     try:
                         saved = config_mod.write_settings(body)
                     except ValueError as exc:
                         return self._send(400, {"error": str(exc)})
+                    changes = {key.removeprefix("hub.backup."): value for key, value in body.items()
+                               if key.startswith("hub.backup.")}
+                    if changes:
+                        cfg["hub"].setdefault("backup", {}).update(changes)
+                        backups.configure(changes)
                     return self._send(200, {"ok": True, "saved": saved,
-                                            "note": "restart the service for poll/interval changes"})
+                                            "note": "Backup settings apply immediately; restart for sync/AI interval changes."})
                 elif p == "/api/organize-now":
                     return self._send(200, organize_now(cfg, store, body.get("channel")))
                 elif p == "/api/chat":
@@ -582,4 +597,9 @@ def serve(cfg, store, poll_fn):
         ctx.load_cert_chain(d["tls_cert"], d["tls_key"])
         httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
     print(f"dashboard: {'https' if tls else 'http'}://{d['bind']}:{d['port']}/  (login {'on' if auth.required(cfg) else 'off'})", flush=True)
-    httpd.serve_forever()
+    backups.start()
+    try:
+        httpd.serve_forever()
+    finally:
+        backups.stop()
+        httpd.server_close()

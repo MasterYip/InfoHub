@@ -18,7 +18,7 @@
   <img alt="Windows" src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white">
   <img alt="Local-first" src="https://img.shields.io/badge/Local--first-no_cloud-15803D">
   <img alt="Runs without AI" src="https://img.shields.io/badge/Runs_without_AI-optional_LLM-6D28D9">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-38_passing-2E7D32">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-47_passing-2E7D32">
 </p>
 
 <p align="center">
@@ -146,6 +146,14 @@ Close the window to keep Info Hub in the tray. Click the tray icon to reopen it,
 can limit them to **For me**, and opens the latest unit when a notification is clicked.
 Use `scripts/install-autostart.ps1 -Desktop` to start in the tray at logon.
 See [desktop setup and behavior](docs/desktop.md) for lifecycle, login and notification settings.
+
+## Automatic database backups
+
+Info Hub makes a verified database copy on first service startup, then every **7 days**.
+Change the interval in **Settings → Database backups**, run a copy immediately with
+**Back up now**, and check the last successful backup and next due time there.
+Completed copies are kept in `data/backups/` and excluded from Git. See
+[backup configuration and recovery](docs/backups.md).
 
 ## Scheduled agents (Codex, Claude Code, ...)
 An external agent can do the Layer 2 work on a schedule instead of, or alongside, the API worker:

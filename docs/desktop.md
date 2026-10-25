@@ -73,6 +73,12 @@ so browser and desktop sign-ins are independent. Desktop state is stored beside 
 configured database in `desktop-<database hash>.*` files/directories; these paths are
 Git-ignored. Logs are in `logs/desktop.log` and `logs/desktop-service*.log`.
 
+## Database backups
+
+The service makes automatic database backups while the desktop window is hidden too.
+Set their interval (default seven days), run a copy now, and check the last verified copy
+in **Settings → Database backups**. See [backup configuration and recovery](backups.md).
+
 ## Start at Windows logon
 
 ```powershell

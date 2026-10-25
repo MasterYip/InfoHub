@@ -28,6 +28,7 @@ class Auth(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)  # server thread keeps the DB open on Windows
         cfg = copy.deepcopy(DEFAULTS)
         cfg["hub"]["database"] = str(Path(cls.tmp.name) / "hub.db")
+        cfg["hub"]["backup"].update(enabled=False, directory=str(Path(cls.tmp.name) / "backups"))
         cfg["hub"]["auth"]["users_file"] = str(Path(cls.tmp.name) / "users.local.json")
         cfg["hub"]["dashboard"]["port"] = cls.port = free_port()
         cls.cfg = cfg

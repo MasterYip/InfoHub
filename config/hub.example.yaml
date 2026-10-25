@@ -4,6 +4,7 @@ hub:
   poll_minutes: 5
   initial_backfill_hours: 24      # first poll looks back this far
   dashboard: {bind: 127.0.0.1, port: 8765}   # keep local; use a VPN/tunnel for remote viewing
+  backup: {enabled: true, interval_days: 7, directory: data/backups}  # interval is editable in Settings
   database: data/hub.db
   retention_days: 90              # low-priority and done items older than this are pruned
 

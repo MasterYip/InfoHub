@@ -730,17 +730,29 @@ const TABS = {
   async settings() {
     const cfg = await api("/api/settings");
     let chans = await api("/api/channels?days=30");
-    const save = async (key, value) => { await api("/api/settings", {[key]: value}); $("status").textContent = "saved " + key; };
+    let refreshBackups;
+    const save = async (key, value) => {
+      const result = await api("/api/settings", {[key]: value});
+      if (result.error) { $("status").textContent = result.error; return false; }
+      cfg.values[key] = value;
+      $("status").textContent = "saved " + key;
+      if (key.startsWith("hub.backup.") && refreshBackups) await refreshBackups();
+      return true;
+    };
     const field = (key, label, type = "text") => {
       const v = cfg.values[key];
       const inp = el("input", {id: "f_" + key, type: type === "bool" ? "checkbox" : type,
         style: type === "bool" ? "width:auto" : "width:160px"});
       if (type === "bool") inp.checked = !!v; else inp.value = Array.isArray(v) ? v.join(", ") : (v ?? "");
-      inp.onchange = () => {
+      if (key === "hub.backup.interval_days") { inp.min = "1"; inp.max = "3650"; inp.step = "1"; }
+      inp.onchange = async () => {
+        if (!inp.reportValidity()) return;
         let out = type === "bool" ? inp.checked : inp.value;
         if (type === "number") out = Number(out);
         if (Array.isArray(v) || key.endsWith("names") || key.endsWith("policies")) out = String(out).split(/[,，]/).map(x => x.trim()).filter(Boolean);
-        save(key, out);
+        if (!await save(key, out)) {
+          if (type === "bool") inp.checked = !!cfg.values[key]; else inp.value = cfg.values[key];
+        }
       };
       return el("tr", {}, el("td", {}, label), el("td", {}, inp),
         el("td", {}, cfg.restart_needed_for.includes(key) ? el("span", {class: "tag"}, "restart") : ""));
@@ -760,6 +772,41 @@ const TABS = {
       field("apps.reminders.todo_lead_hours", "Remind todos N hours ahead", "number"),
       field("apps.reminders.event_lead_minutes", "Remind events N minutes ahead", "number"),
       field("segment_max_messages", "Max messages per AI call", "number"));
+    const backupTable = el("table", {class: "kv"},
+      field("hub.backup.enabled", "Automatic database backups", "bool"),
+      field("hub.backup.interval_days", "Back up every N days", "number"));
+    const backupInfo = el("div", {id: "backup-info", class: "empty"}, "Checking backups…");
+    const backupButton = el("button", {id: "backup-now", class: "b", onclick: async () => {
+      backupButton.disabled = true;
+      try {
+        const result = await api("/api/backups", {});
+        if (result.error) { $("status").textContent = result.error; return; }
+        await refreshBackups();
+      } catch (_) {
+        $("status").textContent = "Could not request a database backup.";
+        backupButton.textContent = "Back up now";
+      } finally { if (backupButton.textContent === "Back up now") backupButton.disabled = false; }
+    }}, "Back up now");
+    refreshBackups = async () => {
+      const b = await api("/api/backups");
+      if (!b || typeof b !== "object" || b.error) {
+        backupInfo.textContent = b?.error || "Restart Info Hub to load database backup support."; return;
+      }
+      const latest = b.last_backup;
+      backupButton.disabled = b.running || b.queued;
+      backupButton.textContent = b.running ? "Backing up…" : b.queued ? "Backup queued…" : "Back up now";
+      backupInfo.replaceChildren(
+        el("div", {}, latest ? `Last verified backup: ${fmt(latest.completed_at)} · ${(latest.bytes / 1048576).toFixed(1)} MB` : "No verified backup yet."),
+        el("div", {}, b.enabled ? (b.next_due_at ? `Next due: ${fmt(b.next_due_at)}` : "First automatic backup is due now.") : "Automatic backups are paused."),
+        el("div", {style: "overflow-wrap:anywhere"}, "Location: " + b.directory),
+        el("div", {}, `${b.copies} completed copies kept. Backups are not automatically deleted.`),
+        b.last_error ? el("div", {class: "it P0"}, "Last backup failed: " + b.last_error) : null);
+    };
+    await refreshBackups();
+    const backupTimer = setInterval(() => {
+      if (!backupInfo.isConnected) { clearInterval(backupTimer); return; }
+      refreshBackups().catch(() => { backupInfo.textContent = "Could not refresh backup status."; });
+    }, 5000);
     // ---- chats: filters, multi-select, batch apply, rule defaults ----
     const picked = new Set(), key = c => c.source + "|" + c.channel;
     const q = el("input", {placeholder: "filter chats…", style: "width:100%"});
@@ -855,7 +902,8 @@ const TABS = {
     };
     drawVip();
     return el("div", {class: "grid g2"},
-      lane("Settings", null, [settingsTable, el("div", {class: "empty"},
+      lane("Settings", null, [el("div", {class: "day"}, "Database backups"), backupTable, backupInfo, backupButton,
+        el("div", {class: "day"}, "General"), settingsTable, el("div", {class: "empty"},
         "Saved to config/settings.local.json. Chat policies live in the database."),
         el("div", {class: "day"}, "VIP people"), vipBox,
         el("div", {class: "day"}, "Chat defaults"), defaultsBtn, defaultsBox]),
