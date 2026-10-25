@@ -106,24 +106,70 @@ def attach(store, uid: int, message_ids) -> None:
     store.db.executemany("INSERT OR IGNORE INTO unit_messages VALUES(?,?)", [(uid, m) for m in message_ids])
 
 
-def _row(store, r) -> dict:
-    d = dict(r)
-    d["tags"] = [t for (t,) in store.q("SELECT tag FROM unit_tags WHERE unit_id=? ORDER BY tag", (d["id"],))]
-    d["n_children"] = store.q("SELECT count(*) FROM unit_links WHERE parent_id=?", (d["id"],)).fetchone()[0]
-    d["n_messages"] = store.q("SELECT count(*) FROM unit_messages WHERE unit_id=?", (d["id"],)).fetchone()[0]
-    return d
+def rollup_stats(store) -> dict[int, dict]:
+    """Own messages + each child's total, counted once for every parent/child path.
+
+    Shared descendants contribute to every containing branch, and a message attached
+    to two units counts twice. Memoized iterative traversal avoids enumerating paths
+    or hitting Python's recursion limit. Invalid legacy cycle back-edges are ignored.
+    """
+    stats = {r["id"]: {"n_direct_messages": r["n"], "n_messages": r["n"],
+                       "n_children": 0, "n_descendants": 0} for r in store.q(
+        "SELECT u.id, count(m.id) AS n FROM units u LEFT JOIN unit_messages um ON um.unit_id=u.id "
+        "LEFT JOIN messages m ON m.id=um.message_id GROUP BY u.id")}
+    children = {uid: [] for uid in stats}
+    for parent, child in store.q("SELECT DISTINCT parent_id, child_id FROM unit_links ORDER BY parent_id, child_id"):
+        if parent in stats and child in stats:
+            children[parent].append(child)
+    state = {}
+    for root in stats:
+        stack = [(root, False)]
+        while stack:
+            uid, finish = stack.pop()
+            if finish:
+                done = [child for child in children[uid] if state.get(child) == 2]
+                stats[uid].update(n_children=len(children[uid]),
+                                  n_messages=stats[uid]["n_direct_messages"] + sum(stats[c]["n_messages"] for c in done),
+                                  n_descendants=sum(1 + stats[c]["n_descendants"] for c in done))
+                state[uid] = 2
+            elif not state.get(uid):
+                state[uid] = 1
+                stack.append((uid, True))
+                stack.extend((child, False) for child in reversed(children[uid]) if not state.get(child))
+    return stats
 
 
-def get(store, uid: int, depth: int = 1, with_messages=True) -> dict | None:
+def _rows(store, rows, stats=None) -> list[dict]:
+    data = [dict(r) for r in rows]
+    if not data:
+        return []
+    stats = rollup_stats(store) if stats is None else stats
+    tags = {d["id"]: [] for d in data}
+    placeholders = ",".join("?" for _ in tags)
+    for uid, tag in store.q(f"SELECT unit_id, tag FROM unit_tags WHERE unit_id IN ({placeholders}) ORDER BY tag", tuple(tags)):
+        tags[uid].append(tag)
+    for d in data:
+        d.update(stats.get(d["id"], {}))
+        d["tags"] = tags[d["id"]]
+    return data
+
+
+def _row(store, r, stats=None) -> dict:
+    return _rows(store, [r], stats)[0]
+
+
+def get(store, uid: int, depth: int = 1, with_messages=True, _stats=None) -> dict | None:
     r = store.q("SELECT * FROM units WHERE id=?", (uid,)).fetchone()
     if not r:
         return None
-    d = _row(store, r)
+    _stats = rollup_stats(store) if _stats is None else _stats
+    d = _row(store, r, _stats)
     d["parents"] = [dict(x) for x in store.q(
         "SELECT u.id, u.kind, u.title, l.relation FROM unit_links l JOIN units u ON u.id=l.parent_id WHERE l.child_id=?", (uid,))]
-    kids = store.q("""SELECT u.* FROM unit_links l JOIN units u ON u.id=l.child_id WHERE l.parent_id=?
+    kids = store.q("""SELECT DISTINCT u.* FROM unit_links l JOIN units u ON u.id=l.child_id WHERE l.parent_id=?
                       ORDER BY coalesce(u.due_at, u.start_at, u.last_activity_at)""", (uid,)).fetchall()
-    d["children"] = [get(store, k["id"], depth - 1, False) if depth > 1 else _row(store, k) for k in kids]
+    d["children"] = ([get(store, k["id"], depth - 1, False, _stats) for k in kids] if depth > 1
+                     else _rows(store, kids, _stats))
     if with_messages:
         d["messages"] = [dict(x) for x in store.q(
             """SELECT m.id, m.source, m.account, m.channel_name, m.sender_name, m.sent_at, m.text, m.link
@@ -145,10 +191,10 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
         kinds = kind if isinstance(kind, (list, tuple)) else [kind]
         where.append(f"u.kind IN ({','.join('?' * len(kinds))})")
         args += list(kinds)
-    if status:
+    if status and status != "all":
         where.append("u.status=?")
         args.append(status)
-    else:
+    elif not status:
         where.append("u.status != 'dropped'")
     if since:
         where.append("coalesce(u.last_activity_at, u.updated_at) >= ?")
@@ -157,23 +203,37 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
         where.append("coalesce(u.due_at, u.start_at) IS NOT NULL AND coalesce(u.due_at, u.start_at) <= ?")
         args.append(int(due_before))
     if roots_only:
-        where.append("u.id NOT IN (SELECT child_id FROM unit_links)")
+        where.append("NOT EXISTS (SELECT 1 FROM unit_links l JOIN units p ON p.id=l.parent_id WHERE l.child_id=u.id)")
     if mine:
         where.append("u.for_me=1")
-    if q:
-        where.append("u.id IN (SELECT rowid FROM units_fts WHERE units_fts MATCH ?)" if len(q) >= 3
-                     else "(u.title LIKE ? OR u.summary LIKE ?)")
-        args += ['"' + q.replace('"', '""') + '"'] if len(q) >= 3 else [f"%{q}%", f"%{q}%"]
+    # Whitespace-separated literal keywords use AND across title/summary matches.
+    for term in (q or "").split():
+        if len(term) >= 3:
+            where.append("u.id IN (SELECT rowid FROM units_fts WHERE units_fts MATCH ?)")
+            args.append('"' + term.replace('"', '""') + '"')
+        else:
+            where.append("(u.title LIKE ? ESCAPE '\\' OR u.summary LIKE ? ESCAPE '\\')")
+            pattern = "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            args.extend([pattern, pattern])
     order_sql = {
-        "activity": "u.last_activity_at DESC",
-        "oldest": "u.last_activity_at ASC",
-        "due": "coalesce(u.due_at, u.start_at) IS NULL, coalesce(u.due_at, u.start_at)",
-        "created": "u.created_at DESC",
-        "messages": "(SELECT count(*) FROM unit_messages um WHERE um.unit_id=u.id) DESC, u.last_activity_at DESC",
-        "title": "u.title COLLATE NOCASE ASC",
-    }.get(order, "u.last_activity_at DESC")
-    sql = f"SELECT u.* FROM units u {'WHERE ' + ' AND '.join(where) if where else ''} ORDER BY {order_sql} LIMIT ?"
-    return [_row(store, r) for r in store.q(sql, (*args, int(limit)))]
+        "activity": "coalesce(u.last_activity_at,u.updated_at) DESC, u.id DESC",
+        "oldest": "coalesce(u.last_activity_at,u.updated_at) ASC, u.id ASC",
+        "due": "coalesce(u.due_at,u.start_at) IS NULL, coalesce(u.due_at,u.start_at), u.id DESC",
+        "created": "u.created_at DESC, u.id DESC",
+        "title": "u.title COLLATE NOCASE ASC, u.id ASC",
+    }.get(order, "coalesce(u.last_activity_at,u.updated_at) DESC, u.id DESC")
+    sql = f"SELECT u.* FROM units u {'WHERE ' + ' AND '.join(where) if where else ''}"
+    metric = {"messages": "n_messages", "children": "n_children", "descendants": "n_descendants"}.get(order)
+    if metric:
+        # Aggregate and sort all candidates BEFORE limiting the result.
+        rows = store.q(sql, args).fetchall()
+        if not rows:
+            return []
+        stats = rollup_stats(store)
+        rows.sort(key=lambda row: (stats[row["id"]][metric], row["last_activity_at"] or row["updated_at"] or 0,
+                                   row["id"]), reverse=True)
+        return _rows(store, rows[:max(0, int(limit))], stats)
+    return _rows(store, store.q(sql + f" ORDER BY {order_sql} LIMIT ?", (*args, int(limit))))
 
 
 def tag_counts(store, since=None, prefix=None, status=None, limit=300) -> list[dict]:

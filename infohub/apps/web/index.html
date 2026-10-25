@@ -172,10 +172,26 @@ let TAB = "today", SEL = new Set(), VIEWS = [], SCOPE = localStorage.getItem("sc
 let EXPLORE_SORT = localStorage.getItem("exploreSort") || "activity";
 let EXPLORE_VIEW = localStorage.getItem("exploreView") || "list";   // "list" | "graph"
 const GRAPH_POS = {};   // node id -> {x,y,vx,vy}: positions persist across refreshes so the graph doesn't jump
+function readPreference(key, fallback) {
+  try { const value = JSON.parse(localStorage.getItem(key)); return value && typeof value === "object" ? value : fallback; }
+  catch (_) { return fallback; }
+}
 const GRAPH_DEF = {repulsion: 5000, distance: 110, gravity: 0.0022};
-const GRAPH_CFG = Object.assign({kinds: [], days: 0}, GRAPH_DEF,
-  JSON.parse(localStorage.getItem("graphCfg") || "{}"));   // physics + graph-only filters (kind, time window)
+const OLD_GRAPH_CFG = readPreference("graphCfg", {});
+const GRAPH_CFG = Object.assign({}, GRAPH_DEF, Object.fromEntries(Object.keys(GRAPH_DEF).filter(k => OLD_GRAPH_CFG[k] != null).map(k => [k, OLD_GRAPH_CFG[k]])));
+const EXPLORE_FILTERS = Object.assign({query: "", kinds: OLD_GRAPH_CFG.kinds || [], days: OLD_GRAPH_CFG.days || 0,
+  status: "", roots: false, context: false, tags: []}, readPreference("exploreFilters", {}));
+if (!Array.isArray(EXPLORE_FILTERS.kinds)) EXPLORE_FILTERS.kinds = [];
+if (Array.isArray(EXPLORE_FILTERS.tags)) SEL = new Set(EXPLORE_FILTERS.tags.filter(t => typeof t === "string"));
 const saveGraphCfg = () => localStorage.setItem("graphCfg", JSON.stringify(GRAPH_CFG));
+const saveExploreFilters = () => localStorage.setItem("exploreFilters", JSON.stringify({...EXPLORE_FILTERS, tags: [...SEL]}));
+function exploreQuery() {
+  const q = new URLSearchParams({tags: [...SEL].join(","), kind: EXPLORE_FILTERS.kinds.join(","),
+    q: String(EXPLORE_FILTERS.query || "").trim(), days: String(EXPLORE_FILTERS.days || 0),
+    status: EXPLORE_FILTERS.status || "", roots: EXPLORE_FILTERS.roots ? "1" : "0",
+    mine: SCOPE === "mine" ? "1" : "0", order: EXPLORE_SORT, limit: "400"});
+  return q.toString();
+}
 const mineQ = () => SCOPE === "mine" ? "&mine=1" : "";
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
@@ -186,6 +202,7 @@ applyTheme(localStorage.getItem("theme") || "dark");
 document.getElementById("themeBtn").onclick = () =>
   applyTheme(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light");
 function drawScope() {
+  $("scopeToggle").style.display = TAB === "explore" ? "none" : "";
   const pick = (v, label) => el("span", {class: "chip" + (SCOPE === v ? " on" : ""),
     onclick: () => { SCOPE = v; localStorage.setItem("scope", v); render(false); }}, label);
   $("scopeToggle").replaceChildren(pick("mine", "For me"), pick("all", "Everything"));
@@ -234,7 +251,8 @@ function unitCard(u, depth = 0) {
   const tagRow = el("div", {});
   const box = el("div", {class: "it " + (u.priority || "") + (u.status !== "open" ? " done" : "")},
     el("div", {class: "meta"}, el("span", {class: "src"}, u.kind), whenLabel(u), timeLabel(u),
-       u.n_children ? `· ${u.n_children} inside` : "", u.n_messages ? `· ${u.n_messages} msgs` : ""),
+       u.n_descendants ? el("span", {title: `${u.n_children || 0} direct; includes every child branch`}, `· ${u.n_descendants} subtopics`) : "",
+       u.n_messages ? el("span", {title: `${u.n_direct_messages || 0} directly attached; total includes all subtopic branches`}, `· ${u.n_messages} msgs total`) : ""),
     el("div", {class: "title"}, u.title),
     u.summary && el("div", {class: "sum"}, u.summary),
     tagRow);
@@ -303,6 +321,10 @@ function byDay(units, key) {
 const KIND_COLOR = {topic: "#3b82f6", todo: "#ef4444", event: "#a855f7", decision: "#f59e0b",
   question: "#eab308", announcement: "#14b8a6", resource: "#10b981", digest: "#64748b", note: "#94a3b8"};
 const kColor = k => KIND_COLOR[k] || "#94a3b8";
+// Node area follows total message attribution, including every descendant branch.
+function messageRadius(total, maximum) {
+  return Math.sqrt(25 + (26 * 26 - 25) * Math.max(0, total) / Math.max(1, maximum));
+}
 
 // A live, force-directed view of the info-unit graph. Nodes = units (color by kind, size by #messages,
 // a ring if it's "for me"), edges = part-of links. Drag to pan, scroll to zoom, drag a node to move it,
@@ -311,18 +333,8 @@ function buildGraph(panel, baseQ) {
   let nodes = [], edges = [], view = {tx: 0, ty: 0, s: 1}, alpha = 1, hover = null, drag = null, pan = null, panned = false;
   let W = 0, H = 0, dpr = Math.max(1, window.devicePixelRatio || 1);
 
-  // ---- controls: graph-only filters (kind, time window) + physics sliders ----
+  // Graph layout controls only. Unit filtering and sorting live in the shared sidebar.
   const controls = el("div", {class: "graph-controls"});
-  const kindChip = k => el("span", {class: "chip kind-chip" + (GRAPH_CFG.kinds.includes(k) ? " on" : ""),
-    onclick: e => {
-      const i = GRAPH_CFG.kinds.indexOf(k); i < 0 ? GRAPH_CFG.kinds.push(k) : GRAPH_CFG.kinds.splice(i, 1);
-      e.currentTarget.classList.toggle("on"); saveGraphCfg(); load();
-    }}, el("i", {style: `background:${kColor(k)}`}), k);
-  const daysSel = el("select", {class: "graph-sel"});
-  for (const [v, t] of [["0", "All time"], ["1", "Last 24h"], ["3", "Last 3 days"], ["7", "Last 7 days"], ["14", "Last 14 days"], ["30", "Last 30 days"]]) {
-    const o = el("option", {value: v}, t); if (+GRAPH_CFG.days === +v) o.selected = true; daysSel.append(o);
-  }
-  daysSel.onchange = () => { GRAPH_CFG.days = +daysSel.value; saveGraphCfg(); load(); };
   const sliders = {};
   const slider = (label, key, min, max, step) => {
     const inp = el("input", {type: "range", min, max, step, value: GRAPH_CFG[key]});
@@ -331,15 +343,13 @@ function buildGraph(panel, baseQ) {
     return el("label", {class: "gs"}, label, inp);
   };
   controls.append(
-    el("div", {class: "graph-row"}, el("b", {}, "Show"), daysSel,
-      el("span", {class: "gsep"}, "kinds:"), ...Object.keys(KIND_COLOR).map(kindChip),
-      el("button", {class: "b", title: "Show all kinds", onclick: () => { GRAPH_CFG.kinds = []; saveGraphCfg(); render(); }}, "all")),
     el("div", {class: "graph-row"}, el("b", {}, "Physics"),
       slider("repulsion", "repulsion", 400, 9000, 100),
       slider("link length", "distance", 30, 320, 5),
       slider("gravity", "gravity", 0, 0.02, 0.001),
       el("button", {class: "b", onclick: () => { Object.assign(GRAPH_CFG, GRAPH_DEF); for (const k in GRAPH_DEF) sliders[k].value = GRAPH_DEF[k]; saveGraphCfg(); alpha = 1; }}, "reset"),
       el("button", {class: "b", title: "Re-layout from scratch", onclick: () => { for (const k in GRAPH_POS) delete GRAPH_POS[k]; load(); }}, "relayout")));
+  controls.append(el("div", {class: "status", style: "padding-bottom:4px"}, "Node size: total messages, including all subtopic branches"));
   panel.append(controls);
 
   const host = el("div", {class: "graph-host"});
@@ -352,10 +362,7 @@ function buildGraph(panel, baseQ) {
   const ctx = cv.getContext("2d");
 
   function queryNow() {
-    let q = baseQ + "&roots=0&limit=400";
-    if (GRAPH_CFG.kinds.length) q += "&kind=" + encodeURIComponent(GRAPH_CFG.kinds.join(","));
-    if (GRAPH_CFG.days) q += "&days=" + GRAPH_CFG.days;
-    return q;
+    return baseQ + "&context=" + (EXPLORE_FILTERS.context ? "1" : "0");
   }
 
   function resize() {
@@ -368,10 +375,12 @@ function buildGraph(panel, baseQ) {
   async function load() {
     const d = await api("/api/graph?" + queryNow());
     const present = new Set(d.nodes.map(n => n.id));
-    const cnt = host.querySelector(".graph-count"); if (cnt) cnt.textContent = `${d.nodes.length} nodes · ${d.edges.length} links`;
+    const cnt = host.querySelector(".graph-count");
+    if (cnt) cnt.textContent = `${d.matched_count ?? d.nodes.length} matches${d.context_count ? ` + ${d.context_count} context` : ""} · ${d.edges.length} links`;
+    const maxMessages = Math.max(1, ...d.nodes.map(n => n.n_messages || 0));
     nodes = d.nodes.map(n => {
       const p = GRAPH_POS[n.id] || (GRAPH_POS[n.id] = {x: W / 2 + (Math.random() - 0.5) * Math.max(400, W * 0.7), y: H / 2 + (Math.random() - 0.5) * Math.max(300, H * 0.7), vx: 0, vy: 0});
-      return Object.assign({}, n, {p, r: 5 + Math.min(13, Math.sqrt((n.n_messages || 0) + (n.n_children || 0) * 2) * 2.2)});
+      return Object.assign({}, n, {p, r: messageRadius(n.n_messages || 0, maxMessages)});
     });
     const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
     edges = d.edges.map(e => ({a: byId[e.source], b: byId[e.target], relation: e.relation})).filter(e => e.a && e.b);
@@ -421,7 +430,7 @@ function buildGraph(panel, baseQ) {
     }
     for (const n of nodes) {
       const dim = hover && n !== hover && !(nb && nb.has(n));
-      ctx.globalAlpha = dim ? 0.3 : (n.status === "open" ? 1 : 0.5);
+      ctx.globalAlpha = (dim ? 0.3 : 1) * (n.seed ? (n.status === "open" ? 1 : 0.5) : 0.3);
       ctx.beginPath(); ctx.arc(n.p.x, n.p.y, n.r, 0, 7);
       ctx.fillStyle = kColor(n.kind); ctx.fill();
       if (!n.seed) { ctx.lineWidth = 1.5 / view.s; ctx.strokeStyle = light() ? "#fff" : "#0b0e14"; ctx.stroke(); }
@@ -433,12 +442,14 @@ function buildGraph(panel, baseQ) {
     ctx.fillStyle = light() ? "#1e293b" : "#e5e7eb";
     for (const n of nodes) {
       if (!showLabel(n)) continue;
-      const t = (n.title || "").slice(0, 34);
+      ctx.globalAlpha = n.seed ? 1 : 0.45;
+      const t = (n.title || "").slice(0, 34) + (n.seed ? "" : " (context)");
       ctx.save();
       ctx.strokeStyle = light() ? "rgba(255,255,255,.85)" : "rgba(0,0,0,.6)"; ctx.lineWidth = 3 / view.s; ctx.lineJoin = "round";
       ctx.strokeText(t, n.p.x, n.p.y + n.r + 12 / view.s); ctx.fillText(t, n.p.x, n.p.y + n.r + 12 / view.s);
       ctx.restore();
     }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 
@@ -464,7 +475,13 @@ function buildGraph(panel, baseQ) {
     const w = toWorld(e);
     if (drag) { drag.node.p.x = w.x + drag.dx; drag.node.p.y = w.y + drag.dy; drag.node.p.vx = drag.node.p.vy = 0; alpha = Math.max(alpha, 0.3); panned = true; }
     else if (pan) { view.tx = e.clientX - pan.x; view.ty = e.clientY - pan.y; panned = true; }
-    else { const h = pick(w); if (h !== hover) { hover = h; cv.style.cursor = h ? "pointer" : "grab"; } }
+    else {
+      const h = pick(w);
+      if (h !== hover) {
+        hover = h; cv.style.cursor = h ? "pointer" : "grab";
+        cv.title = h ? `${h.n_messages || 0} messages total · ${h.n_direct_messages || 0} direct · ${h.n_descendants || 0} subtopics${h.seed ? "" : " · context node"}` : "";
+      }
+    }
   };
   cv.onmouseup = e => {
     if (drag && !panned) openUnit(drag.node.id);
@@ -606,36 +623,76 @@ const TABS = {
            c.policy !== "digest" && teach("digest", c.source, c.channel, "Digest only"), teach("mute", c.source, c.channel, "Mute")))))));
   },
   async explore() {
-    const tags = await api("/api/tags?days=30");
+    const tags = await api("/api/tags" + (EXPLORE_FILTERS.days ? "?days=" + EXPLORE_FILTERS.days : ""));
     const groups = {};
     for (const t of tags) (groups[t.tag.split(":")[0]] ||= []).push(t);
+    const apply = () => { saveExploreFilters(); return render(false); };
+    const select = (id, options, value, change) => {
+      const control = el("select", {id, class: "graph-sel", style: "width:100%"});
+      for (const [v, label] of options) {
+        const option = el("option", {value: String(v)}, label); option.selected = String(v) === String(value); control.append(option);
+      }
+      control.onchange = () => change(control.value);
+      return control;
+    };
+    const keyword = el("input", {id: "explore-keywords", value: EXPLORE_FILTERS.query || "",
+      placeholder: "Title / summary; spaces = AND", style: "width:100%"});
+    const searchForm = el("form", {style: "display:flex;gap:6px;margin-bottom:10px", onsubmit: e => {
+      e.preventDefault(); EXPLORE_FILTERS.query = keyword.value.trim(); apply();
+    }}, keyword, el("button", {class: "b", type: "submit"}, "Apply"));
+    const sort = select("explore-sort", [["activity", "Recent activity"], ["oldest", "Oldest activity"],
+      ["due", "Due / date"], ["created", "Newest"], ["messages", "Most messages (all subtopics)"],
+      ["descendants", "Most subtopics (all levels)"], ["children", "Most direct subtopics"], ["title", "Title A–Z"]],
+      EXPLORE_SORT, value => { EXPLORE_SORT = value; localStorage.setItem("exploreSort", value); apply(); });
+    const scope = select("explore-scope", [["all", "Everything"], ["mine", "For me"]], SCOPE, value => {
+      SCOPE = value; localStorage.setItem("scope", value); apply();
+    });
+    const days = select("explore-days", [[0, "All time"], [1, "Last 24h"], [3, "Last 3 days"], [7, "Last 7 days"],
+      [14, "Last 14 days"], [30, "Last 30 days"]], EXPLORE_FILTERS.days, value => { EXPLORE_FILTERS.days = +value; apply(); });
+    const status = select("explore-status", [["", "Open + done"], ["open", "Open"], ["done", "Done"],
+      ["dropped", "Ignored"], ["all", "All statuses"]], EXPLORE_FILTERS.status, value => { EXPLORE_FILTERS.status = value; apply(); });
+    const checkbox = (id, label, key) => {
+      const input = el("input", {id, type: "checkbox", style: "width:auto"}); input.checked = !!EXPLORE_FILTERS[key];
+      input.onchange = () => { EXPLORE_FILTERS[key] = input.checked; apply(); };
+      return el("label", {style: "display:flex;align-items:center;gap:6px;margin:6px 0"}, input, label);
+    };
+    const kinds = el("div", {id: "explore-kinds", class: "chips"}, ...Object.keys(KIND_COLOR).map(k =>
+      el("button", {type: "button", class: "chip kind-chip" + (EXPLORE_FILTERS.kinds.includes(k) ? " on" : ""),
+        onclick: () => { const index = EXPLORE_FILTERS.kinds.indexOf(k); index < 0 ? EXPLORE_FILTERS.kinds.push(k) : EXPLORE_FILTERS.kinds.splice(index, 1); apply(); }},
+        el("i", {style: `background:${kColor(k)}`}), k)));
+    const selectedTags = el("div", {class: "chips"}, ...[...SEL].map(tag => el("button", {type: "button", class: "chip on",
+      onclick: () => { SEL.delete(tag); apply(); }}, tag + " ×")));
     const chips = Object.entries(groups).map(([ns, list]) => el("div", {class: "chips"}, el("span", {class: "status"}, ns + ":"),
-      ...list.slice(0, 40).map(t => el("span", {class: "chip" + (SEL.has(t.tag) ? " on" : ""), onclick: () => { SEL.has(t.tag) ? SEL.delete(t.tag) : SEL.add(t.tag); render(); }},
-        t.tag.slice(ns.length + 1), " ", el("i", {}, t.n)))));
-    const tagLane = lane("Tags — OR within a type, AND across", SEL.size ? [...SEL].join(" + ") : "", chips);
-    const modePick = (v, label) => el("span", {class: "chip" + (EXPLORE_VIEW === v ? " on" : ""),
-      onclick: () => { EXPLORE_VIEW = v; localStorage.setItem("exploreView", v); render(false); }}, label);
+      ...list.slice(0, 40).map(t => el("span", {class: "chip" + (SEL.has(t.tag) ? " on" : ""), onclick: () => {
+        SEL.has(t.tag) ? SEL.delete(t.tag) : SEL.add(t.tag); apply();
+      }}, t.tag.slice(ns.length + 1), " ", el("i", {}, t.n)))));
+    const row = (label, control) => el("tr", {}, el("td", {}, label), el("td", {}, control));
+    const table = el("table", {class: "kv", style: "width:100%;margin-bottom:8px"}, row("Sort", sort), row("Scope", scope), row("Activity", days), row("Status", status));
+    const clear = el("button", {id: "explore-reset", class: "b", onclick: () => {
+      Object.assign(EXPLORE_FILTERS, {query: "", kinds: [], days: 0, status: "", roots: false, context: false});
+      SEL.clear(); SCOPE = "all"; localStorage.setItem("scope", "all"); apply();
+    }}, "Clear filters");
+    const tagLane = lane("Sort & filters", null, [searchForm, table, el("div", {class: "day"}, "Kinds (none selected = all)"), kinds,
+      checkbox("explore-roots", "Top-level units only", "roots"),
+      checkbox("explore-context", "Show linked context (Graph)", "context"),
+      el("div", {class: "empty"}, "List and Graph use the same matching units. Context adds faded, non-matching neighbors only when enabled."), clear,
+      el("div", {class: "day"}, "Tags — OR within a namespace, AND across"), selectedTags, ...chips]);
+    const modePick = (value, label) => el("button", {class: "chip" + (EXPLORE_VIEW === value ? " on" : ""),
+      onclick: () => { EXPLORE_VIEW = value; localStorage.setItem("exploreView", value); apply(); }}, label);
     const modeToggle = el("span", {style: "display:flex;gap:4px"}, modePick("list", "☰ List"), modePick("graph", "⚹ Graph"));
-    const filterQ = `tags=${encodeURIComponent([...SEL].join(","))}` + mineQ();
+    const filterQ = exploreQuery();
     if (EXPLORE_VIEW === "graph") {
       const panel = el("section", {class: "lane", style: "padding:0;overflow:hidden;position:relative;display:flex;flex-direction:column;height:calc(100vh - 92px)"});
-      panel.append(el("h2", {style: "padding:10px 14px 0"}, "Info-unit graph",
-        el("span", {style: "display:flex;gap:8px;align-items:center"}, modeToggle)));
+      panel.append(el("h2", {style: "padding:10px 14px 0"}, "Info-unit graph", modeToggle));
       buildGraph(panel, filterQ);
       return el("div", {class: "grid g2"}, tagLane, panel);
     }
-    const units = await api(`/api/units?${filterQ}&roots=${SEL.size ? 0 : 1}&order=${EXPLORE_SORT}&limit=200`);
-    const sortSel = el("select", {style: "background:var(--input-bg);color:var(--ink);border:1px solid var(--input-border);border-radius:6px;padding:1px 5px;font-size:12px"});
-    for (const [v, t] of [["activity", "Recent activity"], ["oldest", "Oldest first"], ["due", "Due / date"],
-                          ["messages", "Most messages"], ["created", "Newest"], ["title", "Title A–Z"]]) {
-      const o = el("option", {value: v}, t); if (EXPLORE_SORT === v) o.selected = true; sortSel.append(o);
-    }
-    sortSel.onchange = () => { EXPLORE_SORT = sortSel.value; localStorage.setItem("exploreSort", sortSel.value); render(); };
-    const head = el("span", {style: "display:flex;gap:8px;align-items:center"}, modeToggle, "sort ", sortSel);
-    const ulane = lane(SEL.size ? "Matching units" : "Top-level units", units.length, units.map(u => unitCard(u)));
-    ulane.querySelector("h2 span:last-child").replaceWith(el("span", {style: "display:flex;gap:8px;align-items:center"}, head, el("span", {}, units.length)));
+    const units = await api(`/api/units?${filterQ}`);
+    const ulane = lane("Matching units", units.length, units.map(u => unitCard(u)));
+    ulane.querySelector("h2 span:last-child").replaceWith(el("span", {style: "display:flex;gap:8px;align-items:center"}, modeToggle, el("span", {}, units.length)));
     return el("div", {class: "grid g2"}, tagLane, ulane);
   },
+
   async live() {
     const d = await api("/api/live");
     const organizeNow = async (channel, btn) => {
@@ -1046,7 +1103,7 @@ async function render(keepScroll = true) {
 $("poll").onclick = async e => { e.target.disabled = true; $("status").textContent = "syncing…"; await api("/api/poll", {}); e.target.disabled = false; render(); };
 // the tab bar scrolls horizontally with a plain mouse wheel (scrollbar itself is hidden)
 $("tabs").addEventListener("wheel", e => { if (e.deltaY && $("tabs").scrollWidth > $("tabs").clientWidth) { $("tabs").scrollLeft += e.deltaY; e.preventDefault(); } }, {passive: false});
-function goTag(tag) { SEL = new Set([tag]); TAB = "explore"; $("q").value = ""; render(false); }
+function goTag(tag) { SEL = new Set([tag]); saveExploreFilters(); TAB = "explore"; $("q").value = ""; render(false); }
 $("q").onkeydown = async e => {
   if (e.key !== "Enter") return;
   const q = e.target.value.trim(); if (!q) return render();

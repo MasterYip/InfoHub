@@ -46,6 +46,9 @@ connections. Shared tags help filtering but do not create edges. Keep other pare
 connection. Use unlink_units only when asked to remove or move a connection. For duplicate tags,
 inspect list_tags before rename_tag. Never claim a change succeeded when a tool returns an error.
 
+Counts: msgs includes all descendant branches; repeated message attachments and shared branches count again.
+direct_msgs counts evidence attached directly to that unit.
+
 Guidance: prefer reading first. Titles are short main ideas, not sentences. Dates are ISO 8601 with
 offset. When the user asks you to "find things the hub missed", search for the topic, look at the
 messages, and create units for anything real that has no unit yet. Be concise; after acting, say what
@@ -117,7 +120,8 @@ def _compact_unit(u):
     return {"id": u["id"], "kind": u["kind"], "title": u["title"], "status": u["status"],
             "due": u.get("due_at"), "start": u.get("start_at"), "end": u.get("end_at"),
             "priority": u.get("priority"), "for_me": bool(u.get("for_me")), "tags": [t for t in u.get("tags", []) if not t.startswith("source:")],
-            "msgs": u.get("n_messages")}
+            "msgs": u.get("n_messages"), "direct_msgs": u.get("n_direct_messages"),
+            "subtopics": u.get("n_descendants")}
 
 
 def run_tool(cfg, store, name, args, changes):
@@ -206,7 +210,7 @@ def _run_tool(cfg, store, name, args, changes):
         return [dict(store.q("SELECT id, channel_name, sender_name, sent_at, text, link FROM messages WHERE id=?",
                              (mid,)).fetchone()) for mid in mids]
     if name == "get_graph":
-        return server_mod.graph(store, tags=args.get("tags") or (), kind=args.get("kind"),
+        return server_mod.graph(store, include_context=True, tags=args.get("tags") or (), kind=args.get("kind"),
                                 status=args.get("status"), q=args.get("query"), mine=bool(args.get("mine")),
                                 limit=max(1, min(50, int(args.get("limit", 20)))))
     if name == "list_tags":

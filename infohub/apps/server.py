@@ -5,7 +5,7 @@ GET  /api/today?scope=mine|all      needs-you messages, due todos, upcoming even
 GET  /api/live                      in-progress conversations (open segments) not yet organized
 POST /api/organize-now              {"channel": optional} force-organize open segments right now
 GET  /api/units?tags=a,b&kind=&status=&q=&days=&order=due|activity&roots=1
-GET  /api/graph?tags=&kind=&status=&q=&days=&mine=  nodes (units) + edges (unit_links) for the graph view
+GET  /api/graph?tags=&kind=&status=&q=&days=&mine=&order=&roots=&context=0|1  strict matches + optional context
 GET  /api/unit/<id>?depth=2         one unit with parents, children (recursive), tags, evidence messages
 GET  /api/tags?days=&prefix=        tag counts (for filter chips)
 GET  /api/views                     saved views from config (apps.views)
@@ -132,33 +132,48 @@ def _gnode(u, seed: bool) -> dict:
     return {"id": u["id"], "kind": u["kind"], "title": u["title"], "status": u["status"],
             "for_me": u.get("for_me"), "due_at": u.get("due_at"),
             "at": u.get("last_activity_at") or u.get("updated_at"),
-            "n_messages": u.get("n_messages"), "n_children": u.get("n_children"),
+            "n_messages": u.get("n_messages"), "n_direct_messages": u.get("n_direct_messages"),
+            "n_children": u.get("n_children"), "n_descendants": u.get("n_descendants"),
             "tags": [t for t in tags if not t.startswith("source:")],
             "source": next((t.split(":", 1)[1] for t in tags if t.startswith("source:")), None),
             "seed": seed}
 
 
-def graph(store, tags=(), kind=None, status=None, q=None, since=None, mine=False, limit=300) -> dict:
-    """The info-unit graph for the Explore graph view. Nodes are the units matching the current
-    Explore filters, plus one hop of their linked parents/children (so edges don't dangle); edges
-    are unit_links among them. Same filters as /api/units, so list and graph show the same subset."""
-    seed = U.query(store, tags, kind=kind, status=status, q=q, since=since, order="activity",
-                   limit=limit, mine=mine)
+def unit_query_params(qs, now=None):
+    """One filter/order contract for List and Graph."""
+    days = float(qs["days"]) if qs.get("days") else None
+    return {"tags": [t for t in qs.get("tags", "").split(",") if t],
+            "kind": [k for k in qs.get("kind", "").split(",") if k] or None,
+            "status": qs.get("status") or None, "q": qs.get("q") or None,
+            "since": (time.time() if now is None else now) - days * 86400 if days else None,
+            "roots_only": qs.get("roots") == "1", "order": qs.get("order", "activity"),
+            "limit": max(1, min(1000, int(qs.get("limit", 400)))), "mine": qs.get("mine") == "1"}
+
+
+def graph(store, tags=(), kind=None, status=None, q=None, since=None, mine=False, limit=300,
+          order="activity", roots_only=False, include_context=False) -> dict:
+    """Strict matching nodes by default; optional one-hop context is explicitly marked."""
+    seed = U.query(store, tags, kind=kind, status=status, q=q, since=since, order=order,
+                   roots_only=roots_only, limit=limit, mine=mine)
     nodes = {u["id"]: _gnode(u, seed=True) for u in seed}
+    if include_context and nodes:
+        ids = list(nodes)
+        ph = ",".join("?" for _ in ids)
+        rows = store.q(f"SELECT u.* FROM units u WHERE u.status!='dropped' AND u.id NOT IN ({ph}) AND u.id IN ("
+                       f"SELECT parent_id FROM unit_links WHERE child_id IN ({ph}) UNION "
+                       f"SELECT child_id FROM unit_links WHERE parent_id IN ({ph})) "
+                       "ORDER BY u.last_activity_at DESC, u.id DESC LIMIT ?", (*ids, *ids, *ids, int(limit))).fetchall()
+        for u in U._rows(store, rows):
+            nodes[u["id"]] = _gnode(u, seed=False)
     edges = []
     if nodes:
-        ph = ",".join("?" * len(nodes))
         ids = list(nodes)
-        rows = store.q(f"SELECT parent_id, child_id, relation FROM unit_links "
-                       f"WHERE parent_id IN ({ph}) OR child_id IN ({ph})", (*ids, *ids)).fetchall()
-        need = {nid for (p, c, _) in rows for nid in (p, c) if nid not in nodes}
-        for nid in list(need)[:limit]:
-            r = store.q("SELECT * FROM units WHERE id=? AND status!='dropped'", (nid,)).fetchone()
-            if r:
-                nodes[nid] = _gnode(U._row(store, r), seed=False)
-        edges = [{"source": p, "target": c, "relation": rel}
-                 for (p, c, rel) in rows if p in nodes and c in nodes]
-    return {"nodes": list(nodes.values()), "edges": edges, "now": int(time.time())}
+        ph = ",".join("?" for _ in ids)
+        edges = [dict(row) for row in store.q(
+            f"SELECT parent_id AS source, child_id AS target, relation FROM unit_links "
+            f"WHERE parent_id IN ({ph}) AND child_id IN ({ph}) ORDER BY parent_id, child_id, relation", (*ids, *ids))]
+    return {"nodes": list(nodes.values()), "edges": edges, "matched_count": len(seed),
+            "context_count": len(nodes) - len(seed), "now": int(time.time())}
 
 
 def organize_now(cfg, store, channel: str | None = None) -> dict:
@@ -384,17 +399,9 @@ def serve(cfg, store, poll_fn):
                                             "saved": config_mod.read_settings(),
                                             "restart_needed_for": ["hub.poll_minutes", "ai.interval_minutes"]})
                 if u.path == "/api/units":
-                    days = float(qs["days"]) if qs.get("days") else None
-                    return self._send(200, U.query(store, tags, kind=qs.get("kind") or None, status=qs.get("status") or None,
-                                                   q=qs.get("q") or None, since=time.time() - days * 86400 if days else None,
-                                                   roots_only=qs.get("roots") == "1", order=qs.get("order", "activity"),
-                                                   limit=int(qs.get("limit", 200)), mine=qs.get("mine") == "1"))
+                    return self._send(200, U.query(store, **unit_query_params(qs)))
                 if u.path == "/api/graph":
-                    days = float(qs["days"]) if qs.get("days") else None
-                    kinds = [k for k in (qs.get("kind") or "").split(",") if k] or None
-                    return self._send(200, graph(store, tags, kind=kinds, status=qs.get("status") or None,
-                                                 q=qs.get("q") or None, since=time.time() - days * 86400 if days else None,
-                                                 mine=qs.get("mine") == "1", limit=int(qs.get("limit", 300))))
+                    return self._send(200, graph(store, **unit_query_params(qs), include_context=qs.get("context") == "1"))
                 if m := re.fullmatch(r"/api/unit/(\d+)", u.path):
                     unit = U.get(store, int(m[1]), depth=int(qs.get("depth", 2)))
                     return self._send(200 if unit else 404, unit or {"error": "not found"})

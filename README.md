@@ -18,7 +18,7 @@
   <img alt="Windows" src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white">
   <img alt="Local-first" src="https://img.shields.io/badge/Local--first-no_cloud-15803D">
   <img alt="Runs without AI" src="https://img.shields.io/badge/Runs_without_AI-optional_LLM-6D28D9">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-50_passing-2E7D32">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-58_passing-2E7D32">
 </p>
 
 <p align="center">
@@ -59,6 +59,11 @@
 
 > **Try it with the demo data:** `python scripts/seed_demo.py` writes a fictional example database to
 > `data/demo.db`; point `hub.database` at it in `config/hub.local.yaml` and run `python -m infohub serve`.
+
+Explore's List and Graph share one sidebar for sorting and filtering, including keywords,
+kinds, time, status and tags. Message totals include every subtopic branch, and graph
+node size follows those totals. Graph filtering is strict by default; linked context is
+an explicit option. See the [Explore guide](docs/explore.md).
 
 ## Chat can organize the graph
 

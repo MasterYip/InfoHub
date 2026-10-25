@@ -182,7 +182,7 @@ class Layer2(unittest.TestCase):
         self.assertEqual({n["id"] for n in g["nodes"]}, {a, b, c, d})
         self.assertEqual({(e["source"], e["target"]) for e in g["edges"]}, {(a, b), (b, c), (d, c)})
         # filtering by a tag keeps the matching node and pulls its linked neighbours in as edges
-        gh = graph(self.store, ["type:homework"])
+        gh = graph(self.store, ["type:homework"], include_context=True)
         ids = {n["id"] for n in gh["nodes"]}
         self.assertIn(c, ids)                                  # the homework unit (seed)
         self.assertTrue({b, d} & ids)                          # neighbours pulled in so edges connect
