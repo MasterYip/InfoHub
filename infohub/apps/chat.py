@@ -1,7 +1,7 @@
 """In-dashboard chat assistant over the hub (DeepSeek / any OpenAI-compatible chat API).
 
 You type in the dashboard; the assistant can search your info units and messages, list todos
-and events, and — when you ask — create or update units and re-organize chats it finds. It runs
+and events, and — when you ask — edit units, evidence, tags and graph connections. It runs
 an OpenAI-style tool-calling loop against `ai.base_url`/`ai.model` using the key in `ai.api_key_env`.
 Reads are free; writes go through the same unit functions as the rest of the app and are summarized
 back to you. Bounded by a per-turn tool-call cap and the daily AI budget.
@@ -26,13 +26,25 @@ SYSTEM = """You are the assistant inside "Info Hub", a personal dashboard that o
 chat messages into info units (todo, event, topic, question, decision, announcement, resource, note).
 
 You can answer questions about what's in the hub and, when the user asks, change it. Use the tools:
-- search(query): find units, messages, people, chats and tags matching a word.
-- list_units(kind, status, tags, due_within_days, mine, limit): list info units.
-- get_unit(id): one unit with its parents, children, tags and the messages behind it.
-- brief(days, tags): a Markdown summary of open todos, events and topics.
-- create_unit(kind, title, summary, tags, due, message_ids): make a new unit (e.g. a todo the hub
-  missed). Attach message_ids from search results as evidence when relevant.
-- update_unit(id, status, title, add_tags, remove_tags): change a unit (status: open|done|dropped).
+- search(query), list_units(...), get_unit(id), get_messages(message_ids), brief(days, tags): read
+  units, messages and summaries. get_unit returns IDs and relationships for parents and children.
+- get_graph(tags, kind, status, query, limit): inspect graph nodes and explicit edges, including
+  one hop of neighbors. An edge's source is its parent and target is its child.
+- list_tags(prefix, limit): discover the actual tags and how many units use each one.
+- create_unit(..., parent_ids, message_ids): create a unit with evidence and any existing parents.
+- update_unit(id, ...): edit kind, title, summary, status, priority, dates, personal scope, tags or
+  message evidence. Use null to clear a date. Adding type:<kind> reclassifies the unit.
+- link_units(parent_id, child_id, relation), unlink_units(parent_id, child_id, relation): add or
+  remove an explicit graph edge. The default relation is part_of; a child can have several parents.
+  For a related topic without a containment meaning use relation related_to; all edges are directed
+  and cycles are refused. Choose the direction from the user's request, or ask when ambiguous.
+- rename_tag(from_tag, to_tag): rename a tag across all units, consolidating duplicates when the
+  destination tag already exists. This changes tags, not unit identity or graph edges.
+
+For graph organization, inspect the units and existing edges first, then use link_units for real
+connections. Shared tags help filtering but do not create edges. Keep other parents when adding a
+connection. Use unlink_units only when asked to remove or move a connection. For duplicate tags,
+inspect list_tags before rename_tag. Never claim a change succeeded when a tool returns an error.
 
 Guidance: prefer reading first. Titles are short main ideas, not sentences. Dates are ISO 8601 with
 offset. When the user asks you to "find things the hub missed", search for the topic, look at the
@@ -48,28 +60,53 @@ Use ids and names exactly as they appear in tool results; never invent an id. Pu
 to the thing it points at, not in a separate list. You may use light Markdown (bold, lists, `code`,
 fenced code blocks) in your answers."""
 
+UNIT_FIELDS = {
+    "kind": {"type": "string", "enum": U.KINDS}, "title": {"type": "string"},
+    "summary": {"type": "string"}, "status": {"type": "string", "enum": ["open", "done", "dropped"]},
+    "priority": {"type": ["string", "null"], "enum": ["P0", "P1", "P2", "P3", None]},
+    "due": {"type": ["string", "null"], "description": "ISO 8601 date/time; null clears it."},
+    "start": {"type": ["string", "null"]}, "end": {"type": ["string", "null"]},
+    "for_me": {"type": "boolean"},
+}
+TAGS = {"type": "array", "items": {"type": "string"}}
+IDS = {"type": "array", "items": {"type": "integer"}}
+FILTERS = {
+    "kind": {"type": "string", "enum": U.KINDS}, "status": {"type": "string"}, "tags": TAGS,
+    "query": {"type": "string"}, "mine": {"type": "boolean"},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+}
+EDGE = {"parent_id": {"type": "integer"}, "child_id": {"type": "integer"},
+        "relation": {"type": "string", "description": "Directed edge label; defaults to part_of."}}
+
+
+def _tool(name, description, properties, required=()):
+    return {"type": "function", "function": {"name": name, "description": description,
+            "parameters": {"type": "object", "properties": properties, "required": list(required)}}}
+
+
 TOOLS = [
-    {"type": "function", "function": {"name": "search", "description": "Search units, messages, people, chats, tags.",
-        "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
-    {"type": "function", "function": {"name": "list_units", "description": "List info units.",
-        "parameters": {"type": "object", "properties": {
-            "kind": {"type": "string"}, "status": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}},
-            "due_within_days": {"type": "number"}, "mine": {"type": "boolean"}, "limit": {"type": "integer"}}}}},
-    {"type": "function", "function": {"name": "get_unit", "description": "One unit with its evidence.",
-        "parameters": {"type": "object", "properties": {"id": {"type": "integer"}}, "required": ["id"]}}},
-    {"type": "function", "function": {"name": "brief", "description": "Markdown summary of todos/events/topics.",
-        "parameters": {"type": "object", "properties": {"days": {"type": "integer"}, "tags": {"type": "array", "items": {"type": "string"}}}}}},
-    {"type": "function", "function": {"name": "create_unit", "description": "Create a new info unit.",
-        "parameters": {"type": "object", "properties": {
-            "kind": {"type": "string"}, "title": {"type": "string"}, "summary": {"type": "string"},
-            "tags": {"type": "array", "items": {"type": "string"}}, "due": {"type": "string"},
-            "message_ids": {"type": "array", "items": {"type": "integer"}}}, "required": ["kind", "title"]}}},
-    {"type": "function", "function": {"name": "update_unit", "description": "Update a unit.",
-        "parameters": {"type": "object", "properties": {
-            "id": {"type": "integer"}, "status": {"type": "string"}, "title": {"type": "string"},
-            "add_tags": {"type": "array", "items": {"type": "string"}}, "remove_tags": {"type": "array", "items": {"type": "string"}}},
-            "required": ["id"]}}},
+    _tool("search", "Search units, messages, people, chats, tags.", {"query": {"type": "string"}}, ["query"]),
+    _tool("list_units", "List info units.", {**FILTERS, "due_within_days": {"type": "number"}}),
+    _tool("get_unit", "Read a unit with evidence and parent/child IDs and relationships.",
+          {"id": {"type": "integer"}}, ["id"]),
+    _tool("get_messages", "Read full message evidence by IDs (up to 10).", {"message_ids": IDS}, ["message_ids"]),
+    _tool("brief", "Markdown summary of todos/events/topics.", {"days": {"type": "integer"}, "tags": TAGS}),
+    _tool("get_graph", "Inspect directed edges, up to limit matching nodes and limit neighbors; use get_unit for all incident edges.", FILTERS),
+    _tool("list_tags", "List existing tags and unit counts. Prefix example: topic:.",
+          {"prefix": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 100}}),
+    _tool("create_unit", "Create an info unit, optionally under several existing parents, with evidence.",
+          {**UNIT_FIELDS, "tags": TAGS, "parent_ids": IDS, "message_ids": IDS}, ["kind", "title"]),
+    _tool("update_unit", "Edit a unit, reclassify its kind, add/remove tags or attach/detach evidence.",
+          {**UNIT_FIELDS, "id": {"type": "integer"}, "add_tags": TAGS, "remove_tags": TAGS,
+           "message_ids": IDS, "remove_message_ids": IDS}, ["id"]),
+    _tool("link_units", "Add a directed parent-to-child graph edge. Preserves other parents; refuses cycles.",
+          EDGE, ["parent_id", "child_id"]),
+    _tool("unlink_units", "Remove only the specified graph edge; preserves units, tags, evidence and other edges.",
+          EDGE, ["parent_id", "child_id"]),
+    _tool("rename_tag", "Rename/consolidate a tag across ALL units in its namespace. Reserved tags cannot be renamed.",
+          {"from_tag": {"type": "string"}, "to_tag": {"type": "string"}}, ["from_tag", "to_tag"]),
 ]
+WRITE_TOOLS = {"create_unit", "update_unit", "link_units", "unlink_units", "rename_tag"}
 
 
 def _tz(cfg):
@@ -78,11 +115,63 @@ def _tz(cfg):
 
 def _compact_unit(u):
     return {"id": u["id"], "kind": u["kind"], "title": u["title"], "status": u["status"],
-            "due": u.get("due_at"), "tags": [t for t in u.get("tags", []) if not t.startswith("source:")],
+            "due": u.get("due_at"), "start": u.get("start_at"), "end": u.get("end_at"),
+            "priority": u.get("priority"), "for_me": bool(u.get("for_me")), "tags": [t for t in u.get("tags", []) if not t.startswith("source:")],
             "msgs": u.get("n_messages")}
 
 
 def run_tool(cfg, store, name, args, changes):
+    """Apply each write atomically and report changes only after a successful commit."""
+    if not isinstance(args, dict):
+        return {"error": "tool arguments must be an object"}
+    try:
+        if name in WRITE_TOOLS:
+            pending = []
+            with store.db:
+                result = _run_tool(cfg, store, name, args, pending)
+            changes.extend(pending)
+            return result
+        return _run_tool(cfg, store, name, args, [])
+    except (ValueError, TypeError, KeyError) as exc:
+        return {"error": str(exc)}
+
+
+def _require_units(store, ids):
+    for uid in ids:
+        if not store.q("SELECT 1 FROM units WHERE id=?", (int(uid),)).fetchone():
+            raise ValueError(f"unit {uid} not found")
+
+
+def _message_ids(store, ids):
+    mids = list(dict.fromkeys(int(m) for m in ids or []))
+    for mid in mids:
+        if not store.q("SELECT 1 FROM messages WHERE id=?", (mid,)).fetchone():
+            raise ValueError(f"message {mid} not found")
+    return mids
+
+
+def _fields(args, tz):
+    fields = {k: args[k] for k in ("kind", "title", "summary", "status", "priority") if k in args}
+    if "kind" in fields and fields["kind"] not in U.KINDS:
+        raise ValueError("bad kind")
+    if "status" in fields and fields["status"] not in ("open", "done", "dropped"):
+        raise ValueError("bad status")
+    if "priority" in fields and fields["priority"] not in (None, "P0", "P1", "P2", "P3"):
+        raise ValueError("bad priority")
+    if "title" in fields:
+        fields["title"] = fields["title"].strip()[:200]
+        if not fields["title"]:
+            raise ValueError("title required")
+    for k in ("due", "start", "end"):
+        if k in args:
+            value = U.iso_to_epoch(args[k], tz)
+            if args[k] is not None and value is None:
+                raise ValueError(f"invalid {k}: use an ISO 8601 date/time or null")
+            fields[k + "_at"] = value
+    return fields
+
+
+def _run_tool(cfg, store, name, args, changes):
     tz = _tz(cfg)
     if name == "search":
         d = server_mod.search_all(store, args.get("query", ""), limit=15)
@@ -93,46 +182,114 @@ def run_tool(cfg, store, name, args, changes):
                 "chats": [{"name": c["channel_name"], "policy": c["policy"], "n": c["n"]} for c in d["channels"][:10]],
                 "tags": [{"tag": t["tag"], "n": t["n"]} for t in d["tags"][:15]]}
     if name == "list_units":
-        since = time.time() - float(args["due_within_days"]) * 86400 if args.get("due_within_days") else None
         due_before = int(time.time() + float(args["due_within_days"]) * 86400) if args.get("due_within_days") else None
         us = U.query(store, tags=args.get("tags") or (), kind=args.get("kind"), status=args.get("status"),
-                     due_before=due_before, order="due" if args.get("due_within_days") else "activity",
-                     limit=int(args.get("limit", 30)), mine=bool(args.get("mine")))
+                     q=args.get("query"), due_before=due_before, order="due" if args.get("due_within_days") else "activity",
+                     limit=max(1, min(50, int(args.get("limit", 30)))), mine=bool(args.get("mine")))
         return [_compact_unit(u) for u in us]
     if name == "get_unit":
         u = U.get(store, int(args["id"]))
         if not u:
             return {"error": "not found"}
         return {**_compact_unit(u), "summary": u.get("summary"),
-                "parents": [p["title"] for p in u.get("parents", [])],
-                "children": [c["title"] for c in u.get("children", [])],
+                "parents": u.get("parents", []),
+                "children": [dict(r) for r in store.q(
+                    "SELECT u.id, u.kind, u.title, l.relation FROM unit_links l JOIN units u ON u.id=l.child_id "
+                    "WHERE l.parent_id=?", (u["id"],))],
                 "messages": [{"id": m["id"], "sender": m["sender_name"], "text": (m["text"] or "")[:200]} for m in u.get("messages", [])]}
     if name == "brief":
         return {"markdown": brief_mod.brief(cfg, store, int(args.get("days", 7)), args.get("tags") or ())}
-    if name == "create_unit":
-        kind = args["kind"] if args["kind"] in U.KINDS else "note"
-        uid = U.upsert(store, None, kind=kind, title=args["title"][:200], summary=args.get("summary"),
-                       due_at=U.iso_to_epoch(args.get("due"), tz), origin="user")
-        U.add_tags(store, uid, [f"type:{kind}"] + list(args.get("tags") or []))
-        mids = [int(m) for m in args.get("message_ids") or []
-                if store.q("SELECT 1 FROM messages WHERE id=?", (int(m),)).fetchone()]
+    if name == "get_messages":
+        mids = _message_ids(store, args["message_ids"])
+        if len(mids) > 10:
+            raise ValueError("read at most 10 messages at a time")
+        return [dict(store.q("SELECT id, channel_name, sender_name, sent_at, text, link FROM messages WHERE id=?",
+                             (mid,)).fetchone()) for mid in mids]
+    if name == "get_graph":
+        return server_mod.graph(store, tags=args.get("tags") or (), kind=args.get("kind"),
+                                status=args.get("status"), q=args.get("query"), mine=bool(args.get("mine")),
+                                limit=max(1, min(50, int(args.get("limit", 20)))))
+    if name == "list_tags":
+        return U.tag_counts(store, prefix=args.get("prefix"), limit=max(1, min(100, int(args.get("limit", 50)))))
+    if name in ("create_unit", "update_unit"):
+        fields = _fields(args, tz)
+        mids = _message_ids(store, args.get("message_ids"))
+        remove_mids = _message_ids(store, args.get("remove_message_ids"))
+        creating = name == "create_unit"
+        tags = [U.norm_tag(t) for t in (args.get("tags" if creating else "add_tags") or [])]
+        tags = [t for t in tags if t]
+        type_kinds = [t.split(":", 1)[1] for t in tags if t.startswith("type:") and t.split(":", 1)[1] in U.KINDS]
+        if type_kinds and "kind" not in fields:
+            fields["kind"] = type_kinds[-1]
+        kind = fields.get("kind")
+        if creating:
+            parents = list(dict.fromkeys(int(p) for p in args.get("parent_ids") or []))
+            _require_units(store, parents)
+            uid = U.upsert(store, None, origin="user", **fields)
+            for parent in parents:
+                if not U.link(store, parent, uid):
+                    raise ValueError("link would create a cycle")
+        else:
+            uid = int(args["id"])
+            _require_units(store, [uid])
+            U.update(store, uid, **fields)
+        if kind:
+            store.q("DELETE FROM unit_tags WHERE unit_id=? AND tag LIKE 'type:%'", (uid,))
+            tags = [t for t in tags if not t.startswith("type:")] + [f"type:{kind}"]
+        U.add_tags(store, uid, tags)
+        # Kind tags are managed above; obligation tags such as type:homework remain editable.
+        U.remove_tags(store, uid, [t for t in args.get("remove_tags") or []
+                                 if U.norm_tag(t) not in {f"type:{k}" for k in U.KINDS}])
         U.attach(store, uid, mids)
+        for mid in remove_mids:
+            store.q("DELETE FROM unit_messages WHERE unit_id=? AND message_id=?", (uid, mid))
         U.mark_for_me(store, uid)
-        store.db.commit()
-        changes.append({"action": "created", "id": uid, "title": args["title"][:80]})
-        return {"created": uid}
-    if name == "update_unit":
-        uid = int(args["id"])
-        if not store.q("SELECT 1 FROM units WHERE id=?", (uid,)).fetchone():
-            return {"error": "not found"}
-        status = args.get("status") if args.get("status") in ("open", "done", "dropped") else None
-        U.update(store, uid, **{k: v for k, v in {"status": status, "title": args.get("title")}.items() if v})
-        U.add_tags(store, uid, args.get("add_tags"))
-        U.remove_tags(store, uid, args.get("remove_tags"))
-        store.db.commit()
-        changes.append({"action": "updated", "id": uid, "status": status})
-        return {"updated": uid}
+        if "for_me" in args:
+            store.q("UPDATE units SET for_me=? WHERE id=?", (int(bool(args["for_me"])), uid))
+        action = "created" if creating else "updated"
+        changes.append({"action": action, "id": uid, "fields": list(fields)})
+        return {action: uid}
+    if name in ("link_units", "unlink_units"):
+        parent, child = int(args["parent_id"]), int(args["child_id"])
+        _require_units(store, [parent, child])
+        relation = args.get("relation", "part_of").strip()
+        if not relation or len(relation) > 60:
+            raise ValueError("relation must be 1 to 60 characters")
+        edge = (parent, child, relation)
+        exists = bool(store.q("SELECT 1 FROM unit_links WHERE parent_id=? AND child_id=? AND relation=?", edge).fetchone())
+        if name == "link_units":
+            if not U.link(store, parent, child, relation):
+                raise ValueError("link would create a cycle or self-link")
+            changed, action = not exists, "linked"
+        else:
+            store.q("DELETE FROM unit_links WHERE parent_id=? AND child_id=? AND relation=?", edge)
+            changed, action = exists, "unlinked"
+        result = {"parent_id": parent, "child_id": child, "relation": relation, "changed": changed}
+        if changed:
+            changes.append({"action": action, **result})
+        return result
+    if name == "rename_tag":
+        old, new = U.norm_tag(args["from_tag"]), U.norm_tag(args["to_tag"])
+        if not old or not new:
+            raise ValueError("both tags are required")
+        ns = old.split(":", 1)[0]
+        if ns in ("type", "source", "status") or new.split(":", 1)[0] != ns:
+            raise ValueError("rename within the same non-reserved namespace; use update_unit for kind changes")
+        count = store.q("SELECT count(*) FROM unit_tags WHERE tag=?", (old,)).fetchone()[0] if old != new else 0
+        if count:
+            store.q("INSERT OR IGNORE INTO unit_tags SELECT unit_id, ? FROM unit_tags WHERE tag=?", (new, old))
+            store.q("DELETE FROM unit_tags WHERE tag=?", (old,))
+            changes.append({"action": "renamed_tag", "from_tag": old, "to_tag": new, "units": count})
+        return {"from_tag": old, "to_tag": new, "units": count}
     return {"error": f"unknown tool {name}"}
+
+
+def _tool_content(result):
+    content = json.dumps(result, ensure_ascii=False)
+    if len(content) <= 16000:
+        return content
+    return json.dumps({"truncated": True, "preview": content[:14000],
+                       "hint": "Narrow filters/limits or request specific unit/message IDs."}, ensure_ascii=False)
 
 
 def _post(ai, messages, tools=True):
@@ -189,7 +346,7 @@ def chat(cfg, store, history: list[dict]) -> dict:
             except Exception as exc:
                 result = {"error": f"{type(exc).__name__}: {str(exc)[:120]}"}
             messages.append({"role": "tool", "tool_call_id": call.get("id"),
-                             "content": json.dumps(result, ensure_ascii=False)[:4000]})
+                             "content": _tool_content(result)})
     return {"reply": "(stopped after too many steps)", "changes": changes, "cost": round(cost, 5)}
 
 
@@ -218,6 +375,8 @@ def _post_stream(ai, messages, tools=True):
 
 
 def _tool_label(name, args):
+    if not isinstance(args, dict):
+        return f"{name}…"
     if name == "search":
         return f"searching “{args.get('query', '')}”…"
     if name == "get_unit":
@@ -226,6 +385,10 @@ def _tool_label(name, args):
         return f"creating a unit: {args.get('title', '')[:40]}…"
     if name == "update_unit":
         return f"updating unit {args.get('id')}…"
+    if name in ("link_units", "unlink_units"):
+        return f"{'linking' if name == 'link_units' else 'unlinking'} units {args.get('parent_id')} → {args.get('child_id')}…"
+    if name == "rename_tag":
+        return f"renaming tag {args.get('from_tag')} → {args.get('to_tag')}…"
     return f"{name}…"
 
 
@@ -293,5 +456,5 @@ def chat_stream(cfg, store, lock, history: list[dict]):
                     result = run_tool(cfg, store, c["name"], args, changes)
                 except Exception as exc:
                     result = {"error": f"{type(exc).__name__}: {str(exc)[:120]}"}
-            messages.append({"role": "tool", "tool_call_id": c["id"], "content": json.dumps(result, ensure_ascii=False)[:4000]})
+            messages.append({"role": "tool", "tool_call_id": c["id"], "content": _tool_content(result)})
     yield {"type": "done", "changes": changes, "cost": round(cost, 5)}

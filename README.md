@@ -18,21 +18,14 @@
   <img alt="Windows" src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white">
   <img alt="Local-first" src="https://img.shields.io/badge/Local--first-no_cloud-15803D">
   <img alt="Runs without AI" src="https://img.shields.io/badge/Runs_without_AI-optional_LLM-6D28D9">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-26_passing-2E7D32">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-30_passing-2E7D32">
 </p>
 
 <p align="center">
-  <img src="assets/dashboard-today.png" width="100%"
-       alt="Info Hub dashboard: a Today view with to-dos, events and flagged messages organized from chat groups.">
+  <img src="assets/infohub-demo.gif" width="100%"
+       alt="Info Hub demo showing Today priorities, Explore info-unit graph and filters, and Chat answers with linked evidence.">
   <br>
-  <sub><i>The dashboard’s <b>Today</b> view — to-dos, events and flagged messages organized from your chats. Synthetic demo data (invented people; no real messages).</i></sub>
-</p>
-
-<p align="center">
-  <img src="assets/graph.png" width="100%"
-       alt="Explore tab in graph mode: a live force-directed graph of info units, colored by kind, with physics and filter controls.">
-  <br>
-  <sub><i><b>Explore → Graph</b> — a live, force-directed map of your info units (color by kind, size by activity), with tunable physics and per-kind / time filters. Click any node to open it. Synthetic demo data.</i></sub>
+  <sub><i>Quick tour: <b>Today</b> for the work that needs attention, <b>Explore</b> for the tagged info-unit graph, and <b>Chat</b> for answers grounded in your organized messages. Synthetic demo data.</i></sub>
 </p>
 
 > Chat groups are noisy. Info Hub reads your own Lark/Feishu accounts (and any source plugin you add) **locally and
@@ -40,24 +33,40 @@
 > dashboard — todos, events, a calendar, and topic summaries — with everything staying on your machine.
 
 <details>
-<summary><b>More screenshots</b></summary>
-<br>
+<summary><b>Screenshots: Today, Explore, Graph and Chat</b></summary>
+
 <p align="center">
-  <img src="assets/dashboard-explore.png" width="100%"
-       alt="Explore tab: filter info units by tags (person, topic, channel, type) over a recursive unit graph.">
+  <img src="assets/dashboard-today.png" width="100%" alt="Today view with to-dos, events and flagged messages.">
   <br>
-  <sub><i><b>Explore</b> — filter the info-unit graph by person, topic, channel or type. Synthetic demo data.</i></sub>
+  <sub><i><b>Today</b> — priorities, events and flagged messages. Synthetic demo data.</i></sub>
 </p>
 <p align="center">
-  <img src="assets/chat.png" width="100%"
-       alt="Chat tab: ask the assistant about your hub; it answers in Markdown with clickable references to units, groups and people.">
+  <img src="assets/dashboard-explore.png" width="100%" alt="Explore view with info units filtered by tags.">
   <br>
-  <sub><i><b>Chat</b> — ask the built-in assistant about your hub. It streams Markdown answers and cites clickable references to the exact units, groups and people. Optional, powered by any OpenAI-compatible LLM. Synthetic demo data.</i></sub>
+  <sub><i><b>Explore</b> — filter units by person, topic, channel or type. Synthetic demo data.</i></sub>
+</p>
+<p align="center">
+  <img src="assets/graph.png" width="100%" alt="Explore graph showing connected info units.">
+  <br>
+  <sub><i><b>Graph</b> — inspect connected units and open any node. Synthetic demo data.</i></sub>
+</p>
+<p align="center">
+  <img src="assets/chat.png" width="100%" alt="Chat answers with clickable evidence references.">
+  <br>
+  <sub><i><b>Chat</b> — streamed answers with links to units, groups and people. Synthetic demo data.</i></sub>
 </p>
 </details>
 
 > **Try it with the demo data:** `python scripts/seed_demo.py` writes a fictional example database to
 > `data/demo.db`; point `hub.database` at it in `config/hub.local.yaml` and run `python -m infohub serve`.
+
+## Chat can organize the graph
+
+Ask the assistant to connect topics, add a unit under several parents, remove a connection,
+consolidate duplicate tags, change a unit's kind or dates, and attach message evidence.
+It can inspect graph edges and tag counts before editing, and reports the changes it applies.
+For example: “Link the reward-design topic under world models”, or “Consolidate topic:rl-training
+into topic:reinforcement-learning”. Chat needs an OpenAI-compatible model configured in Settings.
 
 ## How it works
 

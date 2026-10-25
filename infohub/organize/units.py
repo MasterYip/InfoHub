@@ -81,9 +81,9 @@ def remove_tags(store, uid: int, tags) -> None:
             store.q("DELETE FROM unit_tags WHERE unit_id=? AND tag=?", (uid, t))
 
 
-def ancestors(store, uid: int, limit=200) -> set[int]:
+def ancestors(store, uid: int, limit=None) -> set[int]:
     seen, frontier = set(), [uid]
-    while frontier and len(seen) < limit:
+    while frontier and (limit is None or len(seen) < limit):
         nxt = []
         for u in frontier:
             for (p,) in store.q("SELECT parent_id FROM unit_links WHERE child_id=?", (u,)):
