@@ -177,6 +177,26 @@ def get(store, uid: int, depth: int = 1, with_messages=True, _stats=None) -> dic
     return d
 
 
+def _top_level_matches(store, rows):
+    """Keep matches without a matching ancestor, including across nonmatching bridges."""
+    if not rows:
+        return rows
+    children = {}
+    for link in store.q("SELECT DISTINCT l.parent_id,l.child_id FROM unit_links l "
+                        "JOIN units p ON p.id=l.parent_id JOIN units c ON c.id=l.child_id"):
+        children.setdefault(link["parent_id"], set()).add(link["child_id"])
+    # One shared traversal finds all descendants of any match before the result limit.
+    pending = [child for row in rows for child in children.get(row["id"], ())]
+    descendants = set()
+    while pending:
+        child = pending.pop()
+        if child in descendants:
+            continue
+        descendants.add(child)
+        pending.extend(children.get(child, ()))
+    return [row for row in rows if row["id"] not in descendants]
+
+
 def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before=None, roots_only=False,
           order="activity", limit=200, mine=False) -> list[dict]:
     where, args = [], []
@@ -184,6 +204,23 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
     for t in tags or ():
         if (t := norm_tag(t)):
             groups.setdefault(t.split(":", 1)[0], []).append(t)
+    prefix = ""
+    source_tags = groups.pop("source", [])
+    if source_tags:
+        placeholders = ','.join('?' * len(source_tags))
+        # Sources describe the evidence contained in a unit, including all child branches.
+        # Walk upwards from matching tags/evidence; UNION handles shared parents and cycles.
+        prefix = (f"WITH RECURSIVE source_matches(id) AS ("
+                  f"SELECT t.unit_id FROM unit_tags t JOIN units s ON s.id=t.unit_id "
+                  f"WHERE t.tag IN ({placeholders}) "
+                  f"UNION SELECT um.unit_id FROM unit_messages um JOIN units s ON s.id=um.unit_id "
+                  f"JOIN messages m ON m.id=um.message_id WHERE "
+                  f"m.source || CASE WHEN coalesce(m.account,'')='' THEN '' ELSE ':' || m.account END "
+                  f"IN ({placeholders}) "
+                  f"UNION SELECT l.parent_id FROM unit_links l JOIN source_matches s ON s.id=l.child_id "
+                  f"JOIN units p ON p.id=l.parent_id) ")
+        args += source_tags + [tag.removeprefix("source:") for tag in source_tags]
+        where.append("u.id IN (SELECT id FROM source_matches)")
     for _, gtags in groups.items():
         where.append(f"u.id IN (SELECT unit_id FROM unit_tags WHERE tag IN ({','.join('?' * len(gtags))}))")
         args += gtags
@@ -202,8 +239,6 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
     if due_before:
         where.append("coalesce(u.due_at, u.start_at) IS NOT NULL AND coalesce(u.due_at, u.start_at) <= ?")
         args.append(int(due_before))
-    if roots_only:
-        where.append("NOT EXISTS (SELECT 1 FROM unit_links l JOIN units p ON p.id=l.parent_id WHERE l.child_id=u.id)")
     if mine:
         where.append("u.for_me=1")
     # Whitespace-separated literal keywords use AND across title/summary matches.
@@ -222,16 +257,19 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
         "created": "u.created_at DESC, u.id DESC",
         "title": "u.title COLLATE NOCASE ASC, u.id ASC",
     }.get(order, "coalesce(u.last_activity_at,u.updated_at) DESC, u.id DESC")
-    sql = f"SELECT u.* FROM units u {'WHERE ' + ' AND '.join(where) if where else ''}"
+    sql = prefix + f"SELECT u.* FROM units u {'WHERE ' + ' AND '.join(where) if where else ''}"
     metric = {"messages": "n_messages", "children": "n_children", "descendants": "n_descendants"}.get(order)
-    if metric:
-        # Aggregate and sort all candidates BEFORE limiting the result.
-        rows = store.q(sql, args).fetchall()
+    if metric or roots_only:
+        # Select the outermost matches and sort all candidates BEFORE applying the limit.
+        rows = store.q(sql + f" ORDER BY {order_sql}", args).fetchall()
+        if roots_only:
+            rows = _top_level_matches(store, rows)
         if not rows:
             return []
         stats = rollup_stats(store)
-        rows.sort(key=lambda row: (stats[row["id"]][metric], row["last_activity_at"] or row["updated_at"] or 0,
-                                   row["id"]), reverse=True)
+        if metric:
+            rows.sort(key=lambda row: (stats[row["id"]][metric], row["last_activity_at"] or row["updated_at"] or 0,
+                                       row["id"]), reverse=True)
         return _rows(store, rows[:max(0, int(limit))], stats)
     return _rows(store, store.q(sql + f" ORDER BY {order_sql} LIMIT ?", (*args, int(limit))))
 

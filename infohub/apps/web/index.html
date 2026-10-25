@@ -202,9 +202,9 @@ applyTheme(localStorage.getItem("theme") || "dark");
 document.getElementById("themeBtn").onclick = () =>
   applyTheme(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light");
 function drawScope() {
-  $("scopeToggle").style.display = TAB === "explore" ? "none" : "";
+  $("scopeToggle").style.display = "";
   const pick = (v, label) => el("span", {class: "chip" + (SCOPE === v ? " on" : ""),
-    onclick: () => { SCOPE = v; localStorage.setItem("scope", v); render(false); }}, label);
+    onclick: () => { SCOPE = v; localStorage.setItem("scope", v); render(); }}, label);
   $("scopeToggle").replaceChildren(pick("mine", "For me"), pick("all", "Everything"));
 }
 
@@ -243,7 +243,7 @@ function timeLabel(u) {                      // every unit shows when it is from
   return t ? el("span", {class: "ago", title: new Date(t * 1000).toLocaleString()}, fmt(t)) : null;
 }
 function tagChips(tags) {
-  return (tags || []).filter(t => !t.startsWith("source:")).map(t => el("span", {class: "tag", onclick: () => { SEL = new Set([t]); TAB = "explore"; render(); }}, t));
+  return (tags || []).filter(t => !t.startsWith("source:")).map(t => el("span", {class: "tag", onclick: () => goTag(t)}, t));
 }
 const IMPORTANCE = [["high", "⭐ High"], ["medium", "● Medium"], ["low", "○ Low"]];
 function unitCard(u, depth = 0) {
@@ -626,7 +626,7 @@ const TABS = {
     const tags = await api("/api/tags" + (EXPLORE_FILTERS.days ? "?days=" + EXPLORE_FILTERS.days : ""));
     const groups = {};
     for (const t of tags) (groups[t.tag.split(":")[0]] ||= []).push(t);
-    const apply = () => { saveExploreFilters(); return render(false); };
+    const apply = () => { saveExploreFilters(); return render(); };
     const select = (id, options, value, change) => {
       const control = el("select", {id, class: "graph-sel", style: "width:100%"});
       for (const [v, label] of options) {
@@ -644,9 +644,6 @@ const TABS = {
       ["due", "Due / date"], ["created", "Newest"], ["messages", "Most messages (all subtopics)"],
       ["descendants", "Most subtopics (all levels)"], ["children", "Most direct subtopics"], ["title", "Title A–Z"]],
       EXPLORE_SORT, value => { EXPLORE_SORT = value; localStorage.setItem("exploreSort", value); apply(); });
-    const scope = select("explore-scope", [["all", "Everything"], ["mine", "For me"]], SCOPE, value => {
-      SCOPE = value; localStorage.setItem("scope", value); apply();
-    });
     const days = select("explore-days", [[0, "All time"], [1, "Last 24h"], [3, "Last 3 days"], [7, "Last 7 days"],
       [14, "Last 14 days"], [30, "Last 30 days"]], EXPLORE_FILTERS.days, value => { EXPLORE_FILTERS.days = +value; apply(); });
     const status = select("explore-status", [["", "Open + done"], ["open", "Open"], ["done", "Done"],
@@ -662,20 +659,21 @@ const TABS = {
         el("i", {style: `background:${kColor(k)}`}), k)));
     const selectedTags = el("div", {class: "chips"}, ...[...SEL].map(tag => el("button", {type: "button", class: "chip on",
       onclick: () => { SEL.delete(tag); apply(); }}, tag + " ×")));
-    const chips = Object.entries(groups).map(([ns, list]) => el("div", {class: "chips"}, el("span", {class: "status"}, ns + ":"),
+    const chips = Object.entries(groups).map(([ns, list]) => el("div", {class: "chips"}, el("span", {class: "status",
+      title: ns === "source" ? "Includes sources of linked subtopics at every level" : ""}, ns + ":"),
       ...list.slice(0, 40).map(t => el("span", {class: "chip" + (SEL.has(t.tag) ? " on" : ""), onclick: () => {
         SEL.has(t.tag) ? SEL.delete(t.tag) : SEL.add(t.tag); apply();
       }}, t.tag.slice(ns.length + 1), " ", el("i", {}, t.n)))));
     const row = (label, control) => el("tr", {}, el("td", {}, label), el("td", {}, control));
-    const table = el("table", {class: "kv", style: "width:100%;margin-bottom:8px"}, row("Sort", sort), row("Scope", scope), row("Activity", days), row("Status", status));
+    const table = el("table", {class: "kv", style: "width:100%;margin-bottom:8px"}, row("Sort", sort), row("Activity", days), row("Status", status));
     const clear = el("button", {id: "explore-reset", class: "b", onclick: () => {
       Object.assign(EXPLORE_FILTERS, {query: "", kinds: [], days: 0, status: "", roots: false, context: false});
-      SEL.clear(); SCOPE = "all"; localStorage.setItem("scope", "all"); apply();
+      SEL.clear(); apply();
     }}, "Clear filters");
     const tagLane = lane("Sort & filters", null, [searchForm, table, el("div", {class: "day"}, "Kinds (none selected = all)"), kinds,
-      checkbox("explore-roots", "Top-level units only", "roots"),
+      checkbox("explore-roots", "Top-level matches only", "roots"),
       checkbox("explore-context", "Show linked context (Graph)", "context"),
-      el("div", {class: "empty"}, "List and Graph use the same matching units. Context adds faded, non-matching neighbors only when enabled."), clear,
+      el("div", {class: "empty"}, "Top-level keeps the outermost matches; a parent outside your filters does not hide a match. List and Graph share filters. Context adds faded neighbors only when enabled."), clear,
       el("div", {class: "day"}, "Tags — OR within a namespace, AND across"), selectedTags, ...chips]);
     const modePick = (value, label) => el("button", {class: "chip" + (EXPLORE_VIEW === value ? " on" : ""),
       onclick: () => { EXPLORE_VIEW = value; localStorage.setItem("exploreView", value); apply(); }}, label);
@@ -1035,9 +1033,9 @@ function drawTabs() {
 // Lanes are keyed by tab + position, not by their heading: headings change
 // (e.g. "Top-level units" -> "Matching units") while the lane stays the same.
 function scrollState() {
-  const out = {};
-  document.querySelectorAll("#main .lane").forEach((l, i) => { if (l.scrollTop) out[TAB + ":" + i] = l.scrollTop; });
-  return {lanes: out, page: window.scrollY, tab: TAB};
+  const out = {}, tab = $("main").dataset.tab;
+  document.querySelectorAll("#main .lane").forEach((l, i) => { if (l.scrollTop) out[tab + ":" + i] = l.scrollTop; });
+  return {lanes: out, page: window.scrollY, tab};
 }
 function restoreScroll(state) {
   if (state.tab !== TAB) return;
@@ -1048,7 +1046,7 @@ function restoreScroll(state) {
       if (l.scrollTop !== top) requestAnimationFrame(() => { l.scrollTop = top; });  // content still settling
     }
   });
-  if (state.page) window.scrollTo(0, state.page);
+  window.scrollTo(0, state.page);
 }
 // Make a multi-column grid's column widths draggable. A thin handle sits between columns; the
 // chosen widths persist per tab+column-count in localStorage. Skipped on narrow (single-column) layouts.
@@ -1091,23 +1089,34 @@ function enhanceGrids(root) {
     apply();
   });
 }
+let renderVersion = 0;
 async function render(keepScroll = true) {
-  const state = keepScroll ? scrollState() : {lanes: {}, page: 0};
+  const version = ++renderVersion, tab = TAB;
   drawTabs(); drawScope();
   const node = TAB.startsWith("view") ? await viewTab(VIEWS[+TAB.slice(4)]) : await TABS[TAB]();
+  if (version !== renderVersion || tab !== TAB) return;
+  // Capture just before replacement so scrolling during the request is preserved too.
+  const state = keepScroll ? scrollState() : null;
   $("main").replaceChildren(node);
+  $("main").dataset.tab = tab;
   enhanceGrids($("main"));
-  if (keepScroll) restoreScroll(state);
+  if (state) restoreScroll(state);
   $("status").textContent = "updated " + new Date().toLocaleTimeString();
 }
 $("poll").onclick = async e => { e.target.disabled = true; $("status").textContent = "syncing…"; await api("/api/poll", {}); e.target.disabled = false; render(); };
 // the tab bar scrolls horizontally with a plain mouse wheel (scrollbar itself is hidden)
 $("tabs").addEventListener("wheel", e => { if (e.deltaY && $("tabs").scrollWidth > $("tabs").clientWidth) { $("tabs").scrollLeft += e.deltaY; e.preventDefault(); } }, {passive: false});
-function goTag(tag) { SEL = new Set([tag]); saveExploreFilters(); TAB = "explore"; $("q").value = ""; render(false); }
+function goTag(tag) {
+  const keepScroll = TAB === "explore";
+  SEL = new Set([tag]); saveExploreFilters(); TAB = "explore"; $("q").value = "";
+  return render(keepScroll);
+}
 $("q").onkeydown = async e => {
   if (e.key !== "Enter") return;
   const q = e.target.value.trim(); if (!q) return render();
+  const version = ++renderVersion, tab = TAB;
   const d = await api("/api/search?q=" + encodeURIComponent(q));
+  if (version !== renderVersion || tab !== TAB) return;
   const facet = (title, items, make) => items.length
     ? el("div", {}, el("div", {class: "day"}, `${title} (${items.length})`), el("div", {class: "chips"}, ...items.map(make)))
     : null;
@@ -1123,6 +1132,7 @@ $("q").onkeydown = async e => {
   $("main").replaceChildren(el("div", {class: "grid g2"},
     lane(`Matches for “${q}”`, d.people.length + d.channels.length + d.tags.length, [left],
       "No people, chats or tags matched."), right));
+  $("main").dataset.tab = "search";
   enhanceGrids($("main"));
 };
 // optional ?tab=&scope= on first load (shareable deep link)

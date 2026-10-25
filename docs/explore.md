@@ -10,12 +10,24 @@ Preferences are saved in the current browser or desktop profile.
   terms use AND; short Chinese terms work too. `%` and `_` are literal characters.
 - **Sort** includes activity, due date, creation time, title, total message count,
   subtopic count across all levels, and direct subtopic count.
-- **Scope** selects Everything or For me. In Explore this control is in the sidebar;
-  the header's scope control remains available in other tabs.
-- **Activity**, **Status**, **Kinds**, **Top-level units only** and **Tags** apply equally
+- **Scope** selects Everything or For me in the header, including in Explore.
+- **Activity**, **Status**, **Kinds**, **Top-level matches only** and **Tags** apply equally
   to both views. Multiple kinds use OR. Tags use OR within a namespace and AND across
   namespaces; all other filter categories are combined with AND.
-- **Clear filters** returns to Everything and clears topic filters. Sorting is kept.
+- **Source** includes a unit's own source tags and attached evidence, plus the sources
+  of linked subtopics at every depth. A parent topic containing Slack subtopics matches
+  `source:slack` even without its own source tag. A topic spanning multiple sources
+  matches any of those sources. This is calculated from the current links and evidence.
+  Other tag namespaces and the For me scope still match the unit itself; a parent's
+  sources do not assign those sources to unrelated child or sibling units.
+- **Top-level matches only** keeps matches with no other matching ancestor, after
+  applying scope, tags, kinds, keywords, activity and status. An excluded digest or
+  a parent outside For me does not hide a matching topic. Matching ancestors still
+  suppress descendants across intermediate units that do not match.
+- **Clear filters** clears Explore filters and keeps the header scope and sorting.
+- Clicking a tag keeps the sidebar, results and page at their current scroll positions
+  while the results refresh. If a shorter result cannot fill that position, scrolling
+  is limited to its new maximum.
 
 Both views request the same ordered matching units and the same 400-unit limit.
 The List shows matching units directly; Expand still allows inspection of a unit's

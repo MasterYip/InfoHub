@@ -118,7 +118,85 @@ class Explore(unittest.TestCase):
         self.assertEqual([u["id"] for u in U.query(self.store, **options)], [resource])
         options["status"] = "all"
         options["roots_only"] = True
-        self.assertEqual([n["id"] for n in server.graph(self.store, **options)["nodes"]], [resource])
+        self.assertEqual([n["id"] for n in server.graph(self.store, **options)["nodes"]], [self.topic, resource])
+
+    def test_top_level_matches_respect_source_kind_and_for_me(self):
+        # Digest containers and ancestors outside the selected scope must not hide topics.
+        for uid in (self.topic, self.left, self.right, self.shared, self.standalone):
+            U.add_tags(self.store, uid, ["source:slack"])
+        U.add_tags(self.store, self.parent, ["source:lark:example"])
+        self.store.q("UPDATE units SET for_me=1 WHERE id IN (?,?)", (self.left, self.shared))
+        self.store.db.commit()
+        options = dict(tags=["source:slack"], kind="topic", roots_only=True, order="messages")
+        self.assertEqual([u["id"] for u in U.query(self.store, **options)], [self.topic, self.standalone])
+        options["mine"] = True
+        self.assertEqual([u["id"] for u in U.query(self.store, **options)], [self.topic])
+        self.assertEqual([n["id"] for n in server.graph(self.store, **options)["nodes"]], [self.topic])
+        # The same source/scope combination previously returned no units at all.
+        options["kind"] = None
+        self.assertEqual([u["id"] for u in U.query(self.store, **options)], [self.topic])
+
+    def test_source_filter_matches_untagged_parent_with_keyword_and_activity(self):
+        U.update(self.store, self.topic, title="大话题：共享证据")
+        U.add_tags(self.store, self.shared, ["source:slack"])
+        other = self.unit("大话题：其他来源")
+        U.add_tags(self.store, other, ["source:lark:example"])
+        self.store.db.commit()
+        options = server.unit_query_params({"tags": "source:slack", "q": "大话题", "days": "30",
+                                            "order": "descendants", "roots": "0", "mine": "0"}, now=self.now)
+        rows = U.query(self.store, **options)
+        self.assertEqual([u["id"] for u in rows], [self.topic])
+        self.assertNotIn("source:slack", rows[0]["tags"])
+        self.assertEqual(rows[0]["n_messages"], 8)
+        graph = server.graph(self.store, **options)
+        self.assertEqual([n["id"] for n in graph["nodes"]], [self.topic])
+        self.assertTrue(graph["nodes"][0]["seed"])
+        self.assertEqual(graph["context_count"], 0)
+        options["roots_only"] = True
+        options["mine"] = True
+        self.assertEqual([u["id"] for u in U.query(self.store, **options)], [self.topic])
+        # Derived source membership changes immediately without copying tags to parents.
+        U.remove_tags(self.store, self.shared, ["source:slack"])
+        self.store.db.commit()
+        self.assertEqual(U.query(self.store, **options), [])
+
+    def test_source_filter_uses_evidence_and_all_parent_branches_without_sibling_leaks(self):
+        other_parent = self.unit("Another containing topic")
+        U.link(self.store, other_parent, self.shared)
+        messages = self.store.add_messages([{"source": "lark", "account": "example", "item_key": "source-evidence",
+                                             "kind": "text", "text": "Synthetic source evidence", "sent_at": self.now}])
+        U.attach(self.store, self.shared, messages)
+        U.add_tags(self.store, self.standalone, ["source:slack"])
+        self.store.db.commit()
+        actual = {u["id"] for u in U.query(self.store, tags=["source:lark:example"])}
+        self.assertEqual(actual, {self.parent, self.topic, self.left, self.right, self.shared, other_parent})
+        # A parent's union of sources must not make an unrelated sibling match.
+        self.assertNotIn(self.standalone, actual)
+        self.assertEqual(U.query(self.store, tags=["source:lark:other"]), [])
+        both = {u["id"] for u in U.query(self.store, tags=["source:slack", "source:lark:example"])}
+        self.assertEqual(both, actual | {self.standalone})
+        # Other namespaces and For me retain their own-unit semantics.
+        self.assertEqual([u["id"] for u in U.query(self.store, tags=["source:lark:example", "project:alpha"])],
+                         [self.topic])
+        self.assertEqual([u["id"] for u in U.query(self.store, tags=["source:lark:example"], mine=True)],
+                         [self.topic])
+        self.assertEqual(U.get(self.store, other_parent)["tags"], [])
+
+    def test_top_level_matches_cross_nonmatching_bridges_and_precede_limit(self):
+        bridge = self.unit("Hidden bridge", kind="resource")
+        leaf = self.unit("Newest nested topic")
+        U.link(self.store, self.topic, bridge)
+        U.link(self.store, bridge, leaf)
+        for uid in (self.topic, leaf):
+            U.add_tags(self.store, uid, ["project:roots"])
+        self.store.q("UPDATE units SET last_activity_at=? WHERE id=?", (self.now + 1, leaf))
+        self.store.db.commit()
+        options = dict(kind="topic", tags=["project:roots"], roots_only=True, limit=1)
+        # Applying the limit first would keep only the newer leaf, or lose the result.
+        for order in ("activity", "title", "messages", "children", "descendants"):
+            self.assertEqual([u["id"] for u in U.query(self.store, order=order, **options)], [self.topic])
+        # Excluding the ancestor with a keyword makes the nested match top-level itself.
+        self.assertEqual([u["id"] for u in U.query(self.store, q="Newest", **options)], [leaf])
 
     def test_keywords_are_literal_and_support_short_chinese_and_and_matching(self):
         chinese = self.unit("模型结果")
@@ -143,6 +221,9 @@ class Explore(unittest.TestCase):
         self.store.q("INSERT INTO unit_links(parent_id,child_id) VALUES(?,?)", (ids[-1], ids[0]))
         self.store.db.commit()
         self.assertEqual(U.rollup_stats(self.store)[ids[0]]["n_messages"], 1)
+        U.add_tags(self.store, ids[-1], ["source:demo"])
+        self.store.db.commit()
+        self.assertEqual(U.query(self.store, tags=["source:demo"], kind="note", order="descendants", limit=1)[0]["id"], ids[0])
 
     def test_http_list_and_graph_share_exact_matches_order_and_limit(self):
         cfg = copy.deepcopy(DEFAULTS)
@@ -173,17 +254,74 @@ class Explore(unittest.TestCase):
                            {"kind": "topic,digest", "roots": 1, "order": "children"},
                            {"q": "world reward", "kind": "topic", "mine": 1},
                            {"tags": "project:alpha", "order": "descendants"},
+                           {"tags": "project:alpha", "kind": "topic", "mine": 1, "roots": 1},
+                           {"tags": "source:demo", "q": "world", "days": 30, "order": "descendants"},
                            {"status": "done", "order": "title"}]:
                     query = urlencode(qs)
                     units = get("/api/units?" + query)
                     graph = get("/api/graph?" + query)
                     self.assertEqual([u["id"] for u in units], [n["id"] for n in graph["nodes"]])
                     self.assertEqual(graph["context_count"], 0)
+                    if qs.get("tags") == "source:demo":
+                        self.assertEqual([u["id"] for u in units], [self.topic])
                 context = get("/api/graph?kind=topic&context=1")
                 self.assertEqual(context["context_count"], 1)
             finally:
                 httpd.shutdown(); thread.join(timeout=5)
                 self.assertFalse(thread.is_alive())
+
+    @unittest.skipUnless(shutil.which("node"), "Node is needed to validate async navigation")
+    def test_frontend_navigation_keeps_latest_request_and_scroll(self):
+        source = (Path(__file__).resolve().parents[1] / "infohub/apps/web/index.html").read_text(encoding="utf-8")
+        scrolling = "function scrollState()" + source.split("function scrollState()", 1)[1].split("// Make a multi-column", 1)[0]
+        rendering = "let renderVersion = 0;" + source.split("let renderVersion = 0;", 1)[1].split('$("poll").onclick', 1)[0]
+        searching = '$("q").onkeydown = async e => {' + source.split('$("q").onkeydown = async e => {', 1)[1].split("// optional ?tab=", 1)[0]
+        setup = r"""const assert = require('node:assert/strict');
+let TAB='explore', VIEWS=[], lanes=[{scrollTop:100}];
+const main={dataset:{tab:'explore'},node:null,replaceChildren(node){this.node=node;lanes=[{scrollTop:0}];}};
+const q={value:''}, status={textContent:''};
+const $=id=>({main,q,status})[id];
+const document={querySelectorAll:()=>lanes};
+const window={scrollY:0,scrollTo(x,y){this.scrollY=y;}};
+const requestAnimationFrame=fn=>fn();
+const drawTabs=()=>{}, drawScope=()=>{}, enhanceGrids=()=>{};
+const el=(tag,attrs,...kids)=>({tag,attrs,kids});
+const lane=(title,...rest)=>({title,rest});
+const pendingViews=[],pendingSearches=[];
+function deferred(){let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve};}
+const TABS={explore(){const d=deferred();pendingViews.push(d);return d.promise;},today(){return TABS.explore();}};
+const api=()=>{const d=deferred();pendingSearches.push(d);return d.promise;};
+const emptySearch={people:[],channels:[],tags:[],units:[],messages:[]};
+"""
+        checks = r"""
+(async()=>{
+ const old=render(), latest=render();
+ lanes[0].scrollTop=240;window.scrollY=80;
+ pendingViews[1].resolve({id:'latest'});await latest;
+ assert.equal(main.node.id,'latest');assert.equal(lanes[0].scrollTop,240);assert.equal(window.scrollY,80);
+ pendingViews[0].resolve({id:'obsolete'});await old;
+ assert.equal(main.node.id,'latest','an older filter response must not replace the latest result');
+ // Global search and tab/filter refreshes share the same request ordering.
+ const pendingRender=render();q.value='evidence';
+ const search=q.onkeydown({key:'Enter',target:q});
+ pendingSearches[0].resolve(emptySearch);await search;
+ const searchNode=main.node;
+ pendingViews[2].resolve({id:'old tab'});await pendingRender;
+ assert.equal(main.node,searchNode,'a pending filter response must not overwrite a newer global search');
+ assert.equal(main.dataset.tab,'search','search results must not borrow Explore lane scroll positions');
+ q.value='older search';const olderSearch=q.onkeydown({key:'Enter',target:q});
+ const newerRender=render();pendingViews[3].resolve({id:'newer filter'});await newerRender;
+ pendingSearches[1].resolve(emptySearch);await olderSearch;
+ assert.equal(main.node.id,'newer filter','an older search response must not overwrite newer filter results');
+ TAB='today';lanes[0].scrollTop=390;
+ const navigation=render();pendingViews[4].resolve({id:'today'});await navigation;
+ assert.equal(lanes[0].scrollTop,0,'scroll positions must not carry across unrelated tabs');
+})().catch(error=>{console.error(error);process.exitCode=1;});
+"""
+        result = subprocess.run(["node", "-e", setup + scrolling + rendering + searching + checks],
+                                capture_output=True, text=True, stdin=subprocess.DEVNULL,
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     @unittest.skipUnless(shutil.which("node"), "Node is needed to validate canvas size math")
     def test_node_area_follows_total_message_count(self):
