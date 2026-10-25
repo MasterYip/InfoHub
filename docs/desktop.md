@@ -19,7 +19,8 @@ Desktop packages are optional; a server only needs the usual requirements.
 .\scripts\start-desktop.ps1
 ```
 
-The launcher uses `pythonw.exe` so no console window stays open. For a console launch:
+The launcher uses `pythonw.exe`. Dependency checks, background sync and reminder commands
+run without console windows; Windows sync calls the installed native Lark executable directly. For a console launch:
 
 ```powershell
 .\.venv\Scripts\python.exe -m infohub desktop

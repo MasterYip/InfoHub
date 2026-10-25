@@ -49,6 +49,11 @@ class LarkError(RuntimeError):
 
 def _cli(cfg) -> list[str]:
     exe = cfg["sources"]["lark"]["cli"]
+    # The npm .cmd -> Node wrapper spawns another console executable without
+    # windowsHide. Call its installed binary directly for background sync.
+    native = ROOT / "node_modules" / "@larksuite" / "cli" / "bin" / "lark-cli.exe"
+    if exe == "lark-cli" and os.name == "nt" and native.is_file():
+        return [str(native)]
     local = ROOT / "node_modules" / ".bin" / ("lark-cli.cmd" if os.name == "nt" else "lark-cli")
     if exe == "lark-cli" and local.exists():
         exe = str(local)
@@ -58,7 +63,8 @@ def _cli(cfg) -> list[str]:
 def run(cfg, account: dict | None, *args, timeout=120) -> dict:
     prof = ["--profile", account["profile"]] if account and account.get("profile") else []
     proc = subprocess.run(_cli(cfg) + list(args) + prof, capture_output=True, timeout=timeout,
-                          encoding="utf-8", errors="replace")
+                          encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL,
+                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     try:
         data = json.loads(proc.stdout or proc.stderr or "{}")
     except json.JSONDecodeError:

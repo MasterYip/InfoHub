@@ -26,7 +26,8 @@ def toast(title: str, body: str) -> bool:
         return False
     env = {**os.environ, "INFOHUB_T1": title[:120], "INFOHUB_T2": body[:240]}
     r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", PS], env=env,
-                       capture_output=True, timeout=30)
+                       capture_output=True, timeout=30, stdin=subprocess.DEVNULL,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     return r.returncode == 0
 
 
