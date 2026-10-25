@@ -409,7 +409,7 @@ def serve(cfg, store, poll_fn):
                     return self._send(200, {"brief": brief_mod.brief(cfg, store, int(qs.get("days", 7)), tags),
                                             "status": status(store, cfg, 20)})
                 if u.path == "/api/health":
-                    return self._send(200, {"ok": True})
+                    return self._send(200, {"ok": True, "app": "infohub"})
             self._send(404, {"error": "not found"})
 
         def do_POST(self):

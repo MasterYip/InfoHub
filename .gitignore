@@ -10,3 +10,11 @@ logs/
 node_modules/
 __pycache__/
 *.pyc
+
+# Desktop runtime (also protect custom databases located outside data/).
+desktop-*.lock
+desktop-*.open
+desktop-*.local.json
+desktop-*.tmp
+desktop-*.ico
+desktop-*.webview/

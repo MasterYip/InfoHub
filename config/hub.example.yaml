@@ -88,6 +88,7 @@ agent:
 
 # ---------------- Layer 3: applications ----------------
 apps:
+  desktop: {notifications: true, mine_only: false, poll_seconds: 5}  # Windows tray defaults; menu choices persist locally
   today_scope: mine               # Today tab default: mine | all
   reminders: {enabled: true, toast: true, todo_lead_hours: 24, event_lead_minutes: 60}
   views:                          # extra dashboard tabs = saved tag filters (shown in full,

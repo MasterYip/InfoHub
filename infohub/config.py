@@ -77,6 +77,7 @@ DEFAULTS = {
     },
     # ---------------- Layer 3: applications ----------------
     "apps": {
+        "desktop": {"notifications": True, "mine_only": False, "poll_seconds": 5},
         "today_scope": "mine",        # Today tab default: mine | all
         "reminders": {"enabled": True, "toast": True, "todo_lead_hours": 24, "event_lead_minutes": 60},
         "views": [],                  # saved tag filters shown as dashboard tabs

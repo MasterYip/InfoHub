@@ -6,6 +6,7 @@ Layer 2  organize      python -m infohub organize [--ai] [--requeue DAYS] [--rec
                        python -m infohub agent export --out jobs.jsonl | import results.jsonl | reset
 Layer 3  serve         python -m infohub serve                          (dashboard + API only)
          brief         python -m infohub brief [--days 7] [--tags a,b]  (Markdown for agents)
+         desktop       python -m infohub desktop [--hidden]         (Windows window + tray + service)
          remind        python -m infohub remind
 Service  run           python -m infohub run    (sync+organize+remind every poll_minutes; AI in its own thread; dashboard)
 Admin    doctor | stats | source-init <name> (e.g. lark)
@@ -97,6 +98,7 @@ def main():
     ap.add_argument("--config")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("doctor"); sub.add_parser("stats"); sub.add_parser("serve"); sub.add_parser("run"); sub.add_parser("remind")
+    p = sub.add_parser("desktop"); p.add_argument("--hidden", action="store_true", help="start in the system tray")
     p = sub.add_parser("source-init"); p.add_argument("source")
     p.add_argument("--pid", type=int); p.add_argument("--db-root")
     p = sub.add_parser("sync"); p.add_argument("--source")
@@ -124,6 +126,9 @@ def main():
             raise SystemExit(f"source {name!r} has no init step in this build")
         res = mod.init(cfg, pid=args.pid, db_root=args.db_root)
         return pr({k: v for k, v in res.items() if k in ("status", "databases_verified", "databases_total")})
+    if args.cmd == "desktop":
+        from .apps.desktop import run as desktop_run
+        return desktop_run(cfg, hidden=args.hidden)
     if args.cmd == "doctor":
         return pr(doctor(cfg))
     if args.cmd == "channels":

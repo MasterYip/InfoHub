@@ -1,0 +1,5 @@
+# Optional Windows shell; headless/web installs do not need these.
+pywebview>=6.2.1,<7 ; sys_platform == "win32"
+# Pinned: desktop.py adds Windows notification-click handling to this backend.
+pystray==0.19.5 ; sys_platform == "win32"
+Pillow>=10 ; sys_platform == "win32"

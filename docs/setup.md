@@ -86,3 +86,8 @@ drop in a module that defines `NAME`, `DEFAULT_CONFIG` and a `sync(cfg, store, o
 function that writes normalized messages into the store. See `infohub/sources/__init__.py` for the
 full contract and `infohub/sources/lark.py` as a worked example. Removing a source is just deleting
 its file/folder and its config block.
+
+## Optional Windows desktop
+
+For a dedicated window, system tray and new-unit notifications, follow [desktop.md](desktop.md).
+The existing browser dashboard and service commands remain available.
