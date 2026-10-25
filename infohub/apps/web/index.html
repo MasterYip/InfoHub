@@ -74,7 +74,7 @@ main{padding:12px 16px}
 @keyframes blink{50%{opacity:0}}
 .chip.ref{cursor:pointer;background:var(--btn);color:var(--btn-ink);border-color:transparent;font-weight:600}
 .chip.ref:hover{background:var(--btn-hover)}
-.float-card{position:fixed;width:min(380px,92vw);max-height:72vh;overflow:auto;background:var(--lane);border:1px solid var(--line);border-radius:12px;padding:10px 12px 12px;box-shadow:0 10px 36px rgba(0,0,0,.45);z-index:60}
+.float-card{position:fixed;width:min(380px,calc(100% - 16px));max-height:min(72vh,calc(100% - 16px));overflow:auto;background:var(--lane);border:1px solid var(--line);border-radius:12px;padding:10px 12px 12px;box-shadow:0 10px 36px rgba(0,0,0,.45);z-index:60}
 .fc-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px -4px 4px;position:sticky;top:-10px;background:var(--lane);padding:2px 4px}
 .fc-grip{cursor:move;color:var(--mute);user-select:none;letter-spacing:2px}
 .float-close{padding:1px 8px}
@@ -330,11 +330,16 @@ function messageRadius(total, maximum) {
 // a ring if it's "for me"), edges = part-of links. Drag to pan, scroll to zoom, drag a node to move it,
 // click a node to open it. Positions persist in GRAPH_POS so refreshes don't reshuffle the layout.
 function buildGraph(panel, baseQ) {
+  // Reading a card stays interactive; returning to the graph dismisses it and pending opens.
+  panel.addEventListener("pointerdown", closeUnitCards, true);
+  panel.addEventListener("wheel", closeUnitCards, {capture: true, passive: true});
+  panel.addEventListener("input", closeUnitCards);
   let nodes = [], edges = [], view = {tx: 0, ty: 0, s: 1}, alpha = 1, hover = null, drag = null, pan = null, panned = false;
   let W = 0, H = 0, dpr = Math.max(1, window.devicePixelRatio || 1);
 
   // Graph layout controls only. Unit filtering and sorting live in the shared sidebar.
   const controls = el("div", {class: "graph-controls"});
+  controls.addEventListener("click", closeUnitCards);
   const sliders = {};
   const slider = (label, key, min, max, step) => {
     const inp = el("input", {type: "range", min, max, step, value: GRAPH_CFG[key]});
@@ -484,8 +489,9 @@ function buildGraph(panel, baseQ) {
     }
   };
   cv.onmouseup = e => {
-    if (drag && !panned) openUnit(drag.node.id);
-    else if (pan && !panned) { const n = pick(toWorld(e)); if (n) openUnit(n.id); }
+    const anchor = {x: e.clientX, y: e.clientY};
+    if (drag && !panned) openUnit(drag.node.id, anchor);
+    else if (pan && !panned) { const n = pick(toWorld(e)); if (n) openUnit(n.id, anchor); }
     drag = pan = null;
   };
   cv.onmouseleave = () => { drag = pan = null; hover = null; };
@@ -502,21 +508,37 @@ function buildGraph(panel, baseQ) {
 
 const MOUSE = {x: innerWidth / 2, y: 160};
 addEventListener("mousemove", e => { MOUSE.x = e.clientX; MOUSE.y = e.clientY; }, {passive: true});
-addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".float-card").forEach(c => c.remove()); });
-async function openUnit(id) {                      // floating card spawned next to the cursor; no backdrop, so the graph stays clickable
+let unitCardVersion = 0;
+function fitUnitCard(card, left = parseFloat(card.style.left) || 8, top = parseFloat(card.style.top) || 8) {
+  const bounds = card.getBoundingClientRect(), {clientWidth: width, clientHeight: height} = document.documentElement;
+  card.style.left = Math.max(8, Math.min(left, width - bounds.width - 8)) + "px";
+  card.style.top = Math.max(8, Math.min(top, height - bounds.height - 8)) + "px";
+}
+const unitCardObserver = new ResizeObserver(entries => {
+  for (const {target} of entries) if (target.isConnected) fitUnitCard(target);
+});
+function closeUnitCards() {
+  ++unitCardVersion;
+  unitCardObserver.disconnect();
+  document.querySelectorAll(".float-card").forEach(card => card.remove());
+}
+addEventListener("keydown", e => { if (e.key === "Escape") closeUnitCards(); });
+addEventListener("resize", () => document.querySelectorAll(".float-card").forEach(card => fitUnitCard(card)));
+async function openUnit(id, anchor = {x: MOUSE.x, y: MOUSE.y}) {
+  closeUnitCards();
+  const version = unitCardVersion;
   const full = await api(`/api/unit/${id}`);
-  if (!full || full.error) return;
-  document.querySelectorAll(".float-card").forEach(c => c.remove());
+  if (version !== unitCardVersion || !full || full.error) return;
   const card = el("div", {class: "float-card"});
   const grip = el("span", {class: "fc-grip", title: "Drag to move"}, "⠿");
-  card.append(el("div", {class: "fc-bar"}, grip, el("button", {class: "b float-close", onclick: () => card.remove()}, "✕")), unitCard(full));
-  card.style.left = Math.min(Math.max(8, MOUSE.x + 14), innerWidth - 392) + "px";
-  card.style.top = Math.min(Math.max(8, MOUSE.y - 12), innerHeight - 140) + "px";
+  card.append(el("div", {class: "fc-bar"}, grip, el("button", {class: "b float-close", onclick: closeUnitCards}, "✕")), unitCard(full));
   document.body.append(card);
-  grip.onmousedown = e => {                         // drag by the grip
+  fitUnitCard(card, anchor.x + 14, anchor.y - 12);
+  unitCardObserver.observe(card);
+  grip.onmousedown = e => {                         // drag by the grip, keeping the card in view
     e.preventDefault();
     const ox = e.clientX - card.offsetLeft, oy = e.clientY - card.offsetTop;
-    const mv = ev => { card.style.left = Math.max(0, ev.clientX - ox) + "px"; card.style.top = Math.max(0, ev.clientY - oy) + "px"; };
+    const mv = ev => { if (card.isConnected) fitUnitCard(card, ev.clientX - ox, ev.clientY - oy); else up(); };
     const up = () => { removeEventListener("mousemove", mv); removeEventListener("mouseup", up); };
     addEventListener("mousemove", mv); addEventListener("mouseup", up);
   };

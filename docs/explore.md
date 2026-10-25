@@ -45,6 +45,11 @@ matches. Context nodes are faded and their labels say `(context)`. The graph cou
 separates matches from context nodes. This option does not change the List's matches.
 Physics controls stay in the graph panel because they affect layout, not filtering.
 
+Click a node to open its floating card. Cards stay within the viewport when opened,
+expanded, resized or dragged; long content scrolls inside the card. Clicking/dragging
+back on the graph, scrolling to zoom, or changing physics controls dismisses the card
+and cancels any pending open request. Moving the pointer alone keeps the card open.
+
 The HTTP `/api/units` and `/api/graph` endpoints accept the same `tags`, `kind` (comma
 separated), `status`, `q`, `days`, `mine`, `roots`, `order` and `limit` parameters.
 `context=1` explicitly adds graph neighbors; default `context=0` is strict.
