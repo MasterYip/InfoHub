@@ -148,9 +148,11 @@ def _rows(store, rows, stats=None) -> list[dict]:
     placeholders = ",".join("?" for _ in tags)
     for uid, tag in store.q(f"SELECT unit_id, tag FROM unit_tags WHERE unit_id IN ({placeholders}) ORDER BY tag", tuple(tags)):
         tags[uid].append(tag)
+    targets = source_targets(store, tuple(tags))
     for d in data:
         d.update(stats.get(d["id"], {}))
         d["tags"] = tags[d["id"]]
+        d.update(targets.get(d["id"], {"open_link": None, "open_channel": None}))
     return data
 
 
@@ -175,6 +177,29 @@ def get(store, uid: int, depth: int = 1, with_messages=True, _stats=None) -> dic
             """SELECT m.id, m.source, m.account, m.channel_name, m.sender_name, m.sent_at, m.text, m.link
                FROM unit_messages um JOIN messages m ON m.id=um.message_id WHERE um.unit_id=? ORDER BY m.sent_at LIMIT 200""", (uid,))]
     return d
+
+
+def source_targets(store, ids) -> dict:
+    """One jump target per unit: latest linked direct evidence, then descendant evidence."""
+    if not ids:
+        return {}
+    rows = store.q(f"""
+        WITH RECURSIVE branch(root,id) AS (
+            SELECT id,id FROM units WHERE id IN ({','.join('?' for _ in ids)})
+            UNION
+            SELECT b.root,u.id FROM unit_links l JOIN branch b ON l.parent_id=b.id
+            JOIN units u ON u.id=l.child_id
+        ), targets AS (
+            SELECT b.root, trim(m.link) AS link, coalesce(m.channel_name,m.channel,m.source) AS channel,
+                   row_number() OVER (PARTITION BY b.root ORDER BY (b.id=b.root) DESC,
+                                      coalesce(m.sent_at,0) DESC, m.id DESC) AS rank
+            FROM branch b JOIN unit_messages um ON um.unit_id=b.id JOIN messages m ON m.id=um.message_id
+            WHERE lower(trim(m.link)) LIKE 'https://%' OR lower(trim(m.link)) LIKE 'http://%'
+               OR lower(trim(m.link)) LIKE 'lark:%' OR lower(trim(m.link)) LIKE 'feishu:%'
+        )
+        SELECT root,link,channel FROM targets WHERE rank=1
+        """, tuple(ids))
+    return {r["root"]: {"open_link": r["link"], "open_channel": r["channel"]} for r in rows}
 
 
 def _top_level_matches(store, rows):

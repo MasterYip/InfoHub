@@ -90,6 +90,8 @@ main{padding:12px 16px}
 .when{color:var(--p1);font-weight:600}.overdue{color:var(--p0)}.ago{color:var(--mute)}
 .kids{margin-left:14px;border-left:1px dashed var(--dash);padding-left:8px;margin-top:6px}
 .msg{font-size:12.5px;color:var(--sum);margin:3px 0;white-space:pre-wrap;word-break:break-word}.msg i{color:var(--mute);font-style:normal}
+.acts a.b{display:inline-block;text-decoration:none;background:var(--btn);color:var(--btn-ink);border-radius:6px;padding:3px 9px;font-size:12px}
+.acts a.b:hover{background:var(--btn-hover)}
 .empty{color:var(--mute);font-size:12.5px;padding:6px}
 .graph-controls{padding:6px 14px 2px;display:flex;flex-direction:column;gap:5px}
 .graph-row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;color:var(--sub)}
@@ -176,9 +178,27 @@ function readPreference(key, fallback) {
   try { const value = JSON.parse(localStorage.getItem(key)); return value && typeof value === "object" ? value : fallback; }
   catch (_) { return fallback; }
 }
-const GRAPH_DEF = {repulsion: 5000, distance: 110, gravity: 0.0022};
+const GRAPH_RANGE = {repulsion: [0, 16000], distance: [0, 320], gravity: [0, 0.02], damping: [0, 1]};
+// For inverse-square repulsion and linear gravity, equilibrium radius scales as (R / G)^(1/3).
+function graphControl(key, value, inverse = false) {
+  const [min, max] = GRAPH_RANGE[key];
+  // A finite offset gives gravity a real zero while keeping spacing control smooth near it.
+  const offset = max / 124;
+  const transform = x => key === "repulsion" ? Math.cbrt(x) : key === "gravity" ? -Math.cbrt(1 / (x + offset)) : x;
+  const restore = x => key === "repulsion" ? x ** 3 : key === "gravity" ? -1 / x ** 3 - offset : x;
+  const lo = transform(min), hi = transform(max);
+  return inverse ? 100 * (transform(Math.max(min, Math.min(max, value))) - lo) / (hi - lo)
+    : value <= 0 ? min : value >= 100 ? max : Math.max(min, Math.min(max, restore(lo + (hi - lo) * value / 100)));
+}
+const GRAPH_DEF = Object.fromEntries(Object.entries({repulsion: 59, distance: 0, gravity: 95, damping: 30})
+  .map(([key, value]) => [key, graphControl(key, value)]));
 const OLD_GRAPH_CFG = readPreference("graphCfg", {});
-const GRAPH_CFG = Object.assign({}, GRAPH_DEF, Object.fromEntries(Object.keys(GRAPH_DEF).filter(k => OLD_GRAPH_CFG[k] != null).map(k => [k, OLD_GRAPH_CFG[k]])));
+const previousDefaults = {repulsion: 5000, distance: 110, gravity: 0.0022, damping: 0.14};
+const usedPreviousDefaults = Object.entries(previousDefaults).every(([key, value]) => OLD_GRAPH_CFG[key] === value);
+const GRAPH_CFG = Object.fromEntries(Object.entries(GRAPH_DEF).map(([k, fallback]) => {
+  const v = usedPreviousDefaults ? undefined : OLD_GRAPH_CFG[k];
+  return [k, typeof v === "number" && Number.isFinite(v) ? Math.max(GRAPH_RANGE[k][0], Math.min(GRAPH_RANGE[k][1], v)) : fallback];
+}));
 const EXPLORE_FILTERS = Object.assign({query: "", kinds: OLD_GRAPH_CFG.kinds || [], days: OLD_GRAPH_CFG.days || 0,
   status: "", roots: false, context: false, tags: []}, readPreference("exploreFilters", {}));
 if (!Array.isArray(EXPLORE_FILTERS.kinds)) EXPLORE_FILTERS.kinds = [];
@@ -295,6 +315,9 @@ function unitCard(u, depth = 0) {
   }
   paintTags();
   const acts = el("div", {class: "acts"});
+  const link = safeLink(u.open_link);
+  if (link) acts.append(el("a", {class: "b", href: link, target: "_blank", rel: "noopener noreferrer",
+    title: "Open source message" + (u.open_channel ? " in " + u.open_channel : "")}, "Open"));
   if (u.status === "open" && u.kind !== "digest") {
     acts.append(el("button", {class: "b", onclick: async e => { e.target.disabled = true; await api(`/api/unit/${u.id}`, {status: "done"}); render(); }}, "✓ Done"));
     acts.append(el("button", {class: "b", title: "Not relevant to me — hide it", onclick: async e => { e.target.disabled = true; await api(`/api/unit/${u.id}`, {status: "dropped"}); render(); }}, "⊘ Ignore"));
@@ -326,6 +349,93 @@ function messageRadius(total, maximum) {
   return Math.sqrt(25 + (26 * 26 - 25) * Math.max(0, total) / Math.max(1, maximum));
 }
 
+function graphPhysicsStep(nodes, edges, cfg, alpha, cx, cy, pinned = null) {
+  // Preserve the original wake/settle timer; alpha is not a force multiplier.
+  if (alpha < 0.02) return;
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i];
+    for (let j = i + 1; j < nodes.length; j++) {
+      const b = nodes[j];
+      let dx = a.p.x - b.p.x, dy = a.p.y - b.p.y, d = Math.hypot(dx, dy);
+      if (d < 0.001) { const angle = (i * 31 + j) * 2.399963; dx = Math.cos(angle); dy = Math.sin(angle); d = 1; }
+      // Only soften near-coincident starts; ordinary separations use the original inverse-square force.
+      const f = cfg.repulsion / Math.max(64, d * d);
+      dx = dx / d * f; dy = dy / d * f;
+      a.p.vx += dx; a.p.vy += dy; b.p.vx -= dx; b.p.vy -= dy;
+    }
+    a.p.vx += (cx - a.p.x) * cfg.gravity;
+    a.p.vy += (cy - a.p.y) * cfg.gravity;
+  }
+  for (const e of edges) {
+    const dx = e.b.p.x - e.a.p.x, dy = e.b.p.y - e.a.p.y, d = Math.hypot(dx, dy) || 1;
+    const f = (d - cfg.distance) * 0.02;
+    e.a.p.vx += dx / d * f; e.a.p.vy += dy / d * f;
+    e.b.p.vx -= dx / d * f; e.b.p.vy -= dy / d * f;
+  }
+  for (const n of nodes) {
+    if (n === pinned) { n.p.vx = n.p.vy = 0; continue; }
+    n.p.vx = Math.max(-30, Math.min(30, n.p.vx * (1 - cfg.damping)));
+    n.p.vy = Math.max(-30, Math.min(30, n.p.vy * (1 - cfg.damping)));
+    n.p.x += n.p.vx; n.p.y += n.p.vy;
+  }
+}
+
+function graphWrapTitle(text, measure, width) {
+  const lines = [];
+  let line = "";
+  for (const char of String(text).replace(/\s+/g, " ").trim()) {
+    if (line && measure(line + char) > width) {
+      const split = line.lastIndexOf(" ");
+      if (split > line.length / 3) { lines.push(line.slice(0, split)); line = line.slice(split + 1); }
+      else { lines.push(line); line = ""; }
+    }
+    line += char;
+  }
+  if (line.trim()) lines.push(line.trim());
+  return lines;
+}
+
+function graphLabelLayout(nodes, view, width, height, measure, reserved = [], focus = null, neighbors = new Set()) {
+  const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const visible = nodes.map(n => ({n, x: n.p.x * view.s + view.tx, y: n.p.y * view.s + view.ty, r: n.r * view.s + 3}))
+    .filter(p => p.x + p.r >= 0 && p.x - p.r <= width && p.y + p.r >= 0 && p.y - p.r <= height);
+  const rank = n => n === focus ? 0 : neighbors.has(n) ? 1 : 2;
+  visible.sort((a, b) => rank(a.n) - rank(b.n) || (b.n.n_messages || 0) - (a.n.n_messages || 0) || a.n.id - b.n.id);
+  const placed = [], occupied = [...reserved], maxWidth = Math.max(40, Math.min(200, width - 24));
+  const budget = Math.max(1, Math.ceil(12 * view.s ** 2));
+  let normalCount = 0;
+  for (const p of visible) {
+    const focused = rank(p.n) < 2;
+    if (!focused && normalCount >= budget) continue;
+    const title = (p.n.title || "") + (p.n.seed ? "" : " (context)");
+    // Positions change every frame; text metrics only change with title or available width.
+    if (p.n.labelKey !== title + maxWidth) {
+      p.n.labelKey = title + maxWidth;
+      p.n.labelLines = graphWrapTitle(title, measure, maxWidth);
+      p.n.labelWidth = Math.max(0, ...p.n.labelLines.map(measure));
+    }
+    const lines = p.n.labelLines;
+    if (!lines.length) continue;
+    const w = p.n.labelWidth + 8, h = lines.length * 15 + 6;
+    const options = [
+      {x: p.x - w / 2, y: p.y + p.r + 3, w, h},
+      {x: p.x - w / 2, y: p.y - p.r - h - 3, w, h},
+      {x: p.x + p.r + 3, y: p.y - h / 2, w, h},
+      {x: p.x - p.r - w - 3, y: p.y - h / 2, w, h},
+    ];
+    const available = options.filter(b => b.x >= 4 && b.y >= 4 && b.x + b.w <= width - 4 && b.y + b.h <= height - 4
+      && !occupied.some(o => overlap(b, o)));
+    const box = available[0];
+    // Circles never displace titles; only other labels and viewport overlays reserve space.
+    if (box) {
+      occupied.push(box);
+      placed.push({node: p.n, lines, opacity: !focus || p.n === focus ? 1 : neighbors.has(p.n) ? 0.5 : 0.25, ...box});
+      if (!focused) normalCount++;
+    }
+  }
+  return placed;
+}
+
 // A live, force-directed view of the info-unit graph. Nodes = units (color by kind, size by #messages,
 // a ring if it's "for me"), edges = part-of links. Drag to pan, scroll to zoom, drag a node to move it,
 // click a node to open it. Positions persist in GRAPH_POS so refreshes don't reshuffle the layout.
@@ -335,25 +445,29 @@ function buildGraph(panel, baseQ) {
   panel.addEventListener("wheel", closeUnitCards, {capture: true, passive: true});
   panel.addEventListener("input", closeUnitCards);
   let nodes = [], edges = [], view = {tx: 0, ty: 0, s: 1}, alpha = 1, hover = null, drag = null, pan = null, panned = false;
-  let W = 0, H = 0, dpr = Math.max(1, window.devicePixelRatio || 1);
+  let W = 0, H = 0, dpr = Math.max(1, window.devicePixelRatio || 1), layoutKey = "", loadVersion = 0;
 
   // Graph layout controls only. Unit filtering and sorting live in the shared sidebar.
   const controls = el("div", {class: "graph-controls"});
   controls.addEventListener("click", closeUnitCards);
   const sliders = {};
-  const slider = (label, key, min, max, step) => {
-    const inp = el("input", {type: "range", min, max, step, value: GRAPH_CFG[key]});
-    sliders[key] = inp;
-    inp.oninput = () => { GRAPH_CFG[key] = +inp.value; saveGraphCfg(); alpha = 1; };   // live, no refetch
-    return el("label", {class: "gs"}, label, inp);
+  const slider = (label, key) => {
+    const inp = el("input", {type: "range", min: 0, max: 100, step: 1, value: graphControl(key, GRAPH_CFG[key], true), "aria-label": label});
+    const value = el("output", {style: "width:3ch;font-variant-numeric:tabular-nums;text-align:right"});
+    const sync = () => { inp.value = Math.round(graphControl(key, GRAPH_CFG[key], true)); value.textContent = inp.value; inp.title = `${label}: ${GRAPH_CFG[key].toPrecision(3)}`; };
+    sliders[key] = sync;
+    inp.oninput = () => { GRAPH_CFG[key] = graphControl(key, +inp.value); sync(); saveGraphCfg(); alpha = 1; };   // live, no refetch
+    sync();
+    return el("label", {class: "gs"}, label, inp, value);
   };
   controls.append(
     el("div", {class: "graph-row"}, el("b", {}, "Physics"),
-      slider("repulsion", "repulsion", 400, 9000, 100),
-      slider("link length", "distance", 30, 320, 5),
-      slider("gravity", "gravity", 0, 0.02, 0.001),
-      el("button", {class: "b", onclick: () => { Object.assign(GRAPH_CFG, GRAPH_DEF); for (const k in GRAPH_DEF) sliders[k].value = GRAPH_DEF[k]; saveGraphCfg(); alpha = 1; }}, "reset"),
-      el("button", {class: "b", title: "Re-layout from scratch", onclick: () => { for (const k in GRAPH_POS) delete GRAPH_POS[k]; load(); }}, "relayout")));
+      slider("repulsion", "repulsion"),
+      slider("link length", "distance"),
+      slider("gravity", "gravity"),
+      slider("damping", "damping"),
+      el("button", {class: "b", onclick: () => { Object.assign(GRAPH_CFG, GRAPH_DEF); for (const k in GRAPH_DEF) sliders[k](); saveGraphCfg(); alpha = 1; }}, "reset"),
+      el("button", {class: "b", title: "Re-layout from scratch", onclick: () => { for (const k in GRAPH_POS) delete GRAPH_POS[k]; layoutKey = ""; load(); }}, "relayout")));
   controls.append(el("div", {class: "status", style: "padding-bottom:4px"}, "Node size: total messages, including all subtopic branches"));
   panel.append(controls);
 
@@ -371,14 +485,20 @@ function buildGraph(panel, baseQ) {
   }
 
   function resize() {
+    if (W && (W !== host.clientWidth || H !== host.clientHeight)) alpha = 1;
     W = host.clientWidth; H = host.clientHeight || 420;
+    host.querySelector(".graph-hint").style.display = W < 680 ? "none" : "";
     cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   const ro = new ResizeObserver(resize); ro.observe(host); resize();
 
   async function load() {
+    const version = ++loadVersion;
     const d = await api("/api/graph?" + queryNow());
+    if (version !== loadVersion || !cv.isConnected) return;
+    const nextKey = JSON.stringify([d.nodes.map(n => [n.id, n.n_messages]).sort((a,b) => a[0]-b[0]),
+      d.edges.map(e => [e.source, e.target]).sort((a,b) => a[0]-b[0] || a[1]-b[1])]);
     const present = new Set(d.nodes.map(n => n.id));
     const cnt = host.querySelector(".graph-count");
     if (cnt) cnt.textContent = `${d.matched_count ?? d.nodes.length} matches${d.context_count ? ` + ${d.context_count} context` : ""} · ${d.edges.length} links`;
@@ -388,37 +508,19 @@ function buildGraph(panel, baseQ) {
       return Object.assign({}, n, {p, r: messageRadius(n.n_messages || 0, maxMessages)});
     });
     const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+    if (hover) hover = byId[hover.id] || null;
+    if (drag) drag = byId[drag.node.id] ? {...drag, node: byId[drag.node.id]} : null;
     edges = d.edges.map(e => ({a: byId[e.source], b: byId[e.target], relation: e.relation})).filter(e => e.a && e.b);
     for (const n of nodes) n.deg = 0;
     for (const e of edges) { e.a.deg++; e.b.deg++; }
     for (const id of Object.keys(GRAPH_POS)) if (!present.has(+id)) delete GRAPH_POS[id];   // forget stale
-    alpha = 1;
+    if (layoutKey !== nextKey) alpha = 1;
+    layoutKey = nextKey;
   }
 
   function step() {
     if (alpha < 0.02) return;
-    const cx = W / 2, cy = H / 2;
-    for (let i = 0; i < nodes.length; i++) {
-      const a = nodes[i];
-      for (let j = i + 1; j < nodes.length; j++) {
-        const b = nodes[j];
-        let dx = a.p.x - b.p.x, dy = a.p.y - b.p.y, d2 = dx * dx + dy * dy || 0.01;
-        const f = GRAPH_CFG.repulsion / d2, d = Math.sqrt(d2);
-        dx = dx / d * f; dy = dy / d * f;
-        a.p.vx += dx; a.p.vy += dy; b.p.vx -= dx; b.p.vy -= dy;
-      }
-      a.p.vx += (cx - a.p.x) * GRAPH_CFG.gravity; a.p.vy += (cy - a.p.y) * GRAPH_CFG.gravity;   // gravity to centre
-    }
-    for (const e of edges) {
-      let dx = e.b.p.x - e.a.p.x, dy = e.b.p.y - e.a.p.y, d = Math.hypot(dx, dy) || 0.01;
-      const f = (d - GRAPH_CFG.distance) * 0.02; dx = dx / d * f; dy = dy / d * f;
-      e.a.p.vx += dx; e.a.p.vy += dy; e.b.p.vx -= dx; e.b.p.vy -= dy;
-    }
-    for (const n of nodes) {
-      if (n === (drag && drag.node)) continue;
-      n.p.vx *= 0.86; n.p.vy *= 0.86;
-      n.p.x += Math.max(-30, Math.min(30, n.p.vx)); n.p.y += Math.max(-30, Math.min(30, n.p.vy));
-    }
+    graphPhysicsStep(nodes, edges, GRAPH_CFG, alpha, W / 2, H / 2, drag && drag.node);
     alpha *= 0.985;
   }
 
@@ -442,25 +544,33 @@ function buildGraph(panel, baseQ) {
       if (n.for_me) { ctx.lineWidth = 2.2 / view.s; ctx.strokeStyle = "#fbbf24"; ctx.beginPath(); ctx.arc(n.p.x, n.p.y, n.r + 2.5 / view.s, 0, 7); ctx.stroke(); }
     }
     ctx.globalAlpha = 1;
-    const showLabel = n => n === hover || (nb && nb.has(n)) || (view.s > 0.75 && n.r > 9) || (view.s > 1.4);
-    ctx.font = `${12 / view.s}px system-ui,sans-serif`; ctx.textAlign = "center";
+    ctx.restore();
+    ctx.font = "12px system-ui,sans-serif"; ctx.textAlign = "center";
     ctx.fillStyle = light() ? "#1e293b" : "#e5e7eb";
-    for (const n of nodes) {
-      if (!showLabel(n)) continue;
-      ctx.globalAlpha = n.seed ? 1 : 0.45;
-      const t = (n.title || "").slice(0, 34) + (n.seed ? "" : " (context)");
+    const rect = cv.getBoundingClientRect();
+    const reserved = [...host.querySelectorAll(".graph-legend,.graph-hint,.graph-count")].map(e => {
+      const b = e.getBoundingClientRect(); return {x: b.left - rect.left - 3, y: b.top - rect.top - 3, w: b.width + 6, h: b.height + 6};
+    });
+    for (const label of graphLabelLayout(nodes, view, W, H, t => ctx.measureText(t).width, reserved, hover, nb || new Set())) {
+      ctx.globalAlpha = label.opacity * (label.node.seed ? 1 : 0.45);
       ctx.save();
-      ctx.strokeStyle = light() ? "rgba(255,255,255,.85)" : "rgba(0,0,0,.6)"; ctx.lineWidth = 3 / view.s; ctx.lineJoin = "round";
-      ctx.strokeText(t, n.p.x, n.p.y + n.r + 12 / view.s); ctx.fillText(t, n.p.x, n.p.y + n.r + 12 / view.s);
+      ctx.strokeStyle = light() ? "rgba(255,255,255,.85)" : "rgba(0,0,0,.6)"; ctx.lineWidth = 3; ctx.lineJoin = "round";
+      label.lines.forEach((t, i) => {
+        const x = label.x + label.w / 2, y = label.y + 14 + i * 15;
+        ctx.strokeText(t, x, y); ctx.fillText(t, x, y);
+      });
       ctx.restore();
     }
     ctx.globalAlpha = 1;
-    ctx.restore();
   }
 
-  function loop() {
+  let lastFrame = null, elapsed = 0;
+  function loop(now) {
     if (!cv.isConnected) { ro.disconnect(); clearInterval(timer); return; }   // tab changed → stop
-    step(); draw(); requestAnimationFrame(loop);
+    if (lastFrame !== null) elapsed += Math.min(50, now - lastFrame);
+    lastFrame = now;
+    while (elapsed >= 1000 / 60) { step(); elapsed -= 1000 / 60; }
+    draw(); requestAnimationFrame(loop);
   }
 
   // screen (event) → world coords
@@ -484,7 +594,7 @@ function buildGraph(panel, baseQ) {
       const h = pick(w);
       if (h !== hover) {
         hover = h; cv.style.cursor = h ? "pointer" : "grab";
-        cv.title = h ? `${h.n_messages || 0} messages total · ${h.n_direct_messages || 0} direct · ${h.n_descendants || 0} subtopics${h.seed ? "" : " · context node"}` : "";
+        cv.title = h ? `${h.title || ""}\n${h.n_messages || 0} messages total · ${h.n_direct_messages || 0} direct · ${h.n_descendants || 0} subtopics${h.seed ? "" : " · context node"}` : "";
       }
     }
   };
@@ -603,8 +713,10 @@ function renderMarkdown(md) {
   return root;
 }
 async function copyText(text, btn) {
-  try { await navigator.clipboard.writeText(text); } catch (_) {}
-  if (btn) { const t = btn.textContent; btn.textContent = "✓ copied"; setTimeout(() => { btn.textContent = t; }, 1200); }
+  let copied = false;
+  try { await navigator.clipboard.writeText(text); copied = true; } catch (_) {}
+  if (btn) { const t = btn.textContent; btn.textContent = copied ? "✓ copied" : "Copy failed"; setTimeout(() => { btn.textContent = t; }, 1200); }
+  return copied;
 }
 
 const TABS = {
