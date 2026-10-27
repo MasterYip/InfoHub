@@ -329,7 +329,7 @@ def iso_to_epoch(value, tz) -> int | None:
 
 def apply_result(store, result: dict, *, origin: str, job_key: str, tz=timezone.utc,
                  allowed_message_ids: set[int] | None = None, default_parent: int | None = None,
-                 base_tags: list[str] | None = None) -> dict:
+                 base_tags: list[str] | None = None, me_names: list[str] | None = None) -> dict:
     """Apply an organizer result (AI or external agent) to the graph. Shared by both paths.
 
     result = {"units": [{ref, existing_id, kind, title, summary, tags, people, due, start, status, parent, message_ids}],
@@ -362,7 +362,7 @@ def apply_result(store, result: dict, *, origin: str, job_key: str, tz=timezone.
         if allowed_message_ids is not None:
             mids = [m for m in mids if m in allowed_message_ids]
         attach(store, uid, mids)
-        mark_for_me(store, uid)
+        mark_for_me(store, uid, me_names)
     for u in items:
         uid = refs.get(u.get("ref"))
         if not uid:
@@ -385,13 +385,18 @@ def apply_result(store, result: dict, *, origin: str, job_key: str, tz=timezone.
     return {"created": created, "updated": updated, "linked": linked, "closed": closed}
 
 
-def mark_for_me(store, uid: int) -> bool:
+def mark_for_me(store, uid: int, names: list[str] | None = None) -> bool:
     """A unit concerns you when its evidence is directed at you (an @mention of you, an @everyone
     announcement, your own message or a one-to-one chat), or it is a homework/deadline obligation."""
     row = store.q("""SELECT max(m.mentions_me), max(m.from_me), max(m.is_group=0) FROM unit_messages um
                      JOIN messages m ON m.id=um.message_id WHERE um.unit_id=?""", (uid,)).fetchone()
     obligation = store.q("SELECT 1 FROM unit_tags WHERE unit_id=? AND tag IN ('type:homework','type:deadline')", (uid,)).fetchone()
-    if (row and any(row)) or obligation:
+    people = {str(n).strip() for n in (names or []) if str(n).strip()}
+    assigned = bool(people and store.q(
+        "SELECT 1 FROM unit_tags WHERE unit_id=? AND tag LIKE 'person:%' "
+        "AND substr(tag,8) IN ({}) LIMIT 1".format(",".join("?" * len(people))),
+        (uid, *people)).fetchone()) if people else False
+    if (row and any(row)) or obligation or assigned:
         store.q("UPDATE units SET for_me=1 WHERE id=?", (uid,))
         return True
     return False
@@ -411,14 +416,21 @@ def rescan_mentions(store, names: list[str]) -> int:
     return changed
 
 
-def recompute_for_me(store) -> int:
+def recompute_for_me(store, names: list[str] | None = None) -> int:
     """Recompute 'for me' authoritatively. A unit is yours when its evidence is directed at you
-    (an @mention of you, an @everyone announcement, your own message, or a one-to-one chat), or
-    when it is an obligation you act on (homework or a deadline). A VIP person's own task is theirs."""
+    (an @mention of you, an @everyone announcement, your own message, or a one-to-one chat), is
+    explicitly assigned to one of your configured names, or is a homework/deadline obligation."""
+    people = {str(n).strip() for n in (names or []) if str(n).strip()}
+    args = []
+    assigned = ""
+    if people:
+        assigned = " OR id IN (SELECT unit_id FROM unit_tags WHERE tag LIKE 'person:%' AND substr(tag,8) IN (" \
+                   + ",".join("?" * len(people)) + "))"
+        args.extend(people)
     store.q("""UPDATE units SET for_me = CASE WHEN (
                  id IN (SELECT um.unit_id FROM unit_messages um JOIN messages m ON m.id=um.message_id
                         WHERE m.mentions_me=1 OR m.from_me=1 OR m.is_group=0)
-                 OR id IN (SELECT unit_id FROM unit_tags WHERE tag IN ('type:homework','type:deadline'))
-               ) THEN 1 ELSE 0 END""")
+                 OR id IN (SELECT unit_id FROM unit_tags WHERE tag IN ('type:homework','type:deadline'))"""
+            + assigned + ") THEN 1 ELSE 0 END", tuple(args))
     store.db.commit()
     return store.q("SELECT count(*) FROM units WHERE for_me=1").fetchone()[0]

@@ -25,6 +25,7 @@
   --chip-bg:#f1f3f6;--chip-ink:#5b6474;
   --scroll:#c7cfda;--scroll-hover:#aab3bf;--dash:#d4dae2;--stripe:#f3f5f8;
   --p3:#cbd2db}
+.viewer-mode #scopeToggle,.viewer-mode #q,.viewer-mode #poll,.viewer-mode #status,.viewer-mode header form{display:none!important}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,"Segoe UI","Microsoft YaHei",sans-serif}
 header{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:3}
@@ -35,7 +36,10 @@ header>#themeBtn,header>#scopeToggle,header>#q,header>#poll,header>.status,heade
 .tab{background:none;border:0;color:var(--sub);padding:6px 11px;border-radius:7px;cursor:pointer;font-size:13.5px;flex:0 0 auto;white-space:nowrap}
 .tab.on{background:var(--accent);color:var(--on-accent)}
 .sp{flex:0 0 0}
-input{background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;color:var(--ink);padding:6px 10px;width:220px}
+input,select,textarea{font:inherit;line-height:1.45;background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;color:var(--ink);padding:6px 10px}
+input{width:220px}select{min-height:34px}textarea{min-height:104px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--link) 28%,transparent);outline-offset:1px;border-color:var(--link)}
+input[type=checkbox]{width:16px;height:16px;min-height:16px;padding:0;accent-color:var(--link);vertical-align:middle}
 button.b{background:var(--btn);color:var(--btn-ink);border:0;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer}
 button.b:hover{background:var(--btn-hover)}
 button.b.ok-btn{background:#1f6f43;color:#dff3e6}
@@ -80,6 +84,13 @@ main{padding:12px 16px}
 .float-close{padding:1px 8px}
 .sum{color:var(--sum);font-size:12.5px;margin-top:2px}
 .acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.group-filters{display:grid;grid-template-columns:minmax(180px,2fr) repeat(4,minmax(120px,1fr));gap:7px;margin-bottom:10px}
+.group-filters input,.group-filters select{width:100%;min-width:0}
+.group-card{min-width:0}
+.group-messages{margin-top:7px;padding-top:5px;border-top:1px solid var(--line);max-height:340px;overflow:auto}
+.group-messages .msg{padding:3px 0;border-bottom:1px dashed var(--line)}
+.group-messages .msg:last-child{border-bottom:0}
+@media(max-width:850px){.group-filters{grid-template-columns:1fr 1fr}.group-filters input{grid-column:1 / -1}}
 .tag{display:inline-block;font-size:11px;border:1px solid var(--tag-border);border-radius:4px;padding:0 5px;color:var(--sub);margin:1px 2px 1px 0;cursor:pointer}
 .tag:hover{border-color:var(--tag-hover-border);color:var(--tag-hover-ink)}
 .tag.rm{cursor:pointer;background:var(--chip-bg)}.tag.rm:hover{border-color:#ef4444;color:#ef4444}
@@ -111,6 +122,18 @@ main{padding:12px 16px}
 .graph-close{position:absolute;right:8px;top:8px;z-index:6}
 .day{font-size:12px;color:var(--sub);margin:10px 2px 4px;font-weight:600}
 table.kv td{padding:2px 8px;font-size:12.5px;color:var(--sum)}
+.schedule-form{container-type:inline-size;padding:14px 16px 12px;border-left:3px solid var(--link);background:var(--card)}
+.schedule-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 16px}
+.schedule-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.schedule-field-wide{grid-column:1 / -1}
+.schedule-label{font-size:12px;font-weight:600;color:var(--sub);letter-spacing:.02em}
+.schedule-when{display:grid;grid-template-columns:minmax(150px,.9fr) minmax(150px,1.1fr);gap:8px;align-items:center}
+.schedule-timing{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:7px;min-width:0;color:var(--sub);font-size:12px}
+.schedule-timing input{min-width:0;width:100%}
+.schedule-toggle{display:flex;align-items:center;gap:8px;min-height:34px;color:var(--sum);font-size:13px}
+.schedule-actions{display:flex;gap:7px;align-items:center;margin-top:14px;padding-top:11px;border-top:1px solid var(--line)}
+@media(max-width:680px){.schedule-grid{grid-template-columns:1fr}.schedule-field-wide{grid-column:auto}.schedule-when{grid-template-columns:1fr}}
+@container (max-width:620px){.schedule-grid{grid-template-columns:1fr}.schedule-field-wide{grid-column:auto}}
 a{color:var(--link)}
 *{scrollbar-width:thin;scrollbar-color:var(--scroll) var(--lane)}
 ::-webkit-scrollbar{width:10px;height:10px}
@@ -150,6 +173,7 @@ padding:4px 6px;border-radius:6px;font-size:12.5px;border-left:3px solid transpa
 "use strict";
 const $ = id => document.getElementById(id);
 let CHAT = [];   // conversation history for the assistant
+let CHAT_DRAFT = "";   // survives dashboard refreshes while the user is composing
 function el(tag, attrs = {}, ...kids) {             // message/unit text is only ever inserted as text nodes
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -160,12 +184,50 @@ function el(tag, attrs = {}, ...kids) {             // message/unit text is only
   return n;
 }
 const now = () => Date.now() / 1000;
+const VIEWER_DATA = window.__INFOHUB_VIEWER__ || null;
+const GROUPS_STATE = {query: "", hours: 72, source: "all", kind: "all", policy: "all",
+  expanded: new Set(), messages: new Map()};
+const VIEWER_MODE = !!VIEWER_DATA;
 const fmt = t => t ? new Date(t * 1000).toLocaleString([], {month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"}) : "";
 const dayKey = t => new Date(t * 1000).toLocaleDateString([], {weekday: "short", month: "numeric", day: "numeric"});
 const safeLink = u => /^(https?:|lark:|feishu:)/i.test(u || "") ? u : null;
 const SRC_LABEL = {lark: "LK", linkedin: "in", x: "X", instagram: "IG", whatsapp: "WA", slack: "SL", telegram: "TG"};
 const SRC = s => { const k = (s || "").split(":")[0]; return SRC_LABEL[k] || k.slice(0, 2).toUpperCase(); };
+function viewerApi(path, body) {
+  if (body) return Promise.resolve({error: "Viewer is read-only."});
+  const url = new URL(path, location.href), p = url.pathname, q = url.searchParams;
+  if (p === "/api/views") return Promise.resolve(VIEWER_DATA.views || []);
+  if (p === "/api/tags") return Promise.resolve(VIEWER_DATA.tags || []);
+  if (p !== "/api/units" && p !== "/api/graph") return Promise.resolve({error: "Not available in Viewer."});
+  const tags = (q.get("tags") || "").split(",").filter(Boolean), kinds = (q.get("kind") || "").split(",").filter(Boolean);
+  const status = q.get("status") || "", needle = (q.get("q") || "").trim().toLocaleLowerCase(), days = Number(q.get("days") || 0);
+  const groups = {};
+  for (const tag of tags) (groups[tag.split(":", 1)[0]] ||= []).push(tag);
+  const matches = u => {
+    if (kinds.length && !kinds.includes(u.kind)) return false;
+    if (status && status !== "all" && u.status !== status) return false;
+    if (!status && u.status === "dropped") return false;
+    const hay = `${u.title || ""} ${u.summary || ""}`.toLocaleLowerCase();
+    if (needle && !needle.split(/\s+/).every(word => hay.includes(word))) return false;
+    if (days && (u.last_activity_at || 0) < now() - days * 86400) return false;
+    const own = new Set(u.tags || []);
+    return Object.values(groups).every(list => list.some(tag => own.has(tag)));
+  };
+  let units = (VIEWER_DATA.units || []).filter(matches);
+  const order = q.get("order") || "activity";
+  const value = u => order === "title" ? String(u.title || "").toLocaleLowerCase()
+    : order === "messages" ? -(u.n_messages || 0) : order === "children" ? -(u.n_children || 0)
+    : order === "descendants" ? -(u.n_descendants || 0) : order === "created" ? -(u.created_at || 0)
+    : order === "due" ? (u.due_at || u.start_at || Number.MAX_SAFE_INTEGER) : -(u.last_activity_at || u.updated_at || 0);
+  units.sort((a, b) => { const av = value(a), bv = value(b); return av < bv ? -1 : av > bv ? 1 : a.id - b.id; });
+  const limit = Math.max(1, Math.min(1000, Number(q.get("limit") || 400)));
+  if (p === "/api/units") return Promise.resolve(units.slice(0, limit));
+  const ids = new Set(units.slice(0, limit).map(u => u.id));
+  return Promise.resolve({...VIEWER_DATA.graph, nodes: VIEWER_DATA.graph.nodes.filter(n => ids.has(n.id)),
+    edges: VIEWER_DATA.graph.edges.filter(e => ids.has(e.source) && ids.has(e.target)), matched_count: ids.size, context_count: 0});
+}
 async function api(path, body) {
+  if (VIEWER_MODE) return viewerApi(path, body);
   const r = await fetch(path, body ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)} : {});
   if (r.status === 401) { location.href = "/login?next=" + encodeURIComponent(location.pathname); throw new Error("login required"); }
   return (r.headers.get("content-type") || "").includes("json") ? r.json() : r.text();
@@ -222,6 +284,7 @@ applyTheme(localStorage.getItem("theme") || "dark");
 document.getElementById("themeBtn").onclick = () =>
   applyTheme(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light");
 function drawScope() {
+  if (VIEWER_MODE) { $("scopeToggle").replaceChildren(); $("scopeToggle").style.display = "none"; return; }
   $("scopeToggle").style.display = "";
   const pick = (v, label) => el("span", {class: "chip" + (SCOPE === v ? " on" : ""),
     onclick: () => { SCOPE = v; localStorage.setItem("scope", v); render(); }}, label);
@@ -314,6 +377,7 @@ function unitCard(u, depth = 0) {
         el("button", {class: "b", onclick: () => { addTag(inp.value); inp.value = ""; }}, "Add")));
   }
   paintTags();
+  if (VIEWER_MODE) return box;
   const acts = el("div", {class: "acts"});
   const link = safeLink(u.open_link);
   if (link) acts.append(el("a", {class: "b", href: link, target: "_blank", rel: "noopener noreferrer",
@@ -635,6 +699,7 @@ function closeUnitCards() {
 addEventListener("keydown", e => { if (e.key === "Escape") closeUnitCards(); });
 addEventListener("resize", () => document.querySelectorAll(".float-card").forEach(card => fitUnitCard(card)));
 async function openUnit(id, anchor = {x: MOUSE.x, y: MOUSE.y}) {
+  if (VIEWER_MODE) return;
   closeUnitCards();
   const version = unitCardVersion;
   const full = await api(`/api/unit/${id}`);
@@ -746,15 +811,73 @@ const TABS = {
       lane("Deadlines", null, byDay(await api("/api/units?tags=type:deadline&status=open&order=due&limit=200"), "due_at")));
   },
   async groups() {
-    const d = await api("/api/summary?hours=72");
-    return el("div", {class: "grid g3"}, ...[0, 1, 2].map(col => el("div", {}, ...d.digest.filter((_, i) => i % 3 === col).map(c =>
-      el("div", {class: "it " + (c.policy === "watch" ? "P2" : "")},
-        el("div", {class: "meta"}, srcBadge(c.source, c.account), el("b", {}, c.channel_name || c.channel), el("span", {class: "tag"}, c.policy),
-           `${c.n} msgs`, c.important ? `· ${c.important} flagged` : ""),
-        ...(c.units || []).map(u => el("div", {class: "msg"}, el("i", {}, `[${u.kind}] `), u.title)),
+    const params = new URLSearchParams({hours: String(GROUPS_STATE.hours), q: GROUPS_STATE.query});
+    const d = await api("/api/summary?" + params);
+    const sources = [...new Set(d.digest.map(c => c.source))].sort();
+    const filtered = d.digest.filter(c => {
+      if (GROUPS_STATE.source !== "all" && c.source !== GROUPS_STATE.source) return false;
+      if (GROUPS_STATE.kind === "groups" && !c.is_group) return false;
+      if (GROUPS_STATE.kind === "direct" && c.is_group) return false;
+      if (GROUPS_STATE.policy !== "all" && c.policy !== GROUPS_STATE.policy) return false;
+      return true;
+    });
+    const control = (options, value, change) => {
+      const node = el("select", {onchange: e => { change(e.target.value); render(); }});
+      for (const [v, label] of options) {
+        const o = el("option", {value: v}, label); o.selected = String(v) === String(value); node.append(o);
+      }
+      return node;
+    };
+    const query = el("input", {value: GROUPS_STATE.query, placeholder: "Search group name or message text"});
+    query.onkeydown = e => { if (e.key === "Enter") { GROUPS_STATE.query = query.value.trim(); render(); } };
+    const filters = el("div", {class: "group-filters"}, query,
+      control([[24, "Last 24 hours"], [72, "Last 3 days"], [168, "Last 7 days"], [720, "Last 30 days"], [0, "All history"]],
+              GROUPS_STATE.hours, v => { GROUPS_STATE.hours = +v; }),
+      control([["all", "All sources"], ...sources.map(s => [s, SRC_LABEL[s] || s])],
+              GROUPS_STATE.source, v => { GROUPS_STATE.source = v; }),
+      control([["all", "All chats"], ["groups", "Groups"], ["direct", "Direct chats"]],
+              GROUPS_STATE.kind, v => { GROUPS_STATE.kind = v; }),
+      control([["all", "All policies"], ["watch", "Watch"], ["store", "Store"], ["digest", "Digest"]],
+              GROUPS_STATE.policy, v => { GROUPS_STATE.policy = v; }));
+    const groupKey = c => c.source + "|" + (c.account || "") + "|" + c.channel;
+    const expand = async c => {
+      const key = groupKey(c);
+      if (GROUPS_STATE.expanded.has(key)) { GROUPS_STATE.expanded.delete(key); render(); return; }
+      GROUPS_STATE.expanded.add(key);
+      const p = new URLSearchParams({source: c.source, account: c.account || "", channel: c.channel,
+        hours: String(GROUPS_STATE.hours), limit: "180"});
+      GROUPS_STATE.messages.set(key, await api("/api/channel/messages?" + p));
+      render();
+    };
+    const flag = async c => {
+      const r = await api("/api/channels/flag", {source: c.source, account: c.account || "", channel: c.channel, hours: 0});
+      $("status").textContent = "✓ flagged " + r.flagged + " messages";
+      render();
+    };
+    const repair = async c => {
+      const r = await api("/api/channels/refresh", {source: c.source, channel: c.channel, hours: 720});
+      $("status").textContent = "✓ restored " + r.updated + " message texts";
+      render();
+    };
+    const card = c => {
+      const key = groupKey(c), expanded = GROUPS_STATE.expanded.has(key), data = GROUPS_STATE.messages.get(key);
+      const messages = expanded && data ? (data.messages || []).map(m =>
+        el("div", {class: "msg"}, el("i", {}, (m.sender_name || "?") + " · " + fmt(m.sent_at) + ": "), m.text || "[" + (m.kind || "message") + "]")) : [];
+      return el("div", {class: "it group-card " + (c.policy === "watch" ? "P2" : "")},
+        el("div", {class: "meta"}, srcBadge(c.source, c.account), el("b", {}, c.channel_name || c.channel),
+          el("span", {class: "tag"}, c.policy), c.n + " msgs", c.important ? "· " + c.important + " flagged" : ""),
+        ...(c.units || []).map(u => el("div", {class: "msg"}, el("i", {}, "[" + u.kind + "] "), u.title)),
         ...(c.highlights || []).map(h => el("div", {class: "msg"}, el("i", {}, (h.sender_name || "") + ": "), h.text || "")),
-        el("div", {class: "acts"}, c.policy !== "watch" && teach("watch", c.source, c.channel, "👁 Watch"),
-           c.policy !== "digest" && teach("digest", c.source, c.channel, "Digest only"), teach("mute", c.source, c.channel, "Mute")))))));
+        expanded && data ? el("div", {class: "group-messages"}, ...messages) : null,
+        el("div", {class: "acts"},
+          el("button", {class: "b", onclick: () => flag(c)}, "⚑ Flag all"),
+          el("button", {class: "b", onclick: () => expand(c)}, expanded ? "Collapse" : "Expand"),
+          c.policy !== "watch" && teach("watch", c.source, c.channel, "👁 Watch"),
+          c.policy !== "digest" && teach("digest", c.source, c.channel, "Digest only"),
+          teach("mute", c.source, c.channel, "Mute")));
+    };
+    return el("div", {}, filters, el("div", {class: "status"}, filtered.length + " chats · " + (GROUPS_STATE.hours ? "recent window" : "all history")),
+      el("div", {class: "grid g3"}, ...[0, 1, 2].map(col => el("div", {}, ...filtered.filter((_, i) => i % 3 === col).map(card)))));
   },
   async explore() {
     const tags = await api("/api/tags" + (EXPLORE_FILTERS.days ? "?days=" + EXPLORE_FILTERS.days : ""));
@@ -869,10 +992,11 @@ const TABS = {
       log.replaceChildren(...cards);
       if (scrollPinned) log.scrollTop = log.scrollHeight;
     };
-    const input = el("input", {placeholder: "Message the assistant… (Enter)", style: "flex:1"});
+    const input = el("input", {id: "chat-input", value: CHAT_DRAFT, placeholder: "Message the assistant… (Enter)", style: "flex:1"});
+    input.oninput = () => { CHAT_DRAFT = input.value; };
     const send = async () => {
       const text = input.value.trim(); if (!text) return;
-      CHAT.push({role: "user", content: text}); input.value = "";
+      CHAT.push({role: "user", content: text}); CHAT_DRAFT = ""; input.value = "";
       const payload = CHAT.map(m => ({role: m.role, content: m.content}));
       const asst = {role: "assistant", content: "", changes: [], cost: 0, streaming: true};
       CHAT.push(asst); scrollPinned = true; draw();
@@ -912,13 +1036,14 @@ const TABS = {
     draw();
     const bar = el("div", {style: "display:flex;gap:6px;margin-top:8px"}, input,
       el("button", {class: "b", onclick: send, style: "padding:6px 14px"}, "Send"),
-      el("button", {class: "b", onclick: () => { CHAT = []; draw(); }}, "Clear"));
+      el("button", {class: "b", onclick: () => { CHAT = []; CHAT_DRAFT = ""; input.value = ""; draw(); }}, "Clear"));
     return el("div", {}, log, bar);
   },
 
   async settings() {
     const cfg = await api("/api/settings");
     let chans = await api("/api/channels?days=30");
+    let schedules = await api("/api/schedules");
     let refreshBackups;
     const save = async (key, value) => {
       const result = await api("/api/settings", {[key]: value});
@@ -996,6 +1121,88 @@ const TABS = {
       if (!backupInfo.isConnected) { clearInterval(backupTimer); return; }
       refreshBackups().catch(() => { backupInfo.textContent = "Could not refresh backup status."; });
     }, 5000);
+    // ---- user-authored assistant schedules ----
+    const scheduleList = el("div", {});
+    const scheduleName = el("input", {placeholder: "Schedule name", style: "width:100%"});
+    const scheduleMode = el("select", {style: "width:100%"},
+      el("option", {value: "daily"}, "Daily"),
+      el("option", {value: "interval"}, "Interval"));
+    const scheduleTime = el("input", {type: "time", value: "09:00", style: "width:100%"});
+    const scheduleInterval = el("input", {type: "number", min: "1", max: "10080", step: "1", value: "60", style: "width:100%"});
+    const schedulePrompt = el("textarea", {placeholder: "Prompt sent to the assistant…", rows: "4", style: "width:100%;resize:vertical"});
+    const scheduleEnabled = el("input", {type: "checkbox", checked: true, style: "width:auto"});
+    const scheduleId = el("input", {type: "hidden"});
+    const scheduleTiming = el("span", {}, scheduleTime);
+    const scheduleSave = el("button", {class: "b"}, "Save schedule");
+    const scheduleCancel = el("button", {class: "b"}, "Clear form");
+    const modeLabel = el("span", {class: "status"}, "at");
+    const refreshScheduleForm = () => {
+      const daily = scheduleMode.value === "daily";
+      modeLabel.textContent = daily ? "at" : "Every";
+      scheduleTiming.replaceChildren(daily ? scheduleTime : scheduleInterval);
+      if (!daily) scheduleTiming.append(el("span", {class: "status"}, " minutes"));
+    };
+    scheduleMode.onchange = refreshScheduleForm;
+    const resetScheduleForm = () => {
+      scheduleId.value = ""; scheduleName.value = ""; scheduleMode.value = "daily";
+      scheduleTime.value = "09:00"; scheduleInterval.value = "60"; schedulePrompt.value = ""; scheduleEnabled.checked = true;
+      scheduleSave.textContent = "Save schedule"; refreshScheduleForm();
+    };
+    scheduleCancel.onclick = resetScheduleForm;
+    const scheduleHelp = el("div", {class: "empty"},
+      "Each enabled schedule sends its prompt as a normal assistant turn. Daily times use the hub timezone; interval starts after the previous run finishes.");
+    const drawSchedules = () => {
+      scheduleList.replaceChildren(...(Array.isArray(schedules) ? schedules : []).map(s => {
+        const timing = s.mode === "daily" ? "daily at " + s.daily_time : "every " + s.interval_minutes + " min";
+        const state = s.enabled ? timing : "paused";
+        const last = s.last_run ? "last " + fmt(s.last_run) : "not run yet";
+        const error = s.last_error ? el("div", {class: "status", style: "color:#f59e0b;overflow-wrap:anywhere"}, s.last_error) : null;
+        return el("div", {class: "it"},
+          el("div", {class: "meta"}, el("b", {}, s.name), el("span", {class: "tag"}, state), s.last_status || "never", last),
+          el("div", {class: "msg", style: "white-space:pre-wrap;overflow-wrap:anywhere"}, s.prompt),
+          s.next_run ? el("div", {class: "status"}, "next " + fmt(s.next_run)) : null, error,
+          el("div", {class: "acts"},
+            el("button", {class: "b", onclick: () => {
+              scheduleId.value = s.id; scheduleName.value = s.name; scheduleMode.value = s.mode;
+              scheduleTime.value = s.daily_time || "09:00"; scheduleInterval.value = s.interval_minutes || 60;
+              schedulePrompt.value = s.prompt; scheduleEnabled.checked = !!s.enabled; scheduleSave.textContent = "Update schedule"; refreshScheduleForm(); scheduleName.focus();
+            }}, "Edit"),
+            el("button", {class: "b", onclick: async e => {
+              e.target.disabled = true;
+              const result = await api("/api/schedules", {id: s.id, name: s.name, mode: s.mode, daily_time: s.daily_time,
+                interval_minutes: s.interval_minutes, prompt: s.prompt, enabled: !s.enabled});
+              if (result.error) $("status").textContent = result.error; else { schedules = await api("/api/schedules"); drawSchedules(); }
+            }}, s.enabled ? "Pause" : "Enable"),
+            el("button", {class: "b", onclick: async e => {
+              if (!confirm("Delete schedule \"" + s.name + "\"?")) return;
+              e.target.disabled = true; await api("/api/schedules", {delete: s.id}); schedules = await api("/api/schedules"); drawSchedules();
+            }}, "Delete")));
+      }));
+      if (!schedules.length) scheduleList.append(el("div", {class: "empty"}, "No custom schedules yet."));
+    };
+    scheduleSave.onclick = async () => {
+      if (!scheduleName.value.trim() || !schedulePrompt.value.trim()) { $("status").textContent = "Name and prompt are required."; return; }
+      const body = {name: scheduleName.value.trim(), mode: scheduleMode.value, daily_time: scheduleTime.value,
+        interval_minutes: Number(scheduleInterval.value), prompt: schedulePrompt.value.trim(), enabled: scheduleEnabled.checked};
+      if (scheduleId.value) body.id = Number(scheduleId.value);
+      scheduleSave.disabled = true;
+      const result = await api("/api/schedules", body);
+      scheduleSave.disabled = false;
+      if (result.error) { $("status").textContent = result.error; return; }
+      schedules = await api("/api/schedules"); drawSchedules(); resetScheduleForm(); $("status").textContent = "schedule saved";
+    };
+    const scheduleForm = el("div", {class: "it schedule-form"}, scheduleId,
+      el("div", {class: "schedule-grid"},
+        el("label", {class: "schedule-field"}, el("span", {class: "schedule-label"}, "Name"), scheduleName),
+        el("div", {class: "schedule-field"},
+          el("span", {class: "schedule-label"}, "When"),
+          el("div", {class: "schedule-when"}, scheduleMode,
+            el("div", {class: "schedule-timing"}, modeLabel, scheduleTiming))),
+        el("label", {class: "schedule-field schedule-field-wide"}, el("span", {class: "schedule-label"}, "Prompt"), schedulePrompt),
+        el("label", {class: "schedule-field"}, el("span", {class: "schedule-label"}, "Status"),
+          el("span", {class: "schedule-toggle"}, scheduleEnabled, "Enabled"))),
+      el("div", {class: "schedule-actions"}, scheduleSave, scheduleCancel));
+    refreshScheduleForm(); drawSchedules();
     // ---- chats: filters, multi-select, batch apply, rule defaults ----
     const picked = new Set(), key = c => c.source + "|" + c.channel;
     const q = el("input", {placeholder: "filter chats…", style: "width:100%"});
@@ -1062,6 +1269,12 @@ const TABS = {
     const drawVip = async () => {
       const data = await api("/api/people?limit=1");       // just the vip list
       const vips = data.vips || [];
+      const watchers = data.watchers || [];
+      const toggleWatch = async (person, enabled) => {
+        await api("/api/teach", {kind: "watch_person", source: person.source, value: person.sender,
+          label: person.sender_name || person.label, ...(enabled ? {} : {undo: true})});
+        drawVip(); $("status").textContent = enabled ? "watching " + (person.sender_name || person.sender) : "stopped watching";
+      };
       const search = el("input", {placeholder: "add VIP: type a name…", style: "width:100%"});
       const results = el("div", {});
       search.oninput = async () => {
@@ -1071,12 +1284,14 @@ const TABS = {
         results.replaceChildren(...r.people.map(pp => el("div", {class: "it"},
           el("div", {class: "meta"}, srcBadge(pp.source), el("b", {}, pp.sender_name), `${pp.n} msgs`,
             pp.vip ? el("span", {class: "tag"}, "already VIP") : null),
-          pp.vip ? null : el("button", {class: "b", onclick: async e => {
-            e.target.disabled = true;
-            await api("/api/teach", {kind: "vip", source: pp.source, value: pp.sender, label: pp.sender_name});
-            search.value = ""; results.replaceChildren(); drawVip();
-            $("status").textContent = "★ " + pp.sender_name + " is now VIP";
-          }}, "★ Make VIP"))));
+          el("div", {class: "acts"},
+            pp.vip ? null : el("button", {class: "b", onclick: async e => {
+              e.target.disabled = true;
+              await api("/api/teach", {kind: "vip", source: pp.source, value: pp.sender, label: pp.sender_name});
+              search.value = ""; results.replaceChildren(); drawVip();
+              $("status").textContent = "★ " + pp.sender_name + " is now VIP";
+            }}, "★ Make VIP"),
+            el("button", {class: "b", onclick: () => toggleWatch(pp, !pp.watch)}, pp.watch ? "Stop Watch" : "Watch")))));
       };
       vipBox.replaceChildren(
         el("div", {class: "empty"}, "VIP people: their topics show up under “For me”. Does not claim their own tasks as yours."),
@@ -1087,11 +1302,17 @@ const TABS = {
             drawVip(); $("status").textContent = "removed VIP";
           }}, "Remove"))),
         (vips.length ? null : el("div", {class: "empty"}, "No VIP people yet.")),
+        el("div", {class: "day"}, "Watched people"),
+        ...watchers.map(v => el("div", {class: "it"}, el("div", {class: "meta"}, srcBadge(v.source),
+          el("b", {}, v.label || v.sender), "Watch"),
+          el("button", {class: "b", onclick: () => toggleWatch(v, false)}, "Stop Watch"))),
+        (watchers.length ? null : el("div", {class: "empty"}, "No watched people yet.")),
         search, results);
     };
     drawVip();
     return el("div", {class: "grid g2"},
       lane("Settings", null, [el("div", {class: "day"}, "Database backups"), backupTable, backupInfo, backupButton,
+        el("div", {class: "day"}, "Assistant task scheduler"), scheduleHelp, scheduleForm, scheduleList,
         el("div", {class: "day"}, "General"), settingsTable, el("div", {class: "empty"},
         "Saved to config/settings.local.json. Chat policies live in the database."),
         el("div", {class: "day"}, "VIP people"), vipBox,
@@ -1160,7 +1381,7 @@ async function viewTab(v) {
   return el("div", {class: "grid g2"}, lane(v.name, units.length, units.map(u => unitCard(u))));
 }
 function drawTabs() {
-  const names = [["today", "Today"], ["live", "Live"], ["todos", "Todos"], ["calendar", "Calendar"], ["groups", "Groups"], ["explore", "Explore"],
+  const names = VIEWER_MODE ? [["explore", "Explore"]] : [["today", "Today"], ["live", "Live"], ["todos", "Todos"], ["calendar", "Calendar"], ["groups", "Groups"], ["explore", "Explore"],
                  ...VIEWS.map((v, i) => ["view" + i, v.name]), ["chat", "Chat"], ["status", "Status"], ["settings", "Settings"]];
   $("tabs").replaceChildren(...names.map(([k, n]) => el("button", {class: "tab" + (TAB === k ? " on" : ""), onclick: () => { TAB = k; render(false); }}, n)));
 }
@@ -1226,6 +1447,9 @@ function enhanceGrids(root) {
 let renderVersion = 0;
 async function render(keepScroll = true) {
   const version = ++renderVersion, tab = TAB;
+  const active = document.activeElement;
+  const draft = active && active.id === "chat-input" ? active.value : (typeof CHAT_DRAFT === "undefined" ? "" : CHAT_DRAFT);
+  const keepChatFocus = !!(active && active.id === "chat-input");
   drawTabs(); drawScope();
   const node = TAB.startsWith("view") ? await viewTab(VIEWS[+TAB.slice(4)]) : await TABS[TAB]();
   if (version !== renderVersion || tab !== TAB) return;
@@ -1234,6 +1458,11 @@ async function render(keepScroll = true) {
   $("main").replaceChildren(node);
   $("main").dataset.tab = tab;
   enhanceGrids($("main"));
+  const chatInput = $("chat-input");
+  if (chatInput && (keepChatFocus || draft)) {
+    chatInput.value = draft || ""; if (typeof CHAT_DRAFT !== "undefined") CHAT_DRAFT = chatInput.value;
+    if (keepChatFocus) { chatInput.focus(); chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length); }
+  }
   if (state) restoreScroll(state);
   $("status").textContent = "updated " + new Date().toLocaleTimeString();
 }
@@ -1271,6 +1500,7 @@ $("q").onkeydown = async e => {
 };
 // optional ?tab=&scope= on first load (shareable deep link)
 const _p = new URLSearchParams(location.search);
+if (VIEWER_MODE) { document.body.classList.add("viewer-mode"); TAB = "explore"; SCOPE = "all"; document.title = "Info Hub Viewer"; }
 if (_p.get("theme")) applyTheme(_p.get("theme"));
 if (_p.get("scope")) SCOPE = _p.get("scope");
 if (_p.get("view") === "graph" || _p.get("view") === "list") EXPLORE_VIEW = _p.get("view");
@@ -1285,8 +1515,8 @@ if (_p.get("demo") === "chat") CHAT = [                      // a sample convers
     + "Also worth a look: the action-plan-then-distill idea [[u:6]] from the world-model thread."},
 ];
 const _tab0 = _p.get("tab");
-api("/api/views").then(v => { VIEWS = v || []; if (_tab0) TAB = _tab0; render(false); });
-setInterval(() => { if (!document.hidden && document.activeElement !== $("q")) render(); }, 120000);
+api("/api/views").then(v => { VIEWS = v || []; if (_tab0 && !VIEWER_MODE) TAB = _tab0; render(false); });
+setInterval(() => { if (!document.hidden && document.activeElement !== $("q") && document.activeElement?.id !== "chat-input") render(); }, 120000);
 </script>
 </body>
 </html>

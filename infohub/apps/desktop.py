@@ -37,6 +37,15 @@ def dashboard_url(cfg):
     return f"{scheme}://{host}:{int(d['port'])}/"
 
 
+def viewer_url(cfg):
+    v = cfg["hub"].get("viewer") or {}
+    host = v.get("bind", "127.0.0.1")
+    host = "127.0.0.1" if host in ("0.0.0.0", "") else "::1" if host == "::" else host
+    if ":" in host:
+        host = f"[{host}]"
+    return f"http://{host}:{int(v.get('port', 8766))}/"
+
+
 def state_root(database):
     db = Path(database).resolve()
     key = hashlib.sha256(str(db).casefold().encode()).hexdigest()[:12]
@@ -241,6 +250,9 @@ class DesktopApp:
     def open_browser(self, *_):
         webbrowser.open(self.url)
 
+    def open_viewer(self, *_):
+        webbrowser.open(viewer_url(self.cfg))
+
     def toggle(self, key):
         self.options[key] = not self.options[key]
         data = {k: self.options[k] for k in ("notifications", "mine_only")}
@@ -289,6 +301,7 @@ class DesktopApp:
             item("Open Info Hub", self.open_window, default=True),
             item("Open latest new unit", self.open_latest, enabled=lambda _: self.latest_id is not None),
             item("Open in browser", self.open_browser),
+            item("Open viewer only", self.open_viewer),
             self.pystray.Menu.SEPARATOR,
             item("Notify on new units", lambda: self.toggle("notifications"), checked=lambda _: self.options["notifications"]),
             item("Only notify units for me", lambda: self.toggle("mine_only"), checked=lambda _: self.options["mine_only"]),

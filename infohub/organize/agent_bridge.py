@@ -84,7 +84,8 @@ def submit(cfg, store, text: str, origin: str = "agent") -> dict:
         src = "source:" + seg["source"] + (f":{seg['account']}" if seg["account"] else "")
         r = U.apply_result(store, result, origin=origin, job_key=f"{origin}:seg{seg['id']}", tz=tz,
                            allowed_message_ids=allowed, default_parent=day_parent(store, seg),
-                           base_tags=[src, f"channel:{seg['channel_name']}"])
+                           base_tags=[src, f"channel:{seg['channel_name']}"],
+                           me_names=cfg.get("me", {}).get("names", []))
         store.q("UPDATE jobs SET status='done', updated_at=? WHERE id=?", (int(time.time()), job["id"]))
         store.q("UPDATE segments SET ai_done=1 WHERE id=?", (seg["id"],))
         out["applied"] += 1

@@ -92,6 +92,13 @@ CREATE TABLE IF NOT EXISTS jobs(
 CREATE TABLE IF NOT EXISTS llm_usage(day TEXT, model TEXT, requests INTEGER, input_tokens INTEGER,
   output_tokens INTEGER, cache_read_tokens INTEGER, cache_write_tokens INTEGER, cost_usd REAL,
   PRIMARY KEY(day, model));
+
+CREATE TABLE IF NOT EXISTS task_schedules(
+  id INTEGER PRIMARY KEY, name TEXT NOT NULL, enabled INTEGER DEFAULT 1,
+  mode TEXT NOT NULL, daily_time TEXT, interval_minutes INTEGER,
+  prompt TEXT NOT NULL, next_run INTEGER, last_run INTEGER,
+  last_status TEXT, last_error TEXT, created_at INTEGER, updated_at INTEGER);
+CREATE INDEX IF NOT EXISTS ts_due ON task_schedules(enabled, next_run);
 """
 
 MSG_FIELDS = ["source", "account", "item_key", "channel", "channel_name", "is_group", "sender", "sender_name",
@@ -199,10 +206,83 @@ class Store:
         self.q("UPDATE messages SET done=? WHERE id=?", (int(done), message_id))
         self.db.commit()
 
+    def update_message_content(self, message_id: int, *, text: str, kind: str | None = None,
+                               sender: str | None = None, sender_name: str | None = None,
+                               link: str | None = None, mentions_me: bool | None = None,
+                               flags: dict | None = None) -> bool:
+        """Repair source text without changing user triage fields such as priority or done."""
+        old = self.q("SELECT text FROM messages WHERE id=?", (int(message_id),)).fetchone()
+        if not old:
+            return False
+        fields = ["text=?"]
+        args = [text]
+        for key, value in (("kind", kind), ("sender", sender), ("sender_name", sender_name),
+                           ("link", link), ("mentions_me", None if mentions_me is None else int(mentions_me)),
+                           ("flags", None if flags is None else json.dumps(flags, ensure_ascii=False))):
+            if value is not None:
+                fields.append(f"{key}=?")
+                args.append(value)
+        args.append(int(message_id))
+        self.q(f"UPDATE messages SET {','.join(fields)} WHERE id=?", args)
+        # messages_fts has external content and only insert/delete triggers; rebuild after repair.
+        self.q("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
+        self.db.commit()
+        return True
+
     def log(self, layer, source, started, status, stored=0, detail=None, error=None):
         self.q("INSERT INTO polls(layer,source,started_at,finished_at,status,stored,detail,error) VALUES(?,?,?,?,?,?,?,?)",
                (layer, source, started, int(time.time()), status, stored,
                 json.dumps(detail, ensure_ascii=False) if detail else None, error))
+        self.db.commit()
+
+    # ---- user-defined assistant schedules
+    def schedules(self):
+        return [dict(r) for r in self.q("SELECT * FROM task_schedules ORDER BY enabled DESC, name, id")]
+
+    def schedule(self, sid: int):
+        row = self.q("SELECT * FROM task_schedules WHERE id=?", (int(sid),)).fetchone()
+        return dict(row) if row else None
+
+    def save_schedule(self, data: dict, next_run: int, sid: int | None = None) -> dict:
+        now = int(time.time())
+        if sid:
+            self.q("""UPDATE task_schedules SET name=?, enabled=?, mode=?, daily_time=?, interval_minutes=?,
+                       prompt=?, next_run=?, updated_at=? WHERE id=?""",
+                   (data["name"], int(data["enabled"]), data["mode"], data.get("daily_time"),
+                    data.get("interval_minutes"), data["prompt"], int(next_run), now, int(sid)))
+            out = self.schedule(sid)
+        else:
+            cur = self.q("""INSERT INTO task_schedules(name,enabled,mode,daily_time,interval_minutes,prompt,
+                       next_run,last_status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)""",
+                         (data["name"], int(data["enabled"]), data["mode"], data.get("daily_time"),
+                          data.get("interval_minutes"), data["prompt"], int(next_run), "never", now, now))
+            out = self.schedule(cur.lastrowid)
+        self.db.commit()
+        return out
+
+    def delete_schedule(self, sid: int) -> bool:
+        cur = self.q("DELETE FROM task_schedules WHERE id=?", (int(sid),))
+        self.db.commit()
+        return bool(cur.rowcount)
+
+    def due_schedules(self, now: int | None = None) -> list[dict]:
+        return [dict(r) for r in self.q("""SELECT * FROM task_schedules
+                                         WHERE enabled=1 AND next_run IS NOT NULL AND next_run<=?
+                                           AND coalesce(last_status,'')!='running'
+                                         ORDER BY next_run, id LIMIT 8""", (int(now or time.time()),))]
+
+    def mark_schedule_running(self, sid: int, now: int | None = None) -> bool:
+        cur = self.q("UPDATE task_schedules SET last_status='running', last_error=NULL, updated_at=? "
+                     "WHERE id=? AND enabled=1 AND coalesce(last_status,'')!='running'",
+                     (int(now or time.time()), int(sid)))
+        self.db.commit()
+        return bool(cur.rowcount)
+
+    def finish_schedule(self, sid: int, *, next_run: int, status: str, error: str | None = None,
+                        now: int | None = None):
+        t = int(now or time.time())
+        self.q("""UPDATE task_schedules SET last_run=?, next_run=?, last_status=?, last_error=?, updated_at=?
+                  WHERE id=?""", (t, int(next_run), status, error, t, int(sid)))
         self.db.commit()
 
     def prune(self, retention_days: int):

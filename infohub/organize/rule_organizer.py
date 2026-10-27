@@ -106,6 +106,7 @@ def organize_messages(cfg, store) -> dict:
             U.add_tags(store, uid, tags)
             U.attach(store, uid, [m["id"]])
             U.link(store, parent, uid)
+            U.mark_for_me(store, uid, cfg.get("me", {}).get("names", []))
             stats["units"] += 1
     store.db.commit()
     store.set_cursor("organize:rule:msg", last)
@@ -131,7 +132,9 @@ def queue_segments(cfg, store) -> int:
     queued, now = 0, int(time.time())
     for s in rows:
         if ai["enabled"] or ai.get("queue_for_agents"):
-            if s["policy"] in ai["policies"] and s["n"] >= int(ai["min_messages"]):
+            # An explicit Watch is an opt-in to organize even a one-message segment.
+            # Keep the batching threshold for Store/Digest traffic to avoid noisy jobs.
+            if s["policy"] in ai["policies"] and (s["policy"] == "watch" or s["n"] >= int(ai["min_messages"])):
                 queued += store.q("""INSERT INTO jobs(kind, ref_id, status, created_at, updated_at) VALUES('segment',?,'pending',?,?)
                                      ON CONFLICT(kind, ref_id) DO UPDATE SET status=CASE WHEN jobs.status IN ('done','failed')
                                      THEN 'pending' ELSE jobs.status END, updated_at=excluded.updated_at""",

@@ -83,7 +83,8 @@ def process_job(cfg, store, provider, job) -> dict:
     source_tag = "source:" + seg["source"] + (f":{seg['account']}" if seg["account"] else "")
     applied = U.apply_result(store, result, origin="ai", job_key=f"ai:seg{seg['id']}", tz=tz,
                              allowed_message_ids=allowed, default_parent=day_parent(store, seg),
-                             base_tags=[source_tag, f"channel:{seg['channel_name']}"])
+                             base_tags=[source_tag, f"channel:{seg['channel_name']}"],
+                             me_names=cfg.get("me", {}).get("names", []))
     store.q("UPDATE segments SET ai_done=1 WHERE id=?", (seg["id"],))
     _finish(store, job["id"], "done")
     return {**applied, "cost": cost}
@@ -93,7 +94,7 @@ def requeue(cfg, store, days: float) -> int:
     """Queue already-closed segments from the last `days` (e.g. right after enabling AI)."""
     since, now, n = int(time.time() - days * 86400), int(time.time()), 0
     for s in store.q("SELECT id, policy, n FROM segments WHERE closed=1 AND ai_done=0 AND end_at>=?", (since,)).fetchall():
-        if s["policy"] in cfg["ai"]["policies"] and s["n"] >= int(cfg["ai"]["min_messages"]):
+        if s["policy"] in cfg["ai"]["policies"] and (s["policy"] == "watch" or s["n"] >= int(cfg["ai"]["min_messages"])):
             n += store.q("""INSERT INTO jobs(kind, ref_id, status, created_at, updated_at) VALUES('segment',?,'pending',?,?)
                             ON CONFLICT(kind, ref_id) DO NOTHING""", (s["id"], now, now)).rowcount
     store.db.commit()

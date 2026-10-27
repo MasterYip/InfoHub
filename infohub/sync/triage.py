@@ -104,7 +104,13 @@ def classify(it: dict, rules: list[dict], scfg: dict, overrides: dict) -> dict:
     """Fill priority / labels / rule on an item whose policy is already set."""
     policy = it["policy"]
     best, labels, names = ("P2" if policy == "watch" else "P3"), [], []
-    if it.get("sender") in scfg.get("watch", {}).get("people", []):
+    watched_people = scfg.get("watch", {}).get("people", [])
+    watch_overrides = overrides.get("watch", set()) | overrides.get("watch_person", set())
+    watched_override = ((it.get("source"), it.get("sender")) in watch_overrides or
+                        (it.get("source"), it.get("sender_name")) in watch_overrides)
+    if it.get("sender") in watched_people or it.get("sender_name") in watched_people or watched_override:
+        # A watched sender is a person-level Watch even when the surrounding chat is Store.
+        policy = it["policy"] = "watch"
         best = "P1"; names.append("watch-person")
     if it.get("mentions_me"):
         best = min(best, "P1"); labels.append("mention"); names.append("mention")

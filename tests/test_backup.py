@@ -197,6 +197,8 @@ class BackupHTTP(unittest.TestCase):
                     self.assertEqual(req("POST", "/api/backups", {}, origin="https://elsewhere.example")[0], 403)
                     settings = req("GET", "/api/settings")[1]
                     self.assertEqual(settings["values"]["hub.backup.interval_days"], 7)
+                    self.assertEqual(req("POST", "/api/settings", {"ai.daily_budget_usd": 2.5})[0], 200)
+                    self.assertEqual(req("GET", "/api/settings")[1]["values"]["ai.daily_budget_usd"], 2.5)
                     self.assertNotIn("hub.backup.interval_days", settings["restart_needed_for"])
                     self.assertEqual(req("POST", "/api/settings", {"hub.backup.interval_days": 0})[0], 400)
                     self.assertEqual(req("POST", "/api/settings", {"hub.backup.interval_days": 1,

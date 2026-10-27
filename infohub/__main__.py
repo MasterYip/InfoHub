@@ -190,7 +190,7 @@ def main():
         if args.recompute:
             from .organize.units import recompute_for_me, rescan_mentions
             out["mentions"] = rescan_mentions(store, cfg["me"]["names"])
-            out["for_me"] = recompute_for_me(store)
+            out["for_me"] = recompute_for_me(store, cfg.get("me", {}).get("names", []))
         if args.reflag:
             from .sync.triage import reclassify_recent
             out["reflag"] = reclassify_recent(cfg, store)
@@ -243,9 +243,18 @@ def main():
                       "polish", json.dumps(pol, ensure_ascii=False), flush=True)
                 time.sleep(int(cfg["ai"]["interval_minutes"]) * 60)
 
+        def schedule_loop():
+            from .apps.scheduler import loop
+            loop(cfg)
+
         threading.Thread(target=layer1_loop, daemon=True).start()
         if cfg["ai"]["enabled"]:
             threading.Thread(target=ai_loop, daemon=True).start()
+        if cfg["hub"].get("viewer", {}).get("enabled"):
+            from .apps.server import serve_viewer
+            threading.Thread(target=serve_viewer, args=(cfg, Store(cfg["hub"]["database"])),
+                             name="infohub-viewer", daemon=True).start()
+        threading.Thread(target=schedule_loop, daemon=True, name="infohub-scheduler").start()
     web_store = Store(cfg["hub"]["database"])
     serve(cfg, web_store, lambda: cycle(cfg, web_store))
 

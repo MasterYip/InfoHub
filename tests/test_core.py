@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from infohub.apps import brief, reminders
-from infohub.apps.server import search, search_all, summary, today
+from infohub.apps.server import channel_messages, search, search_all, summary, today
 from infohub.config import DEFAULTS
 from infohub.dates import find_datetime
 from infohub.organize import agent_bridge, ai_organizer, polish, prompt, providers, rule_organizer
@@ -202,6 +202,7 @@ class Layer2(unittest.TestCase):
         out = rule_organizer.run(self.cfg, self.store)
         kinds = {r[0]: r[1] for r in self.store.q("SELECT kind, count(*) FROM units GROUP BY kind")}
         self.assertEqual(kinds.get("event"), 1)
+
         self.assertEqual(kinds.get("todo"), 2)           # "记得…" and "作业…截止"
         self.assertEqual(kinds.get("announcement"), 1)
         self.assertEqual(kinds.get("digest"), 2)         # one container per chat-day
@@ -567,8 +568,7 @@ class Layer3(unittest.TestCase):
         sent = []
         self.assertEqual(reminders.run(self.cfg, self.store, notify=lambda a, b: sent.append(b) or True)["reminded"], 2)
         self.assertEqual(reminders.run(self.cfg, self.store, notify=lambda a, b: True)["reminded"], 0)   # once only
-        self.assertEqual(summary(self.store, 24)["counts"][0]["messages"], 1)
-        # Ignore a unit (status dropped) leaves every list; every unit carries an activity time
+        self.assertEqual(summary(self.store, 24)["counts"][0]["messages"], 1)        # Ignore a unit (status dropped) leaves every list; every unit carries an activity time
         self.assertIsNotNone(U.query(self.store, kind="todo")[0]["last_activity_at"])
         U.update(self.store, todo, status="dropped"); self.store.db.commit()
         self.assertEqual([u["id"] for u in today(self.store)["needs"]], [])

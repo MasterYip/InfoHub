@@ -247,7 +247,7 @@ def _run_tool(cfg, store, name, args, changes):
         U.attach(store, uid, mids)
         for mid in remove_mids:
             store.q("DELETE FROM unit_messages WHERE unit_id=? AND message_id=?", (uid, mid))
-        U.mark_for_me(store, uid)
+        U.mark_for_me(store, uid, cfg.get("me", {}).get("names", []))
         if "for_me" in args:
             store.q("UPDATE units SET for_me=? WHERE id=?", (int(bool(args["for_me"])), uid))
         action = "created" if creating else "updated"

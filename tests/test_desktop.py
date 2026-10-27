@@ -193,6 +193,7 @@ class Desktop(unittest.TestCase):
 
     def test_urls_and_health_response_identity(self):
         self.assertEqual(desktop.dashboard_url(self.cfg), "http://127.0.0.1:8765/")
+        self.assertEqual(desktop.viewer_url(self.cfg), "http://127.0.0.1:8766/")
         self.cfg["hub"]["dashboard"].update(bind="0.0.0.0", port=9000)
         self.assertEqual(desktop.dashboard_url(self.cfg), "http://127.0.0.1:9000/")
         self.cfg["hub"]["dashboard"].update(bind="::", tls_cert="cert", tls_key="key")

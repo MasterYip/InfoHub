@@ -17,6 +17,7 @@ DEFAULTS = {
         "dashboard": {"bind": "127.0.0.1", "port": 8765,
                       "allowed_hosts": [],        # extra Host values, e.g. ["203.0.113.5:18765", "hub.example.com"]; "*" = any
                       "tls_cert": "", "tls_key": ""},   # PEM files -> HTTPS (and Secure cookies)
+        "viewer": {"enabled": False, "bind": "127.0.0.1", "port": 8766},  # anonymous, read-only Explorer snapshot
         "auth": {"mode": "auto",                  # auto: login required once a user exists | on | off
                  "users_file": "config/users.local.json",
                  "session_days": 30,

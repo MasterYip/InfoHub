@@ -18,6 +18,8 @@ GET  /api/backups                   last verified backup, next due time, directo
 POST /api/backups                   queue a manual backup without blocking the dashboard
 GET  /api/settings                  editable settings + current values
 POST /api/settings                  {"ai.enabled": true, ...} -> config/settings.local.json
+GET  /api/schedules                 user-authored assistant schedules
+POST /api/schedules                 create/update/delete a schedule
 GET  /api/brief?days=7&tags=        Markdown brief for agents
 GET  /api/search?q=                 everything: units, messages, people, channels, tags
 GET  /api/status                    last runs per layer, AI queue and spend
@@ -30,6 +32,9 @@ POST /api/chat                      {"messages": [{role, content}]} -> assistant
 POST /api/chat/stream               same input -> Server-Sent Events (delta/status/done) for live output
 POST /api/done | /api/teach | /api/poll
 GET/POST /login, POST /logout     account login (see apps/auth.py); required once a user exists
+
+When hub.viewer.enabled is true, a separate listener serves an anonymous, read-only
+Explorer snapshot at hub.viewer.bind:hub.viewer.port. It has no API or login route.
 """
 from __future__ import annotations
 
@@ -50,17 +55,77 @@ from ..sync import policy as policy_mod
 from ..organize import units as U
 from . import auth
 from . import brief as brief_mod
+from . import scheduler as scheduler_mod
 
 WEB = Path(__file__).resolve().parent / "web"
+
+
+def viewer_payload(store) -> dict:
+    """Build the read-only Explorer snapshot embedded in the viewer HTML."""
+    units = U.query(store, status="all", order="activity", limit=1000, mine=False)
+    return {"tags": U.tag_counts(store, limit=400), "units": units,
+            "graph": graph(store, status="all", limit=1000, order="activity", include_context=False),
+            "views": []}
+
+
+def viewer_page(store) -> bytes:
+    """Serve one self-contained page; the browser has no API endpoint to call."""
+    payload = json.dumps(viewer_payload(store), ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    source = (WEB / "index.html").read_text(encoding="utf-8")
+    source = source.replace("<title>Info Hub</title>", "<title>Info Hub Viewer</title>", 1)
+    source = source.replace("<script>", f"<script>window.__INFOHUB_VIEWER__={payload};</script><script>", 1)
+    return source.encode("utf-8")
+
+
+def serve_viewer(cfg, store):
+    """Anonymous read-only listener. It exposes only GET / and no /api routes."""
+    vcfg = cfg["hub"].get("viewer") or {}
+    bind, port = vcfg.get("bind", "127.0.0.1"), int(vcfg.get("port", 8766))
+    lock = threading.Lock()
+    cached, cached_at = {"body": b"", "at": 0}, 0
+
+    class Viewer(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            nonlocal cached_at
+            if urlparse(self.path).path not in ("/", "/index.html"):
+                self.send_error(404)
+                return
+            now = time.time()
+            with lock:
+                if now - cached_at >= 5 or not cached["body"]:
+                    cached["body"], cached_at = viewer_page(store), now
+                body = cached["body"]
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "public, max-age=5")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'")
+            self.end_headers()
+            self.wfile.write(body)
+
+    httpd = ThreadingHTTPServer((bind, port), Viewer)
+    print(f"viewer: http://{bind}:{port}/  (read-only, no login, no API)", flush=True)
+    try:
+        httpd.serve_forever()
+    finally:
+        httpd.server_close()
 
 
 def _rows(cur):
     return [dict(r) for r in cur]
 
 
-def summary(store, hours: float) -> dict:
-    since = int(time.time() - hours * 3600)
+def summary(store, hours: float, query: str = "") -> dict:
+    since = int(time.time() - hours * 3600) if hours > 0 else 0
     q = store.q
+    needle = (query or "").strip()
+    text_filter = (" HAVING sum(CASE WHEN text LIKE ? OR channel_name LIKE ? OR sender_name LIKE ? THEN 1 ELSE 0 END) > 0"
+                   if needle else "")
+    text_args = (f"%{needle}%", f"%{needle}%", f"%{needle}%") if needle else ()
     needs = _rows(q("""SELECT id, source, account, channel, channel_name, sender, sender_name, sent_at, kind, text, link, priority, rule
                        FROM messages WHERE sent_at>=? AND priority IN ('P0','P1') AND done=0
                        ORDER BY priority, sent_at DESC LIMIT 200""", (since,)))
@@ -68,7 +133,8 @@ def summary(store, hours: float) -> dict:
                          max(policy) AS policy, count(*) AS n, max(sent_at) AS last_at,
                          sum(priority IN ('P0','P1','P2')) AS important
                        FROM messages WHERE sent_at>=? AND policy IN ('watch','digest','store')
-                       GROUP BY source, account, channel ORDER BY (max(policy)='watch') DESC, important DESC, n DESC LIMIT 60""", (since,)))
+                       GROUP BY source, account, channel""" + text_filter + """
+                       ORDER BY (max(policy)='watch') DESC, important DESC, n DESC LIMIT 60""", (since, *text_args)))
     for d in digest[:30]:
         d["highlights"] = _rows(q("""SELECT id, sender_name, sent_at, text, priority FROM messages
                                      WHERE source=? AND account=? AND channel=? AND sent_at>=? AND kind NOT IN ('sticker','system')
@@ -83,6 +149,19 @@ def summary(store, hours: float) -> dict:
     ignored = _rows(q("""SELECT source || CASE WHEN account!='' THEN ':'||account ELSE '' END AS source, count(*) AS chats
                          FROM channels WHERE policy='ignore' GROUP BY 1"""))
     return {"hours": hours, "needs_you": needs, "digest": digest, "counts": counts, "ignored": ignored, "now": int(time.time())}
+
+
+def channel_messages(store, source: str, account: str, channel: str, hours: float = 72, limit: int = 120) -> dict:
+    """Recent messages for one group card; used by the explicit Expand action."""
+    since = int(time.time() - hours * 3600) if hours > 0 else 0
+    limit = max(1, min(500, int(limit)))
+    rows = _rows(store.q("""SELECT id, source, account, channel, channel_name, is_group,
+                              sender_name, sent_at, kind, text, link, priority, done
+                           FROM messages WHERE source=? AND account=? AND channel=? AND sent_at>=?
+                           ORDER BY sent_at DESC, id DESC LIMIT ?""",
+                         (source, account or "", channel, since, limit)))
+    return {"source": source, "account": account or "", "channel": channel,
+            "messages": rows, "count": len(rows), "hours": hours}
 
 
 def today(store, mine: bool = False) -> dict:
@@ -359,7 +438,14 @@ def serve(cfg, store, poll_fn):
                 if u.path in ("/", "/index.html"):
                     return self._send(200, (WEB / "index.html").read_bytes(), "text/html; charset=utf-8")
                 if u.path == "/api/summary":
-                    return self._send(200, summary(store, float(qs.get("hours", 24))))
+                    return self._send(200, summary(store, float(qs.get("hours", 24)), qs.get("q", "")))
+                if u.path == "/api/channel/messages":
+                    source, channel = qs.get("source", ""), qs.get("channel", "")
+                    if not source or not channel:
+                        return self._send(400, {"error": "source and channel required"})
+                    return self._send(200, channel_messages(store, source, qs.get("account", ""),
+                                                            channel, float(qs.get("hours", 72)),
+                                                            int(qs.get("limit", 120))))
                 if u.path == "/api/today":
                     scope = qs.get("scope") or cfg["apps"].get("today_scope", "mine")
                     return self._send(200, today(store, mine=scope == "mine"))
@@ -379,25 +465,32 @@ def serve(cfg, store, poll_fn):
                     rows = _rows(store.q(f"""SELECT source, sender, max(sender_name) AS sender_name, count(*) AS n
                                             FROM messages {where} GROUP BY source, sender
                                             ORDER BY n DESC LIMIT ?""", (*args, int(qs.get("limit", 40)))))
+                    watched = store.overrides().get("watch_person", set()) | store.overrides().get("watch", set())
                     for r in rows:
                         r["vip"] = (r["source"], r["sender"]) in vip
+                        r["watch"] = ((r["source"], r["sender"]) in watched or
+                                      (r["source"], r["sender_name"]) in watched)
                     vrows = _rows(store.q("SELECT source, value AS sender, label, "
                                           "(SELECT max(sender_name) FROM messages m WHERE m.source=overrides.source AND m.sender=overrides.value) AS sender_name "
                                           "FROM overrides WHERE kind='vip'"))
-                    return self._send(200, {"people": rows, "vips": vrows})
+                    wrows = _rows(store.q("SELECT source, value AS sender, label FROM overrides WHERE kind='watch_person'"))
+                    return self._send(200, {"people": rows, "vips": vrows, "watchers": wrows})
                 if u.path == "/api/backups":
                     return self._send(200, backups.status())
                 if u.path == "/api/settings":
                     from .. import config as config_mod
+                    saved = config_mod.read_settings()
                     current = {}
                     for key in config_mod.EDITABLE:
                         node = cfg
                         for part in key.split("."):
                             node = node.get(part) if isinstance(node, dict) else None
-                        current[key] = node
+                        current[key] = saved[key] if key in saved else node
                     return self._send(200, {"editable": config_mod.EDITABLE, "values": current,
-                                            "saved": config_mod.read_settings(),
+                                            "saved": saved,
                                             "restart_needed_for": ["hub.poll_minutes", "ai.interval_minutes"]})
+                if u.path == "/api/schedules":
+                    return self._send(200, store.schedules())
                 if u.path == "/api/units":
                     return self._send(200, U.query(store, **unit_query_params(qs)))
                 if u.path == "/api/graph":
@@ -483,7 +576,7 @@ def serve(cfg, store, poll_fn):
                 if p == "/api/done":
                     store.mark_done(int(body["id"]), bool(body.get("done", True)))
                 elif p == "/api/teach":
-                    if body.get("kind") not in ("mute", "watch", "digest", "vip"):
+                    if body.get("kind") not in ("mute", "watch", "watch_person", "digest", "vip"):
                         return self._send(400, {"error": "bad kind"})
                     if body.get("undo"):
                         store.remove_override(body["kind"], body["source"], body["value"])
@@ -495,6 +588,18 @@ def serve(cfg, store, poll_fn):
                             store.q("UPDATE messages SET policy=? WHERE source=? AND channel=?", (pol, body["source"], body["value"]))
                             if pol == "ignore":
                                 store.q("UPDATE messages SET done=1 WHERE source=? AND channel=?", (body["source"], body["value"]))
+                        elif body["kind"] == "watch_person":
+                            label = (body.get("label") or "").strip()
+                            rows = store.q("SELECT DISTINCT segment_id FROM messages WHERE source=? AND "
+                                            "(sender=? OR (? <> '' AND sender_name=?))",
+                                            (body["source"], body["value"], label, label)).fetchall()
+                            store.q("UPDATE messages SET policy='watch' WHERE source=? AND "
+                                    "(sender=? OR (? <> '' AND sender_name=?))",
+                                    (body["source"], body["value"], label, label))
+                            segment_ids = [r["segment_id"] for r in rows if r["segment_id"] is not None]
+                            if segment_ids:
+                                marks = ",".join("?" * len(segment_ids))
+                                store.q(f"UPDATE segments SET policy='watch', rule_done=0 WHERE id IN ({marks})", segment_ids)
                             store.db.commit()
                 elif p == "/api/units":
                     src_msg = None
@@ -515,7 +620,7 @@ def serve(cfg, store, poll_fn):
                         U.attach(store, uid, [src_msg["id"]])
                         U.add_tags(store, uid, [f"channel:{src_msg['channel_name']}"]
                                    + ([f"person:{src_msg['sender_name']}"] if src_msg["sender_name"] else []))
-                        U.mark_for_me(store, uid)
+                        U.mark_for_me(store, uid, cfg.get("me", {}).get("names", []))
                         store.q("UPDATE units SET polished=0 WHERE id=?", (uid,))   # let the AI shorten the title
                     if body.get("parent_id"):
                         U.link(store, int(body["parent_id"]), uid)
@@ -570,6 +675,18 @@ def serve(cfg, store, poll_fn):
                         n += 1
                     store.db.commit()
                     return self._send(200, {"ok": True, "updated": n, "policy": want})
+                elif p == "/api/channels/flag":
+                    source, account, channel = body.get("source"), body.get("account", ""), body.get("channel")
+                    if not source or not channel:
+                        return self._send(400, {"error": "source and channel required"})
+                    hours = float(body.get("hours", 0))
+                    since = int(time.time() - hours * 3600) if hours > 0 else 0
+                    cur = store.q("""UPDATE messages SET priority='P1', done=0
+                                     WHERE source=? AND account=? AND channel=? AND sent_at>=?""",
+                                  (source, account, channel, since))
+                    store.db.commit()
+                    return self._send(200, {"ok": True, "flagged": cur.rowcount,
+                                            "source": source, "channel": channel, "hours": hours})
                 elif p == "/api/backups":
                     queued = backups.request()
                     return self._send(202, {"queued": queued, **backups.status()})
@@ -584,8 +701,26 @@ def serve(cfg, store, poll_fn):
                     if changes:
                         cfg["hub"].setdefault("backup", {}).update(changes)
                         backups.configure(changes)
+                    # Keep the long-running process in sync with settings.local.json.
+                    # Otherwise a panel reload reads the old startup cfg until restart.
+                    for key, value in body.items():
+                        node = cfg
+                        parts = key.split(".")
+                        for part in parts[:-1]:
+                            node = node.setdefault(part, {})
+                        node[parts[-1]] = value
                     return self._send(200, {"ok": True, "saved": saved,
                                             "note": "Backup settings apply immediately; restart for sync/AI interval changes."})
+                elif p == "/api/schedules":
+                    try:
+                        if body.get("delete"):
+                            ok = store.delete_schedule(int(body["delete"]))
+                            return self._send(200, {"ok": ok})
+                        tz = timezone(timedelta(hours=cfg["hub"]["timezone_offset_hours"]))
+                        out = scheduler_mod.save(store, body, sid=int(body["id"]) if body.get("id") else None, tz=tz)
+                    except (ValueError, TypeError) as exc:
+                        return self._send(400, {"error": str(exc)})
+                    return self._send(200, out)
                 elif p == "/api/organize-now":
                     return self._send(200, organize_now(cfg, store, body.get("channel")))
                 elif p == "/api/chat":
