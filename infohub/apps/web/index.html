@@ -57,6 +57,7 @@ main{padding:12px 16px}
 .lane h2{margin:2px 2px 10px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--sub);display:flex;justify-content:space-between}
 .it{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:8px;border-left:3px solid var(--p3)}
 .it.P0{border-left-color:var(--p0)}.it.P1{border-left-color:var(--p1)}.it.P2{border-left-color:var(--p2)}.it.done{opacity:.55}
+.it.mine{border-left-color:#fbbf24}                     /* same "for me" amber as the graph ring */
 .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--sub);margin-bottom:3px}
 .src{font-weight:700;font-size:10.5px;border-radius:4px;padding:0 5px;color:#fff;background:#555}
 .src.lark{background:#3370ff}.src.linkedin{background:#0a66c2}
@@ -100,6 +101,8 @@ main{padding:12px 16px}
 .fc-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px -4px 4px;position:sticky;top:-10px;background:var(--lane);padding:2px 4px}
 .fc-grip{cursor:move;color:var(--mute);user-select:none;letter-spacing:2px}
 .float-close{padding:1px 8px}
+.update-banner{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid #fbbf24;border-left:4px solid #fbbf24;border-radius:9px;padding:7px 10px;box-shadow:0 8px 28px rgba(0,0,0,.35);font-size:12.5px}
+.update-banner .b{padding:3px 9px}
 .sum{color:var(--sum);font-size:12.5px;margin-top:2px}
 .acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
 .group-filters{display:grid;grid-template-columns:minmax(180px,2fr) repeat(4,minmax(120px,1fr));gap:7px;margin-bottom:10px}
@@ -157,6 +160,7 @@ main{padding:12px 16px}
 .gantt-track{position:relative;min-height:34px;background-image:linear-gradient(to right,color-mix(in srgb,var(--line) 65%,transparent) 1px,transparent 1px);background-size:20% 100%}
 .gantt-bar{position:absolute;top:6px;height:22px;border:0;border-radius:5px;padding:3px 7px;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--on-accent);font-size:11px;font-weight:600;cursor:pointer;min-width:28px}
 .gantt-bar:hover{filter:brightness(1.15);box-shadow:0 0 0 2px var(--on-accent)}
+.gantt-bar.mine{outline:2px solid #fbbf24;outline-offset:1px}   /* same "for me" amber as the graph ring */
 .gantt-point{position:absolute;top:11px;width:12px;min-width:0;height:12px;margin-left:-6px;border-radius:50%;border:2px solid var(--on-accent);box-sizing:border-box;cursor:pointer;padding:0}
 .gantt-point:hover{transform:scale(1.3);box-shadow:0 0 0 2px var(--on-accent)}
 .gantt-empty{padding:30px;color:var(--mute);text-align:center}
@@ -766,6 +770,11 @@ async function openUnit(id, anchor = {x: MOUSE.x, y: MOUSE.y}) {
   };
 }
 async function buildGantt(panel, baseQ) {
+  // Same dismiss rule as the graph: any further interaction in the timeline closes the
+  // floating unit card, while clicks inside the card itself keep working.
+  panel.addEventListener("pointerdown", closeUnitCards, true);
+  panel.addEventListener("wheel", closeUnitCards, {capture: true, passive: true});
+  panel.addEventListener("input", closeUnitCards);
   const host = el("div", {class: "gantt-host"}, el("div", {class: "status"}, "Loading timeline…"));
   panel.append(host);
   const units = await api(`/api/units?${baseQ}`);
@@ -852,7 +861,7 @@ async function buildGantt(panel, baseQ) {
       for (const item of row.items) {
         // The newest time is on the left by default, like a latest-first activity view.
         const left = (maxT - item.end) / span * 100, right = (maxT - item.start) / span * 100;
-        const bar = el("button", {type: "button", class: "gantt-bar" + (item.point ? " gantt-point" : ""),
+        const bar = el("button", {type: "button", class: "gantt-bar" + (item.point ? " gantt-point" : "") + (item.u.for_me ? " mine" : ""),
           title: `${item.u.title} · ${stamp(item.start)}${item.point ? "" : " – " + stamp(item.end)}`,
           style: item.point ? `left:${left}%;background:${kColor(item.u.kind)}` :
             `left:${left}%;width:${Math.max(0.8, right - left)}%;background:${kColor(item.u.kind)}`,
@@ -1166,7 +1175,8 @@ const TABS = {
       return el("div", {class: "grid g2"}, tagLane, panel);
     }
     const units = await api(`/api/units?${filterQ}`);
-    const ulane = lane("Matching units", units.length, units.map(u => unitCard(u)));
+    const mineCard = u => { const card = unitCard(u); if (u.for_me) card.classList.add("mine"); return card; };
+    const ulane = lane("Matching units", units.length, units.map(mineCard));
     ulane.querySelector("h2 span:last-child").replaceWith(el("span", {style: "display:flex;gap:8px;align-items:center"}, modeToggle, el("span", {}, units.length)));
     return el("div", {class: "grid g2"}, tagLane, ulane);
   },
@@ -1302,7 +1312,7 @@ const TABS = {
       cfg.values[key] = value;
       $("status").textContent = "saved " + key;
       if (key.startsWith("hub.backup.") && refreshBackups) await refreshBackups();
-      return true;
+      return result;
     };
     const field = (key, label, type = "text") => {
       const v = cfg.values[key];
@@ -1322,8 +1332,47 @@ const TABS = {
       return el("tr", {}, el("td", {}, label), el("td", {}, inp),
         el("td", {}, cfg.restart_needed_for.includes(key) ? el("span", {class: "tag"}, "restart") : ""));
     };
+    const namesField = () => {
+      const chips = el("div", {class: "chips", style: "margin-bottom:6px"});
+      const input = el("input", {id: "f_me.names", placeholder: "Add a name or nickname…", style: "width:190px"});
+      const add = el("button", {class: "b"}, "Add");
+      const current = () => Array.isArray(cfg.values["me.names"]) ? cfg.values["me.names"] : [];
+      const showSaved = result => {
+        const rescanned = result && result.rescan;
+        $("status").textContent = "saved my names" +
+          (rescanned ? ` · re-scanned ${rescanned.mentions} messages, ${rescanned.for_me} units for me` : "");
+      };
+      const renderNames = () => {
+        const names = current();
+        chips.replaceChildren(...(names.length ? names.map(name => el("span", {class: "chip"}, name,
+          el("button", {class: "b", title: "Remove " + name, style: "margin-left:5px;padding:0 5px",
+            onclick: async () => {
+              const result = await save("me.names", current().filter(x => x !== name));
+              if (result) { renderNames(); showSaved(result); }
+            }}, "×")))
+          : [el("span", {class: "status"}, "No names yet")]));
+      };
+      const addNames = async () => {
+        const incoming = input.value.split(/[,，;；\n]/).map(x => x.trim()).filter(Boolean);
+        if (!incoming.length) return;
+        const names = [...current()], seen = new Set(names.map(x => x.toLowerCase()));
+        for (const name of incoming) if (!seen.has(name.toLowerCase())) { names.push(name); seen.add(name.toLowerCase()); }
+        const result = await save("me.names", names);
+        if (!result) return;
+        input.value = ""; input.focus(); renderNames(); showSaved(result);
+      };
+      input.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); addNames(); } };
+      add.onclick = addNames;
+      renderNames();
+      return el("tr", {},
+        el("td", {}, "My names (for @mentions)"),
+        el("td", {}, chips, el("div", {style: "display:flex;gap:6px"}, input, add),
+          el("div", {class: "status", style: "margin-top:4px"},
+            "Add every name or nickname people use to @mention you — this also drives the For me filter.")),
+        el("td", {}, ""));
+    };
     const settingsTable = el("table", {class: "kv"},
-      field("me.names", "My names (for @mentions)"),
+      namesField(),
       field("apps.today_scope", "Today shows"),
       field("hub.poll_minutes", "Sync every N minutes", "number"),
       field("ai.enabled", "AI organizing", "bool"),
@@ -1757,6 +1806,14 @@ $("q").onkeydown = async e => {
   $("main").dataset.tab = "search";
   enhanceGrids($("main"));
 };
+// The desktop shell disables WebView2 browser accelerators; keep refresh working there too.
+if (typeof document.addEventListener === "function") document.addEventListener("keydown", e => {
+  if (e.repeat) return;
+  if (e.key === "F5" || (e.ctrlKey && (e.key === "r" || e.key === "R"))) {
+    e.preventDefault();
+    location.reload();
+  }
+});
 // optional ?tab=&scope= on first load (shareable deep link)
 const _p = new URLSearchParams(location.search);
 if (VIEWER_MODE) { document.body.classList.add("viewer-mode"); TAB = "explore"; SCOPE = "all"; document.title = "Info Hub Viewer"; }
@@ -1776,6 +1833,26 @@ if (_p.get("demo") === "chat") CHAT = [                      // a sample convers
 const _tab0 = _p.get("tab");
 api("/api/views").then(v => { VIEWS = v || []; if (_tab0 && !VIEWER_MODE) TAB = _tab0; render(false); });
 setInterval(() => { if (!document.hidden && document.activeElement !== $("q") && document.activeElement?.id !== "chat-input") render(); }, 120000);
+// Notice a redeployed dashboard and offer a reload instead of silently staying stale
+// (the desktop shell holds one page for the whole session).
+let WEB_BUILD = null;
+async function checkDashboardBuild() {
+  try {
+    const r = await fetch("/api/health", {cache: "no-store"});
+    const d = await r.json();
+    if (!d.web) return;
+    if (!WEB_BUILD) { WEB_BUILD = d.web; return; }
+    if (d.web === WEB_BUILD || document.getElementById("update-banner")) return;
+    const banner = el("div", {id: "update-banner", class: "update-banner"},
+      el("span", {}, "Info Hub was updated."),
+      el("button", {class: "b", onclick: () => location.reload()}, "Reload"),
+      el("button", {class: "b", title: "Dismiss", onclick: () => banner.remove()}, "✕"));
+    document.body.append(banner);
+  } catch (_) {}
+}
+checkDashboardBuild();
+setInterval(checkDashboardBuild, 20000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkDashboardBuild(); });
 </script>
 </body>
 </html>

@@ -250,6 +250,12 @@ class DesktopApp:
     def open_browser(self, *_):
         webbrowser.open(self.url)
 
+    def reload_window(self, *_):
+        # pywebview disables browser accelerator keys (F5/Ctrl+R) unless debug is on,
+        # so give the tray an explicit way to pick up a redeployed dashboard.
+        self.open_window()
+        self.window.load_url(self.url)
+
     def open_viewer(self, *_):
         webbrowser.open(viewer_url(self.cfg))
 
@@ -299,6 +305,7 @@ class DesktopApp:
         item = self.pystray.MenuItem
         self.icon = WindowsIcon("infohub", icon_image(), "Info Hub", self.pystray.Menu(
             item("Open Info Hub", self.open_window, default=True),
+            item("Reload panel", self.reload_window),
             item("Open latest new unit", self.open_latest, enabled=lambda _: self.latest_id is not None),
             item("Open in browser", self.open_browser),
             item("Open viewer only", self.open_viewer),

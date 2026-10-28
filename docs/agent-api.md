@@ -80,8 +80,16 @@ validation logic and nothing is persisted. The response is
 `GET /context` is the brainstorming entry point: it returns the brief, the most
 active units, open questions, recent decisions and tag counts in one call, then
 trims itself to a token budget (`len(text)//4`, default 8000, max 32000).
-`truncated` reports exactly what was dropped, in the order units → decisions →
-questions → brief.
+
+Trimming order, after the brief is capped at a quarter of the budget: recent
+decisions, then open questions, then units. `truncated` reports what was cut
+(`brief_markdown:trimmed`, `units_dropped`, …) so a caller can tell the
+difference between "that is all there is" and "that is all that fit".
+
+> The first version dropped the brief last. Against the real database a 30-day
+> brief is larger than a 1500-token budget, so the endpoint returned **zero
+> units** — technically within budget, useless in practice. Trying it on real
+> data is what caught that.
 
 Every unit carries `ref`; the whole bundle is marked `"trust": "untrusted"`
 because it contains message text.

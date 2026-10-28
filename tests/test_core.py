@@ -527,6 +527,74 @@ class Settings(unittest.TestCase):
             finally:
                 cm.SETTINGS_FILE = orig
 
+    def test_me_names_accepts_a_list_or_a_delimited_string(self):
+        import infohub.config as cm
+        with tempfile.TemporaryDirectory() as tmp:
+            orig = cm.SETTINGS_FILE
+            cm.SETTINGS_FILE = Path(tmp) / "settings.local.json"
+            try:
+                cm.write_settings({"me.names": "Alice, Bob，alice"})
+                self.assertEqual(cm.read_settings()["me.names"], ["Alice", "Bob"])
+                cm.write_settings({"me.names": [" 张三 ", "", "张三", "San"]})
+                self.assertEqual(cm.read_settings()["me.names"], ["张三", "San"])
+                self.assertEqual(cm._merge(copy.deepcopy(cm.DEFAULTS),
+                                           cm._nest(cm.read_settings()))["me"]["names"], ["张三", "San"])
+                with self.assertRaises(ValueError):
+                    cm.write_settings({"me.names": {"nope": 1}})
+            finally:
+                cm.SETTINGS_FILE = orig
+
+
+class MyNames(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Store(Path(self.tmp.name) / "hub.db")
+
+    def tearDown(self):
+        self.store.db.close()
+        self.tmp.cleanup()
+
+    def test_apply_names_updates_existing_messages_and_units(self):
+        now = int(time.time())
+        ids = self.store.add_messages([
+            msg(item_key="m1", text="please review @Alice", sent_at=now),
+            msg(item_key="m2", text="ping @Bob", sent_at=now),
+            msg(item_key="m3", text="ping @Carol", sent_at=now),
+        ])
+        units = {}
+        for name, mid in zip(("Alice", "Bob", "Carol"), ids):
+            units[name] = U.upsert(self.store, name, kind="note", title=name)
+            U.attach(self.store, units[name], [mid])
+        self.store.db.commit()
+
+        U.apply_me_names(self.store, ["Alice", "Bob"])
+        self.assertEqual({n: U.get(self.store, uid)["for_me"] for n, uid in units.items()},
+                         {"Alice": 1, "Bob": 1, "Carol": 0})
+
+        # Removing a name clears its old mention flag and its For me membership.
+        U.apply_me_names(self.store, ["Bob"])
+        self.assertEqual(self.store.q("SELECT mentions_me FROM messages WHERE id=?", (ids[0],)).fetchone()[0], 0)
+        self.assertEqual(U.get(self.store, units["Alice"])["for_me"], 0)
+        self.assertEqual(U.get(self.store, units["Bob"])["for_me"], 1)
+
+        # @everyone still matches with no personal names configured.
+        self.store.add_messages([msg(item_key="m4", text="@everyone standup", sent_at=now)])
+        self.store.db.commit()
+        U.apply_me_names(self.store, [])
+        self.assertEqual(self.store.q("SELECT mentions_me FROM messages WHERE item_key='m4'").fetchone()[0], 1)
+
+    def test_names_are_matched_literally(self):
+        now = int(time.time())
+        ids = self.store.add_messages([
+            msg(item_key="lit1", text="progress @A_B here", sent_at=now),
+            msg(item_key="lit2", text="progress @AXB here", sent_at=now),
+        ])
+        self.store.db.commit()
+        U.apply_me_names(self.store, ["A_B"])
+        flags = [self.store.q("SELECT mentions_me FROM messages WHERE id=?", (mid,)).fetchone()[0] for mid in ids]
+        self.assertEqual(flags, [1, 0])
+
+
 
 class Layer3(unittest.TestCase):
     def setUp(self):

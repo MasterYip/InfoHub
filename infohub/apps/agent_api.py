@@ -291,19 +291,29 @@ def _bundle_tokens(bundle: dict) -> int:
 
 
 def _fit_bundle(bundle: dict, budget: int) -> dict:
+    """Keep the bundle under `budget` tokens, in a useful order.
+
+    The first attempt dropped the brief last; against the real database that
+    returned zero units at a 1500-token budget, because one 30-day brief is bigger
+    than the whole budget. So the brief is capped first (a quarter of the budget),
+    then the small sections go, and units are the last thing to shrink.
+    """
     dropped = bundle["truncated"]
-    for key, field in (("units", "units_dropped"), ("recent_decisions", None),
-                       ("open_questions", None), ("brief_markdown", None)):
+    brief_budget = max(400, budget // 4)
+    brief = bundle.get("brief_markdown") or ""
+    if len(brief) // 4 > brief_budget:
+        cut = brief[: brief_budget * 4]
+        bundle["brief_markdown"] = cut.rsplit("\n", 1)[0] + "\n…"
+        dropped["sections_dropped"].append("brief_markdown:trimmed")
+    for key, field in (("recent_decisions", None), ("open_questions", None), ("units", "units_dropped")):
         while _bundle_tokens(bundle) > budget and bundle.get(key):
-            if key == "brief_markdown":
-                bundle[key] = ""
-            else:
-                bundle[key].pop()
+            bundle[key].pop()
             dropped["sections_dropped"].append(key)
             if field:
                 dropped[field] += 1
-            if key == "brief_markdown":
-                break
+    if _bundle_tokens(bundle) > budget and bundle.get("brief_markdown"):
+        bundle["brief_markdown"] = ""
+        dropped["sections_dropped"].append("brief_markdown:dropped")
     dropped["sections_dropped"] = sorted(set(dropped["sections_dropped"]))
     return bundle
 

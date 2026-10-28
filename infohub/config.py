@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 from pathlib import Path
 
 import yaml
@@ -116,6 +117,23 @@ def read_settings() -> dict:
 
 def write_settings(flat: dict) -> dict:
     """Save a flat {"ai.enabled": true} mapping; unknown keys are refused."""
+    flat = dict(flat)
+    if "me.names" in flat:
+        raw = flat["me.names"]
+        if isinstance(raw, str):
+            items = re.split(r"[,，;；\n]+", raw)
+        elif isinstance(raw, (list, tuple)):
+            items = raw
+        else:
+            raise ValueError("My names must be a list of names")
+        names, seen = [], set()
+        for item in items:
+            name = str(item).strip()
+            key = name.casefold()
+            if name and key not in seen:
+                seen.add(key)
+                names.append(name)
+        flat["me.names"] = names
     bad = [k for k in flat if k not in EDITABLE]
     if bad:
         raise ValueError(f"not editable: {', '.join(sorted(bad))}")

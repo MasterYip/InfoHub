@@ -163,6 +163,13 @@ class Desktop(unittest.TestCase):
         self.assertTrue(app.on_closing())
         app.window.destroy.assert_called_once()
 
+    def test_reload_window_loads_the_dashboard_again(self):
+        app = self.app()
+        app.reload_window()
+        self.window.show.assert_called_once()
+        self.window.restore.assert_called_once()
+        self.window.load_url.assert_called_once_with(app.url)
+
     def test_monitor_notifies_and_balloon_click_opens_latest(self):
         app = self.app()
         self.unit("New topic")

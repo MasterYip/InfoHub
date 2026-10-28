@@ -68,6 +68,14 @@ WEB = Path(__file__).resolve().parent / "web"
 _AI_KICK_LOCK = threading.Lock()
 
 
+def web_build() -> str:
+    """Build id of the dashboard assets, so open pages can notice a redeploy."""
+    try:
+        return str((WEB / "index.html").stat().st_mtime_ns)
+    except OSError:
+        return ""
+
+
 def _kick_ai(cfg) -> bool:
     """Wake a short-lived AI worker after an explicit flag/organize request.
 
@@ -586,7 +594,7 @@ def serve(cfg, store, poll_fn):
                     return self._send(200, {"brief": brief_mod.brief(cfg, store, int(qs.get("days", 7)), tags),
                                             "status": status(store, cfg, 20)})
                 if u.path == "/api/health":
-                    return self._send(200, {"ok": True, "app": "infohub"})
+                    return self._send(200, {"ok": True, "app": "infohub", "web": web_build()})
             self._send(404, {"error": "not found"})
 
         def do_POST(self):
@@ -797,12 +805,18 @@ def serve(cfg, store, poll_fn):
                     # Keep the long-running process in sync with settings.local.json.
                     # Otherwise a panel reload reads the old startup cfg until restart.
                     for key, value in body.items():
+                        value = saved.get(key, value)
                         node = cfg
                         parts = key.split(".")
                         for part in parts[:-1]:
                             node = node.setdefault(part, {})
                         node[parts[-1]] = value
-                    return self._send(200, {"ok": True, "saved": saved,
+                    rescan = None
+                    if "me.names" in body:
+                        # A changed name list must affect messages and units that are already stored.
+                        from ..organize import units as units_mod
+                        rescan = units_mod.apply_me_names(store, cfg["me"]["names"])
+                    return self._send(200, {"ok": True, "saved": saved, "rescan": rescan,
                                             "note": "Backup settings apply immediately; restart for sync/AI interval changes."})
                 elif p == "/api/schedules":
                     try:

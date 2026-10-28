@@ -429,18 +429,39 @@ def mark_for_me(store, uid: int, names: list[str] | None = None) -> bool:
     return False
 
 
-def rescan_mentions(store, names: list[str]) -> int:
-    """Re-flag stored messages that @mention you or @everyone, after me.names changed."""
+def _like_value(value: str) -> str:
+    """Escape LIKE wildcards so a name is matched literally."""
+    return str(value).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def rescan_mentions(store, names: list[str], reset: bool = False) -> int:
+    """Re-flag stored messages that @mention you or @everyone, after me.names changed.
+
+    With ``reset`` the flags are recomputed from scratch, so names removed from the
+    list stop matching as well."""
     from ..sync.triage import ALL_MENTIONS
+    if reset:
+        store.q("UPDATE messages SET mentions_me=0")
     changed = 0
     for name in names or []:
-        changed += store.q("UPDATE messages SET mentions_me=1 WHERE mentions_me=0 AND text LIKE ?",
-                           (f"%@{name}%",)).rowcount
+        name = str(name).strip()
+        if not name:
+            continue
+        changed += store.q("UPDATE messages SET mentions_me=1 WHERE mentions_me=0 AND text LIKE ? ESCAPE '\\'",
+                           (f"%@{_like_value(name)}%",)).rowcount
     for tok in ALL_MENTIONS:
-        changed += store.q("UPDATE messages SET mentions_me=1 WHERE mentions_me=0 AND text LIKE ?",
-                           (f"%{tok}%",)).rowcount
+        changed += store.q("UPDATE messages SET mentions_me=1 WHERE mentions_me=0 AND text LIKE ? ESCAPE '\\'",
+                           (f"%{_like_value(tok)}%",)).rowcount
     store.db.commit()
     return changed
+
+
+def apply_me_names(store, names: list[str] | None = None) -> dict:
+    """Apply a changed me.names list to existing messages and unit 'For me' flags."""
+    names = [str(n).strip() for n in (names or []) if str(n).strip()]
+    changed = rescan_mentions(store, names, reset=True)
+    total = recompute_for_me(store, names)
+    return {"mentions": changed, "for_me": total}
 
 
 def recompute_for_me(store, names: list[str] | None = None) -> int:
