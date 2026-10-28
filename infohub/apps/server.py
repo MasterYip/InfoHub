@@ -25,7 +25,12 @@ GET  /api/search?q=                 everything: units, messages, people, channel
 GET  /api/status                    last runs per layer, AI queue and spend
 GET  /api/agent/next?limit=20       lease organizing jobs for an external agent (see organize/agent_bridge.py)
 POST /api/agent/submit              {"results": [{"job_id", "result"}]}
-GET  /api/agent/context?days=7      brief + counts for other agent tasks
+GET  /api/agent/context?days=7      brief + counts for other agent tasks (deprecated: use /api/agent/v1/context)
+GET  /api/agent/v1/tools            [agent API] tool catalogue + JSON Schema (see apps/agent_api.py)
+POST /api/agent/v1/tool/<name>      [agent API] run one chat tool; ?dry_run=1 previews a write
+GET  /api/agent/v1/context?days=&tokens=  [agent API] bounded, cited briefing for brainstorming
+GET  /api/agent/v1/units/<id>?depth=1     [agent API] unit with parents, children and evidence
+GET  /api/agent/v1/changes?since=&limit=  [agent API] incremental unit changes (opaque cursor)
 POST /api/units                     create a unit {title, kind, tags, due, parent_id}
 POST /api/unit/<id>                 update {status, title, add_tags, remove_tags, parent_id}
 POST /api/chat                      {"messages": [{role, content}]} -> assistant reply + changes
@@ -57,6 +62,7 @@ from ..organize import units as U
 from . import auth
 from . import brief as brief_mod
 from . import scheduler as scheduler_mod
+from . import agent_api
 
 WEB = Path(__file__).resolve().parent / "web"
 _AI_KICK_LOCK = threading.Lock()
@@ -225,6 +231,8 @@ def today(store, mine: bool = False) -> dict:
     return {"needs": dated + recent,
             "events": [u for u in U.query(store, kind="event", status="open", due_before=now + 7 * 86400, order="due",
                                           limit=100, mine=mine) if (u["start_at"] or 0) >= now - 3600],
+            "unscheduled_events": U.query(store, kind="event", status="open", unscheduled=True,
+                                           limit=300, mine=mine),
             "unsorted": unsorted_rows,
             "scope": "mine" if mine else "all",
             "counts": {"mine": store.q("SELECT count(*) FROM units WHERE for_me=1 AND status='open'").fetchone()[0],
@@ -397,9 +405,22 @@ def serve(cfg, store, poll_fn):
 
     class H(BaseHTTPRequestHandler):
         user = None
+        scopes = ()
 
         def log_message(self, *a):
             pass
+
+        def _agent(self, method, path, query, body=None):
+            caller = agent_api.Caller(self.user or "local", tuple(self.scopes))
+            try:
+                if method == "GET":
+                    code, payload = agent_api.handle_get(cfg, store, caller, path, query)
+                else:
+                    code, payload = agent_api.handle_post(cfg, store, caller, path, body,
+                                                          self.headers, query)
+            except agent_api.ApiError as exc:
+                code, payload = exc.status, exc.body()
+            return self._send(code, payload)
 
         def _send(self, code, body, ctype="application/json; charset=utf-8", headers=()):
             data = body if isinstance(body, bytes) else (body.encode("utf-8") if isinstance(body, str)
@@ -444,18 +465,25 @@ def serve(cfg, store, poll_fn):
                 self._send(403, {"error": "bad host"})
                 return False
             path = urlparse(self.path).path
-            if path in ("/login", "/api/health") or not auth.required(cfg):
+            if path in ("/login", "/api/health"):
+                return True
+            if not auth.required(cfg):
+                self.user, self.scopes = "local", auth.ALL_SCOPES
                 return True
             bearer = (self.headers.get("Authorization") or "")
             if bearer.startswith("Bearer "):
-                self.user = auth.check_token(cfg, bearer[7:].strip())
+                self.user, self.scopes = auth.check_bearer(cfg, bearer[7:].strip())
             else:
                 with lock:
                     self.user = sessions.user(self._cookie() or "")
+                self.scopes = auth.ALL_SCOPES if self.user else ()
             if self.user:
                 return True
             if path.startswith("/api/"):
-                self._send(401, {"error": "login required"})
+                if path.startswith(agent_api.PREFIX):
+                    self._send(401, {"error": {"code": "unauthenticated", "message": "login required"}})
+                else:
+                    self._send(401, {"error": "login required"})
             else:
                 self._redirect("/login?next=" + quote(self.path, safe=""))
             return False
@@ -473,6 +501,9 @@ def serve(cfg, store, poll_fn):
                 return self._login_page(nxt=nxt)
             qs = {k: v[0] for k, v in parse_qs(u.query).items()}
             tags = [t for t in qs.get("tags", "").split(",") if t]
+            if u.path.startswith(agent_api.PREFIX):
+                with lock:
+                    return self._agent("GET", u.path, qs)
             with lock:
                 if u.path in ("/", "/index.html"):
                     return self._send(200, (WEB / "index.html").read_bytes(), "text/html; charset=utf-8")
@@ -531,7 +562,7 @@ def serve(cfg, store, poll_fn):
                 if u.path == "/api/schedules":
                     return self._send(200, store.schedules())
                 if u.path == "/api/units":
-                    return self._send(200, U.query(store, **unit_query_params(qs)))
+                    return self._send(200, U.query(store, **unit_query_params(qs), unscheduled=qs.get("unscheduled") == "1"))
                 if u.path == "/api/graph":
                     return self._send(200, graph(store, **unit_query_params(qs), include_context=qs.get("context") == "1"))
                 if m := re.fullmatch(r"/api/unit/(\d+)", u.path):
@@ -568,7 +599,18 @@ def serve(cfg, store, poll_fn):
             if length > 20_000_000:
                 return self._send(413, {"error": "too large"})
             raw = self.rfile.read(length)
-            path = urlparse(self.path).path
+            parsed = urlparse(self.path)
+            path = parsed.path
+            if path.startswith(agent_api.PREFIX):
+                try:
+                    payload = json.loads(raw or b"{}")
+                except (ValueError, UnicodeDecodeError):
+                    return self._send(400, {"error": {"code": "invalid_argument", "message": "body must be JSON"}})
+                if not isinstance(payload, dict):
+                    return self._send(400, {"error": {"code": "invalid_argument", "message": "body must be a JSON object"}})
+                qs = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+                with lock:
+                    return self._agent("POST", path, qs, payload)
             if path == "/login":
                 form = {k: v[0] for k, v in parse_qs(raw.decode("utf-8", "replace")).items()}
                 nxt = form.get("next") or "/"

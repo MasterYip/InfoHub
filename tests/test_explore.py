@@ -79,6 +79,26 @@ class Explore(unittest.TestCase):
         self.assertEqual(node["n_messages"], 8)
         self.assertEqual(node["n_direct_messages"], 1)
 
+    def test_unscheduled_events_respect_scope_status_and_scheduling(self):
+        mine = self.unit("Meeting time TBD", kind="event", for_me=True)
+        other = self.unit("Another meeting", kind="event")
+        self.unit("Finished meeting", kind="event", status="done", for_me=True)
+        self.unit("Ignored meeting", kind="event", status="dropped", for_me=True)
+        scheduled = self.unit("Scheduled meeting", kind="event", start_at=self.now + 3600, for_me=True)
+        self.unit("Future meeting", kind="event", start_at=self.now + 30 * 86400, for_me=True)
+        with patch("infohub.apps.server.time.time", return_value=self.now):
+            result = server.today(self.store, mine=True)
+            self.assertEqual([u["id"] for u in result["unscheduled_events"]], [mine])
+            self.assertEqual([u["id"] for u in result["events"]], [scheduled])
+            self.assertEqual({u["id"] for u in server.today(self.store)["unscheduled_events"]}, {mine, other})
+            # The Calendar query uses the same scope and unscheduled predicate.
+            rows = U.query(self.store, kind="event", status="open", mine=True, unscheduled=True, limit=1)
+            self.assertEqual([u["id"] for u in rows], [mine])
+            U.update(self.store, mine, start_at=self.now + 7200)
+            result = server.today(self.store, mine=True)
+            self.assertEqual(result["unscheduled_events"], [])
+            self.assertIn(mine, {u["id"] for u in result["events"]})
+
     def test_aggregate_sorts_happen_before_limit(self):
         self.assertEqual(U.get(self.store, self.standalone)["n_direct_messages"], 4)
         # A topic with only one direct message must beat a topic with four direct messages.

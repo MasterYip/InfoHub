@@ -4,6 +4,8 @@ import json
 import tempfile
 import threading
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
@@ -171,6 +173,113 @@ class ChatTools(unittest.TestCase):
         self.assertEqual(content, "")
         self.assertEqual(calls[0]["function"]["name"], "search")
         self.assertEqual(json.loads(calls[0]["function"]["arguments"]), {"query": "DiffTaichi"})
+
+    def stream_with(self, pieces, checker=None):
+        def stream(ai, messages, tools=True):
+            if checker:
+                checker(tools)
+            for piece in pieces:
+                yield {"choices": [{"delta": {"content": piece}}]}
+        return stream
+
+    def test_chat_stream_retries_a_connection_dropped_before_any_text(self):
+        self.cfg["ai"].update(provider="openai_compatible", daily_budget_usd=1)
+        attempts = []
+
+        def stream(ai, messages, tools=True):
+            attempts.append(messages)
+            if len(attempts) == 1:
+                raise urllib.error.URLError(FileNotFoundError(2, "No such file or directory"))
+            yield {"choices": [{"delta": {"content": "Recovered."}}]}
+
+        with patch.object(chat, "api_key", return_value="test"), \
+                patch.object(chat, "_post_stream", side_effect=stream), \
+                patch.object(chat, "RETRY_DELAY_SECONDS", 0):
+            events = list(chat.chat_stream(self.cfg, self.store, threading.Lock(), [{"role": "user", "content": "hi"}]))
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual("".join(e["text"] for e in events if e["type"] == "delta"), "Recovered.")
+
+    def test_chat_stream_asks_for_prose_instead_of_ending_with_an_empty_bubble(self):
+        self.cfg["ai"].update(provider="openai_compatible", daily_budget_usd=1)
+        pieces = ('<｜｜DSML｜｜ calls>\n'
+                  '<｜｜DSML｜｜ invoke name="get_unit">\n'
+                  '<｜｜DSML｜｜ parameter name="id">423<｜｜DSML｜｜ parameter>\n'
+                  '<｜｜DSML｜｜ invoke>\n<｜｜DSML｜｜ calls>')
+        sent = []
+
+        def post(ai, messages, tools=True, tool_choice="auto"):
+            sent.append((messages, tools, tool_choice))
+            return {"choices": [{"message": {"content": "Here is the answer."}}],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5}}
+
+        with patch.object(chat, "api_key", return_value="test"), \
+                patch.object(chat, "MAX_TOOL_CALLS", 0), \
+                patch.object(chat, "_post_stream", side_effect=self.stream_with([pieces])), \
+                patch.object(chat, "_post", side_effect=post):
+            events = list(chat.chat_stream(self.cfg, self.store, threading.Lock(), [{"role": "user", "content": "what"}]))
+        answer = "".join(e["text"] for e in events if e["type"] == "delta")
+        self.assertEqual(answer, "Here is the answer.")
+        self.assertNotIn("DSML", answer)
+        self.assertEqual(len(sent), 1)
+        self.assertTrue(sent[0][1])                    # tools stay declared
+        self.assertEqual(sent[0][2], "none")           # but the model may not call them
+        self.assertIn("plain prose", sent[0][0][-1]["content"])
+        self.assertEqual(events[-1]["type"], "done")
+
+    def test_chat_stream_falls_back_to_a_readable_message_instead_of_blank(self):
+        self.cfg["ai"].update(provider="openai_compatible", daily_budget_usd=1)
+        with patch.object(chat, "api_key", return_value="test"), \
+                patch.object(chat, "MAX_TOOL_CALLS", 0), \
+                patch.object(chat, "_post_stream", side_effect=self.stream_with(["<｜｜DSML｜｜ calls>"])), \
+                patch.object(chat, "_post", return_value={"choices": [{"message": {"content": ""}}]}):
+            events = list(chat.chat_stream(self.cfg, self.store, threading.Lock(), [{"role": "user", "content": "what"}]))
+        answer = "".join(e["text"] for e in events if e["type"] == "delta")
+        self.assertEqual(answer, chat._fallback_answer([]))
+        self.assertTrue(answer.strip())
+
+    def test_full_width_dsml_never_reaches_the_visible_stream(self):
+        self.cfg["ai"].update(provider="openai_compatible", daily_budget_usd=1)
+        pieces = ["<", "｜｜DSML｜｜", " calls>\n", "<｜｜DSML｜｜ invoke name=\"search\">",
+                  "<｜｜DSML｜｜ parameter name=\"query\">", "x", "<｜｜DSML｜｜ parameter>"]
+        with patch.object(chat, "api_key", return_value="test"), \
+                patch.object(chat, "MAX_TOOL_CALLS", 0), \
+                patch.object(chat, "_post_stream", side_effect=self.stream_with(pieces)), \
+                patch.object(chat, "_post", return_value={"choices": [{"message": {"content": "Clean answer."}}]}):
+            events = list(chat.chat_stream(self.cfg, self.store, threading.Lock(), [{"role": "user", "content": "what"}]))
+        answer = "".join(e["text"] for e in events if e["type"] == "delta")
+        self.assertEqual(answer, "Clean answer.")
+        self.assertNotIn("DSML", answer)
+        self.assertNotIn("<", answer)
+
+    def test_chat_stream_emits_reasoning_while_the_model_thinks(self):
+        self.cfg["ai"].update(provider="openai_compatible", daily_budget_usd=1)
+
+        def stream(ai, messages, tools=True):
+            yield {"choices": [{"delta": {"reasoning_content": "Checking the graph. "}}]}
+            yield {"choices": [{"delta": {"reasoning_content": "Found two topics."}}]}
+            yield {"choices": [{"delta": {"content": "The answer is 42."}}]}
+
+        with patch.object(chat, "api_key", return_value="test"), \
+                patch.object(chat, "_post_stream", side_effect=stream):
+            events = list(chat.chat_stream(self.cfg, self.store, threading.Lock(), [{"role": "user", "content": "what"}]))
+        reasoning = "".join(e["text"] for e in events if e["type"] == "reasoning")
+        answer = "".join(e["text"] for e in events if e["type"] == "delta")
+        self.assertEqual(reasoning, "Checking the graph. Found two topics.")
+        self.assertEqual(answer, "The answer is 42.")
+        self.assertNotIn("Checking", answer)
+
+    def test_endpoint_opener_honours_ai_proxy(self):
+        from infohub.organize import providers
+
+        def proxy_handler(ai):
+            return next((h for h in providers.endpoint_opener(ai).handlers
+                         if isinstance(h, urllib.request.ProxyHandler)), None)
+
+        self.assertIsNone(proxy_handler({"proxy": "direct"}))      # bypasses the system proxy
+        self.assertIsNotNone(proxy_handler({"proxy": "auto"}))     # keeps the default handler
+        self.assertEqual(proxy_handler({"proxy": "http://127.0.0.1:7891"}).proxies,
+                         {"http": "http://127.0.0.1:7891", "https": "http://127.0.0.1:7891"})
+
 
 
 if __name__ == "__main__":

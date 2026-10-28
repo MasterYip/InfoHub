@@ -72,6 +72,7 @@ ai:
   enabled: false                  # AI organizer: main-idea units, nesting, closing finished todos. Sync never depends on it.
   provider: openai_compatible     # openai_compatible (DeepSeek, any /chat/completions API) | anthropic (Claude)
   base_url: https://api.deepseek.com
+  proxy: direct                   # direct (default; ignore the system proxy) | auto (use OS proxy settings) | http://host:port
   model: deepseek-flash
   api_key_env: DEEPSEEK_API_KEY   # the key lives in this environment variable, never in a file
   price_usd_per_mtok: {input: 0.3, output: 1.2, cache_read: 0.03}   # used for the daily budget; set your provider's real prices

@@ -16,6 +16,30 @@ from . import prompt
 
 FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-fable-5-1", "claude-sonnet-5-5"}
 
+# ai.proxy: "direct" (default) never uses the system HTTP proxy, "auto" follows the
+# OS settings, and any other value is used as the proxy URL for the model endpoint.
+# Desktop/health traffic already bypasses the proxy for the same reason: a system
+# proxy that is slow or flaky must not take the model connection down with it.
+PROXY_DIRECT = {"direct", "none", "off"}
+_OPENERS: dict[str, urllib.request.OpenerDirector] = {}
+
+
+def endpoint_opener(ai: dict) -> urllib.request.OpenerDirector:
+    """One reusable opener for model requests, honouring ai.proxy."""
+    key = str(ai.get("proxy") or "direct").strip()
+    cache_key = key or "direct"
+    opener = _OPENERS.get(cache_key)
+    if opener is None:
+        lowered = cache_key.lower()
+        if lowered in PROXY_DIRECT:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        elif lowered == "auto":
+            opener = urllib.request.build_opener()
+        else:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({"http": key, "https": key}))
+        _OPENERS[cache_key] = opener
+    return opener
+
 
 @dataclass
 class Reply:
@@ -65,7 +89,7 @@ class OpenAICompatible:
         req = urllib.request.Request(self.url, data=json.dumps(body).encode("utf-8"), method="POST",
                                      headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.key}"})
         try:
-            with urllib.request.urlopen(req, timeout=float(self.ai.get("timeout_seconds", 180))) as r:
+            with endpoint_opener(self.ai).open(req, timeout=float(self.ai.get("timeout_seconds", 180))) as r:
                 data = json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             code = exc.code

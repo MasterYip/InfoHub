@@ -99,6 +99,12 @@ CREATE TABLE IF NOT EXISTS task_schedules(
   prompt TEXT NOT NULL, next_run INTEGER, last_run INTEGER,
   last_status TEXT, last_error TEXT, created_at INTEGER, updated_at INTEGER);
 CREATE INDEX IF NOT EXISTS ts_due ON task_schedules(enabled, next_run);
+
+-- Agent API: one row per successful write through /api/agent/v1 (never message text).
+CREATE TABLE IF NOT EXISTS agent_audit(
+  id INTEGER PRIMARY KEY, at INTEGER NOT NULL, principal TEXT NOT NULL,
+  tool TEXT NOT NULL, target TEXT, changed INTEGER DEFAULT 0);
+CREATE INDEX IF NOT EXISTS aa_at ON agent_audit(at);
 """
 
 MSG_FIELDS = ["source", "account", "item_key", "channel", "channel_name", "is_group", "sender", "sender_name",

@@ -8,6 +8,7 @@ back to you. Bounded by a per-turn tool-call cap and the daily AI budget.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import time
@@ -17,11 +18,16 @@ from datetime import datetime, timedelta, timezone
 
 from ..organize import units as U
 from ..organize.ai_organizer import spent_today, _record_usage
-from ..organize.providers import api_key
+from ..organize.providers import api_key, endpoint_opener
 from . import brief as brief_mod
 from . import server as server_mod
 
 MAX_TOOL_CALLS = 24
+TRANSIENT_RETRIES = 2          # extra connection attempts for one model turn
+RETRY_DELAY_SECONDS = 1.0
+TRANSIENT_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError, OSError, http.client.HTTPException)
+NO_TOOL_NUDGE = ("Now answer my original question in plain prose using everything you found. "
+                 "Do not call more tools.")
 
 SYSTEM = """You are the assistant inside "Info Hub", a personal dashboard that organizes the user's
 chat messages into info units (todo, event, topic, question, decision, announcement, resource, note).
@@ -332,12 +338,13 @@ def _tool_content(result):
 
 def _legacy_tool_calls(content: str):
     """Parse DeepSeek's legacy DSML function-call text when no structured tool_calls are returned."""
-    text = (content or "").replace("｜", "|").replace("＜", "<").replace("＞", ">")
+    text = _normalize_dsml(content)
     if not re.search(r"<\|[^>]{0,40}DSML|invoke\s+name=", text, re.I):
         return text, []
     invocations = list(re.finditer(r"invoke\s+name=[\"']([^\"']+)[\"']", text, re.I))
     if not invocations:
-        return text, []
+        # A protocol envelope without a parseable call is still protocol, not prose.
+        return "", []
     calls = []
     for index, match in enumerate(invocations):
         end = invocations[index + 1].start() if index + 1 < len(invocations) else len(text)
@@ -367,21 +374,92 @@ def _message_tool_calls(msg):
     return _legacy_tool_calls(content)
 
 
+def _normalize_dsml(text):
+    """DeepSeek sometimes streams the DSML protocol with full-width brackets/bars."""
+    return (text or "").replace("｜", "|").replace("＜", "<").replace("＞", ">")
+
+
+PROTOCOL_MARKER = re.compile(r"<\|[^>]{0,40}dsml|invoke\s+name\s*=", re.I)
+_DSML_PARTIAL = re.compile(r"^\|*d?s?m?l?$", re.I)
+_INVOKE_MARKER = "invoke name="
+
+
+def _protocol_index(text):
+    match = PROTOCOL_MARKER.search(_normalize_dsml(text))
+    return match.start() if match else None
+
+
 def _legacy_protocol_started(text):
     """Return true when streamed content has entered a legacy DSML call."""
-    return bool(re.search(r"<\|[^>]{0,40}DSML|invoke\s+name=", text or "", re.I))
+    return _protocol_index(text) is not None
 
 
-def _post(ai, messages, tools=True):
+def _stream_safe_prefix(text):
+    """The part of streamed prose that cannot turn out to be DSML protocol.
+
+    Holds back a trailing partial marker (``<``, ``<|D``, ``invok``...) so the protocol
+    never leaks into the visible answer when its tokens arrive in separate chunks."""
+    cut = _protocol_index(text)
+    if cut is not None:
+        return text[:cut]
+    normalized = _normalize_dsml(text).lower()
+    start = normalized.rfind("<")
+    if start >= 0 and _DSML_PARTIAL.match(normalized[start + 1:]):
+        return text[:start]
+    for size in range(min(len(normalized), len(_INVOKE_MARKER)), 0, -1):
+        if _INVOKE_MARKER.startswith(normalized[-size:]):
+            return text[:len(text) - size]
+    return text
+
+
+def _post(ai, messages, tools=True, tool_choice="auto"):
     body = {"model": ai["model"], "max_tokens": int(ai.get("max_tokens", 4000)), "stream": False, "messages": messages}
     if tools:
         body["tools"] = TOOLS
-        body["tool_choice"] = "auto"
+        body["tool_choice"] = tool_choice
     req = urllib.request.Request(ai["base_url"].rstrip("/") + "/chat/completions",
                                  data=json.dumps(body).encode("utf-8"), method="POST",
                                  headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key(ai)}"})
-    with urllib.request.urlopen(req, timeout=float(ai.get("timeout_seconds", 120))) as r:
-        return json.loads(r.read().decode("utf-8"))
+    opener = endpoint_opener(ai)
+    attempt = 0
+    while True:
+        try:
+            with opener.open(req, timeout=float(ai.get("timeout_seconds", 120))) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError:
+            raise
+        except TRANSIENT_ERRORS:
+            attempt += 1
+            if attempt > TRANSIENT_RETRIES:
+                raise
+            time.sleep(RETRY_DELAY_SECONDS * attempt)
+
+
+def _endpoint_failure(exc, attempts):
+    detail = str(exc)[:160] or type(exc).__name__
+    tried = f" after {attempts} attempts" if attempts > 1 else ""
+    return (f"Couldn't reach the AI endpoint{tried} ({type(exc).__name__}: {detail}). "
+            "Check the network, or set ai.proxy: direct in config/hub.local.yaml if the system proxy is unreliable.")
+
+
+def _fallback_answer(changes):
+    if changes:
+        return "Done — I applied the requested changes."
+    return "I couldn't put together an answer for that one. Please try again, or ask a narrower question."
+
+
+def _plain_answer(ai, messages):
+    """One extra turn that must produce prose; returns (text, usage)."""
+    try:
+        # Keep the tools declared but forbid calls: some OpenAI-compatible models otherwise
+        # answer with a bare DSML call (or nothing at all) when the tool loop ends.
+        data = _post(ai, messages + [{"role": "user", "content": NO_TOOL_NUDGE}],
+                     tools=True, tool_choice="none")
+    except Exception:
+        return "", None
+    msg = (data.get("choices") or [{}])[0].get("message") or {}
+    text, _calls = _message_tool_calls(msg)
+    return (text or "").strip(), data.get("usage") or None
 
 
 def chat(cfg, store, history: list[dict]) -> dict:
@@ -440,7 +518,7 @@ def _post_stream(ai, messages, tools=True):
     req = urllib.request.Request(ai["base_url"].rstrip("/") + "/chat/completions",
                                  data=json.dumps(body).encode("utf-8"), method="POST",
                                  headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key(ai)}"})
-    with urllib.request.urlopen(req, timeout=float(ai.get("timeout_seconds", 120))) as r:
+    with endpoint_opener(ai).open(req, timeout=float(ai.get("timeout_seconds", 120))) as r:
         for raw in r:
             line = raw.decode("utf-8", "replace").strip()
             if not line.startswith("data:"):
@@ -478,7 +556,9 @@ def chat_stream(cfg, store, lock, history: list[dict]):
     """Generator of Server-Sent-Event dicts: {type: delta|status|error|done, ...}.
 
     Network calls to the model run without `lock`; only the hub's DB tool calls acquire it, so a long
-    chat never blocks the rest of the server. Streams the assistant's text token-by-token."""
+    chat never blocks the rest of the server. The answer streams token-by-token, the model's legacy
+    DSML protocol never leaks into the visible text, a dropped connection is retried before any text
+    was shown, and the turn always ends with a visible answer instead of an empty bubble."""
     ai = cfg["ai"]
     if ai.get("provider") != "openai_compatible":
         yield {"type": "error", "text": "chat needs ai.provider: openai_compatible (e.g. DeepSeek)."}; return
@@ -496,33 +576,52 @@ def chat_stream(cfg, store, lock, history: list[dict]):
     for step in range(MAX_TOOL_CALLS + 1):
         force_answer = step == MAX_TOOL_CALLS
         parts, tcs, usage = [], {}, None
-        legacy_mode = False
-        try:
-            for chunk in _post_stream(ai, messages, tools=not force_answer):
-                if chunk.get("usage"):
-                    usage = chunk["usage"]
-                ch = (chunk.get("choices") or [{}])[0]
-                delta = ch.get("delta") or {}
-                if delta.get("content"):
-                    parts.append(delta["content"])
-                    raw = "".join(parts)
-                    if _legacy_protocol_started(raw):
-                        legacy_mode = True
-                    elif not legacy_mode:
-                        yield {"type": "delta", "text": delta["content"]}
-                for tc in delta.get("tool_calls") or []:
-                    slot = tcs.setdefault(tc.get("index", 0), {"id": None, "name": "", "args": ""})
-                    if tc.get("id"):
-                        slot["id"] = tc["id"]
-                    fn = tc.get("function") or {}
-                    if fn.get("name"):
-                        slot["name"] = fn["name"]
-                    if fn.get("arguments"):
-                        slot["args"] += fn["arguments"]
-        except urllib.error.HTTPError as exc:
-            yield {"type": "error", "text": f"HTTP {exc.code} from the AI endpoint"}; return
-        except Exception as exc:
-            yield {"type": "error", "text": f"{type(exc).__name__}: {str(exc)[:120]}"}; return
+        sent, sent_len, legacy_mode = [], 0, False
+        attempt = 0
+        while True:
+            try:
+                for chunk in _post_stream(ai, messages, tools=not force_answer):
+                    if chunk.get("usage"):
+                        usage = chunk["usage"]
+                    ch = (chunk.get("choices") or [{}])[0]
+                    delta = ch.get("delta") or {}
+                    if delta.get("reasoning_content") and not parts:
+                        # DeepSeek's thinking stream: show progress while the model plans and
+                        # reads tool results, so a long turn is not a silent pause.
+                        yield {"type": "reasoning", "text": delta["reasoning_content"]}
+                    if delta.get("content"):
+                        parts.append(delta["content"])
+                        raw = "".join(parts)
+                        if not legacy_mode and _legacy_protocol_started(raw):
+                            legacy_mode = True
+                        if not legacy_mode:
+                            safe = _stream_safe_prefix(raw)
+                            if len(safe) > sent_len:
+                                text = safe[sent_len:]
+                                sent_len = len(safe)
+                                sent.append(text)
+                                yield {"type": "delta", "text": text}
+                    for tc in delta.get("tool_calls") or []:
+                        slot = tcs.setdefault(tc.get("index", 0), {"id": None, "name": "", "args": ""})
+                        if tc.get("id"):
+                            slot["id"] = tc["id"]
+                        fn = tc.get("function") or {}
+                        if fn.get("name"):
+                            slot["name"] = fn["name"]
+                        if fn.get("arguments"):
+                            slot["args"] += fn["arguments"]
+                break
+            except urllib.error.HTTPError as exc:
+                yield {"type": "error", "text": f"HTTP {exc.code} from the AI endpoint"}; return
+            except TRANSIENT_ERRORS as exc:
+                # Nothing was read yet, so retrying the turn cannot duplicate streamed text.
+                if parts or tcs or attempt >= TRANSIENT_RETRIES:
+                    yield {"type": "error", "text": _endpoint_failure(exc, attempt + 1)}; return
+                attempt += 1
+                time.sleep(RETRY_DELAY_SECONDS * attempt)
+                continue
+            except Exception as exc:
+                yield {"type": "error", "text": f"{type(exc).__name__}: {str(exc)[:120]}"}; return
         if usage:
             with lock:
                 cost += _record_usage(store, ai, {"input": usage.get("prompt_tokens", 0), "output": usage.get("completion_tokens", 0),
@@ -536,8 +635,28 @@ def chat_stream(cfg, store, lock, history: list[dict]):
         messages.append({"role": "assistant", "content": clean_content,
                          "tool_calls": [{"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": c["args"]}} for c in calls] or None})
         if not calls or force_answer:
-            if legacy_mode and clean_content:
+            visible = "".join(sent)
+            if not legacy_mode and len(raw_content) > sent_len:
+                text = raw_content[sent_len:]
+                sent.append(text)
+                yield {"type": "delta", "text": text}
+                visible += text
+            if not visible.strip() and clean_content:
                 yield {"type": "delta", "text": clean_content}
+                visible = clean_content
+            if not visible.strip():
+                # The model returned no prose at all (protocol-only or reasoning-only output).
+                # Ask once more for a plain answer, then fall back to a readable message so the
+                # chat can never finish with an empty assistant bubble.
+                retry_messages = messages[:-1] if calls else messages
+                text, extra_usage = _plain_answer(ai, retry_messages)
+                if extra_usage:
+                    with lock:
+                        cost += _record_usage(store, ai, {"input": extra_usage.get("prompt_tokens", 0),
+                                                          "output": extra_usage.get("completion_tokens", 0),
+                                                          "cache_read": (extra_usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0),
+                                                          "cache_write": 0})
+                yield {"type": "delta", "text": text or _fallback_answer(changes)}
             yield {"type": "done", "changes": changes, "cost": round(cost, 5)}; return
         for c in calls:
             try:

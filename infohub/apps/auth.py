@@ -84,12 +84,35 @@ def _sha(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def add_token(cfg, name: str) -> str:
+ALL_SCOPES = ("read", "write", "organize")
+DEFAULT_TOKEN_SCOPES = ("read", "organize")      # existing tokens keep working; `write` is opt-in
+
+
+def token_scopes(record: dict) -> tuple:
+    """Scopes of a stored token; records predating scopes get the migration default."""
+    scopes = record.get("scopes") or DEFAULT_TOKEN_SCOPES
+    return tuple(s for s in scopes if s in ALL_SCOPES) or ("read",)
+
+
+def add_token(cfg, name: str, scopes=None) -> str:
+    if scopes is not None:
+        scopes = [s.strip() for s in ([scopes] if isinstance(scopes, str) else scopes) if s.strip()]
+        unknown = [s for s in scopes if s not in ALL_SCOPES]
+        if unknown:
+            raise ValueError(f"unknown scope(s) {unknown}; choose from {list(ALL_SCOPES)}")
+        if not scopes:
+            raise ValueError("at least one scope is required")
     token = "ih_" + secrets.token_urlsafe(32)
     data = load(cfg)
-    data["tokens"][name] = {"hash": _sha(token), "created": int(time.time())}
+    data["tokens"][name] = {"hash": _sha(token), "created": int(time.time()),
+                            "scopes": list(scopes if scopes is not None else DEFAULT_TOKEN_SCOPES)}
     save(cfg, data)
     return token
+
+
+def token_info(cfg) -> list[dict]:
+    return [{"name": name, "created": rec.get("created"), "scopes": list(token_scopes(rec))}
+            for name, rec in sorted(load(cfg)["tokens"].items())]
 
 
 def remove_token(cfg, name: str) -> bool:
@@ -99,12 +122,18 @@ def remove_token(cfg, name: str) -> bool:
     return found
 
 
-def check_token(cfg, token: str) -> str | None:
+def check_bearer(cfg, token: str) -> tuple:
+    """Return (principal, scopes) for a bearer token; ('', ()) when unknown."""
     h = _sha(token)
     for name, rec in load(cfg)["tokens"].items():
         if hmac.compare_digest(rec["hash"], h):
-            return f"token:{name}"
-    return None
+            return f"token:{name}", token_scopes(rec)
+    return "", ()
+
+
+def check_token(cfg, token: str) -> str | None:
+    """Principal only; kept for callers that do not need scopes."""
+    return check_bearer(cfg, token)[0] or None
 
 
 def required(cfg) -> bool:

@@ -14,7 +14,8 @@ Admin    doctor | stats | source-init <name> (e.g. lark)
 Chats    channels refresh                                      (re-read mute state for every chat)
          channels defaults [--apply] [--source <name>]   (set every chat's policy from the rules)
 Access   user add|passwd|remove|list NAME     (login for the dashboard/API; password via hidden prompt or --stdin)
-         token add|remove|list NAME           (API token for agents/scripts: Authorization: Bearer <token>)
+         token add|remove|list NAME [--scopes read,write]  (API token: Authorization: Bearer <token>;
+                                                             default scopes read,organize)
 """
 from __future__ import annotations
 
@@ -114,6 +115,7 @@ def main():
     p = sub.add_parser("user"); p.add_argument("action", choices=["add", "passwd", "remove", "list"])
     p.add_argument("name", nargs="?"); p.add_argument("--stdin", action="store_true")
     p = sub.add_parser("token"); p.add_argument("action", choices=["add", "remove", "list"]); p.add_argument("name", nargs="?")
+    p.add_argument("--scopes", help="comma-separated: read,write,organize (default read,organize)")
     p = sub.add_parser("agent"); p.add_argument("action", choices=["next", "submit", "context", "export", "import", "reset"])
     p.add_argument("path", nargs="?"); p.add_argument("--out"); p.add_argument("--limit", type=int)
     p.add_argument("--days", type=int, default=7)
@@ -160,12 +162,16 @@ def main():
         from .apps import auth
         if args.action == "list":
             data = auth.load(cfg)
-            return pr({"users": sorted(data["users"]), "tokens": sorted(data["tokens"]), "login_required": auth.required(cfg)})
+            return pr({"users": sorted(data["users"]),
+                       "tokens": auth.token_info(cfg) if args.cmd == "token" else sorted(data["tokens"]),
+                       "login_required": auth.required(cfg)})
         if not args.name:
             raise SystemExit("name required")
         if args.cmd == "token":
             if args.action == "add":
-                return pr({"name": args.name, "token": auth.add_token(cfg, args.name), "note": "shown once; store it securely"})
+                return pr({"name": args.name, "token": auth.add_token(cfg, args.name, scopes=args.scopes),
+                           "scopes": list(auth.token_scopes(auth.load(cfg)["tokens"][args.name])),
+                           "note": "shown once; store it securely"})
             return pr({"removed": auth.remove_token(cfg, args.name)})
         if args.action == "remove":
             found = auth.remove_user(cfg, args.name)

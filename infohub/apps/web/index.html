@@ -65,6 +65,12 @@ main{padding:12px 16px}
 .title{font-weight:600}.text{white-space:pre-wrap;word-break:break-word;max-height:8em;overflow:hidden}
 .chat-text{white-space:pre-wrap;word-break:break-word;line-height:1.55}
 .chat-tool-status{margin:2px 0 7px;color:var(--mute);font-size:12px}
+.md-reasoning{margin:2px 0 8px;border-left:2px solid var(--line);padding-left:8px}
+.md-reasoning>summary{cursor:pointer;color:var(--mute);font-size:11.5px;list-style:none}
+.md-reasoning>summary::-webkit-details-marker{display:none}
+.md-reasoning>summary::before{content:"▸ ";color:var(--mute)}
+.md-reasoning[open]>summary::before{content:"▾ "}
+.reasoning-text{white-space:pre-wrap;word-break:break-word;max-height:170px;overflow:auto;color:var(--mute);font-size:12px;line-height:1.5;margin-top:4px}
 .md{line-height:1.55;word-break:break-word}
 .md p{margin:.4em 0}.md h4{margin:.6em 0 .3em;font-size:14px}.md h5{margin:.5em 0 .3em;font-size:13px;color:var(--sub)}
 .md ul,.md ol{margin:.3em 0;padding-left:1.4em}.md li{margin:.15em 0}
@@ -878,12 +884,13 @@ function refChip(kind, val) {
 const MD_INLINE = /`([^`]+)`|\*\*([^*]+)\*\*|(?:\*|_)([^*_]+)(?:\*|_)|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\[\[([ugp]):([^\]]+)\]\]/g;
 function mdInline(text) {
   const frag = document.createDocumentFragment();
-  let last = 0, m; MD_INLINE.lastIndex = 0;
-  while ((m = MD_INLINE.exec(text))) {
+  const re = new RegExp(MD_INLINE.source, "g");   // local copy: recursion must not share lastIndex
+  let last = 0, m;
+  while ((m = re.exec(text))) {
     if (m.index > last) frag.append(text.slice(last, m.index));
     if (m[1] != null) frag.append(el("code", {}, m[1]));
-    else if (m[2] != null) frag.append(el("b", {}, m[2]));
-    else if (m[3] != null) frag.append(el("i", {}, m[3]));
+    else if (m[2] != null) frag.append(el("b", {}, mdInline(m[2])));
+    else if (m[3] != null) frag.append(el("i", {}, mdInline(m[3])));
     else if (m[4] != null) frag.append(el("a", {href: m[5], target: "_blank", rel: "noopener"}, m[4]));
     else frag.append(refChip(m[6], m[7]));
     last = m.index + m[0].length;
@@ -988,6 +995,7 @@ async function copyText(text, btn) {
 const TABS = {
   async today() {
     const d = await api("/api/today?scope=" + (SCOPE || "mine"));
+    const unscheduled = d.unscheduled_events || [];
     const dated = d.needs.filter(u => u.due_at), undated = d.needs.filter(u => !u.due_at);
     const promote = m => el("button", {class: "b", onclick: async e => {
       e.target.disabled = true; await api("/api/units", {from_message: m.id, kind: "todo"}); render();
@@ -996,7 +1004,9 @@ const TABS = {
       lane("To do", d.needs.length, [...dated.map(u => unitCard(u)),
         ...(undated.length ? [el("div", {class: "day"}, "No date"), ...undated.map(u => unitCard(u))] : [])],
         "Nothing to do. 🎉"),
-      lane("Events (7 days)", d.events.length, byDay(d.events, "start_at")),
+      lane("Events", d.events.length + unscheduled.length, [
+        ...(d.events.length ? [el("div", {class: "day"}, "Next 7 days"), ...byDay(d.events, "start_at")] : []),
+        ...(unscheduled.length ? [el("div", {class: "day"}, "Time TBD"), ...unscheduled.map(u => unitCard(u))] : [])]),
       lane("Flagged, not sorted yet", d.unsorted.length,
         d.unsorted.map(m => msgCard(m, {extra: promote(m)})), "Everything has been organized.")));
   },
@@ -1008,7 +1018,10 @@ const TABS = {
   },
   async calendar() {
     const ev = (await api("/api/units?kind=event&order=due&limit=300" + mineQ())).filter(u => (u.start_at || 0) >= now() - 86400);
-    return el("div", {class: "grid g2"}, lane("Upcoming", ev.length, byDay(ev, "start_at")),
+    const unscheduled = await api("/api/units?kind=event&status=open&unscheduled=1&limit=300" + mineQ());
+    return el("div", {class: "grid g2"}, lane("Events", ev.length + unscheduled.length, [
+      ...(ev.length ? [el("div", {class: "day"}, "Upcoming"), ...byDay(ev, "start_at")] : []),
+      ...(unscheduled.length ? [el("div", {class: "day"}, "Time TBD"), ...unscheduled.map(u => unitCard(u))] : [])]),
       lane("Deadlines", null, byDay(await api("/api/units?tags=type:deadline&status=open&order=due&limit=200"), "due_at")));
   },
   async groups() {
@@ -1195,13 +1208,29 @@ const TABS = {
           : el("div", {class: "chat-text"}, m.content || "");
         if (m.streaming && m.content) bodyEl.append(el("span", {class: "caret"}, "▋"));
         const toolStatus = m.status ? el("div", {class: "chat-tool-status"}, "↳ " + m.status) : null;
-        return el("div", {class: "it " + (m.role === "user" ? "P2" : "")}, meta, toolStatus, bodyEl);
+        let reasoning = null;
+        if (m.role === "assistant" && m.reasoning) {
+          const open = m.reasoningOpen === true || (m.reasoningOpen === undefined && m.streaming && !m.content);
+          const summary = el("summary", {}, m.streaming && !m.content ? "Thinking…" : "Thinking");
+          reasoning = el("details", {class: "md-reasoning", open}, summary,
+            el("div", {class: "reasoning-text", "data-follow": m.streaming ? "1" : "0"}, m.reasoning));
+          summary.onclick = () => requestAnimationFrame(() => { m.reasoningOpen = reasoning.open; });
+        }
+        return el("div", {class: "it " + (m.role === "user" ? "P2" : "")}, meta, toolStatus, reasoning, bodyEl);
       });
       if (!CHAT.length) cards.push(el("div", {class: "empty"},
         "Ask about your hub, or tell me to do something — e.g. “what are my deadlines this week?”, "
         + "“find todos the hub missed in the robotics group”, “connect the reward-design topic under world models”, “consolidate duplicate topic tags”, “mark unit 42 done”."));
       log.replaceChildren(...cards);
+      log.querySelectorAll('.reasoning-text[data-follow="1"]').forEach(box => { box.scrollTop = box.scrollHeight; });
       if (scrollPinned) log.scrollTop = log.scrollHeight;
+    };
+    // Coalesce token-by-token updates into one paint per frame instead of rebuilding per chunk.
+    let drawQueued = false;
+    const scheduleDraw = () => {
+      if (drawQueued) return;
+      drawQueued = true;
+      requestAnimationFrame(() => { drawQueued = false; draw(); });
     };
     const input = el("input", {id: "chat-input", value: CHAT_DRAFT, placeholder: "Message the assistant… (Enter)", style: "flex:1"});
     input.oninput = () => { CHAT_DRAFT = input.value; };
@@ -1209,7 +1238,7 @@ const TABS = {
       const text = input.value.trim(); if (!text) return;
       CHAT.push({role: "user", content: text}); CHAT_DRAFT = ""; input.value = "";
       const payload = CHAT.map(m => ({role: m.role, content: m.content}));
-      const asst = {role: "assistant", content: "", changes: [], cost: 0, status: "", streaming: true};
+      const asst = {role: "assistant", content: "", reasoning: "", changes: [], cost: 0, status: "", streaming: true};
       CHAT.push(asst); scrollPinned = true; draw(); CHAT_BUSY = true;
       input.disabled = true; $("status").textContent = "thinking…";
       let streamStarted = false, streamDone = false, streamError = null;
@@ -1217,8 +1246,9 @@ const TABS = {
         const line = record.split("\n").find(l => l.startsWith("data:")); if (!line) return;
         let ev; try { ev = JSON.parse(line.slice(5).trim()); } catch (_) { return; }
         streamStarted = true;
-        if (ev.type === "delta") { asst.status = ""; asst.content += ev.text || ""; draw(); }
-        else if (ev.type === "status") { asst.status = ev.text || ""; $("status").textContent = ev.text || ""; draw(); }
+        if (ev.type === "reasoning") { asst.reasoning = (asst.reasoning + (ev.text || "")).slice(-6000); scheduleDraw(); }
+        else if (ev.type === "delta") { asst.status = ""; asst.content += ev.text || ""; scheduleDraw(); }
+        else if (ev.type === "status") { asst.status = ev.text || ""; $("status").textContent = ev.text || ""; scheduleDraw(); }
         else if (ev.type === "error") { streamError = ev.text || "stream failed"; asst.content = (asst.content ? asst.content + "\n\n" : "") + "⚠ " + streamError; streamDone = true; draw(); }
         else if (ev.type === "done") { asst.status = ""; asst.changes = ev.changes || []; asst.cost = ev.cost || 0; streamDone = true; }
       };

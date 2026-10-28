@@ -248,7 +248,7 @@ def _top_level_matches(store, rows):
 
 
 def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before=None, roots_only=False,
-          order="activity", limit=200, mine=False) -> list[dict]:
+          order="activity", limit=200, mine=False, unscheduled=False) -> list[dict]:
     where, args = [], []
     groups = {}                                   # namespace -> [tags]: OR within a namespace, AND across
     for t in tags or ():
@@ -291,6 +291,8 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
         args.append(int(due_before))
     if mine:
         where.append("u.for_me=1")
+    if unscheduled:
+        where.append("u.start_at IS NULL")
     # Whitespace-separated literal keywords use AND across title/summary matches.
     for term in (q or "").split():
         if len(term) >= 3:

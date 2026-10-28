@@ -54,6 +54,7 @@ DEFAULTS = {
         "enabled": False,             # Layer 2 AI organizer; Layer 1 and 3 work without it
         "provider": "openai_compatible",   # openai_compatible (DeepSeek etc.) | anthropic
         "base_url": "https://api.deepseek.com",
+        "proxy": "direct",            # direct (never use the system proxy) | auto (OS settings) | http://host:port
         "model": "deepseek-flash",
         "api_key_env": "DEEPSEEK_API_KEY",  # name of the environment variable holding the key
         "price_usd_per_mtok": {"input": 0.3, "output": 1.2, "cache_read": 0.03},  # for the budget; set to your provider's prices
