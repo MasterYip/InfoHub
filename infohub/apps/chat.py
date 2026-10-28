@@ -9,6 +9,7 @@ back to you. Bounded by a per-turn tool-call cap and the daily AI budget.
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -20,7 +21,7 @@ from ..organize.providers import api_key
 from . import brief as brief_mod
 from . import server as server_mod
 
-MAX_TOOL_CALLS = 12
+MAX_TOOL_CALLS = 24
 
 SYSTEM = """You are the assistant inside "Info Hub", a personal dashboard that organizes the user's
 chat messages into info units (todo, event, topic, question, decision, announcement, resource, note).
@@ -34,16 +35,18 @@ You can answer questions about what's in the hub and, when the user asks, change
 - create_unit(..., parent_ids, message_ids): create a unit with evidence and any existing parents.
 - update_unit(id, ...): edit kind, title, summary, status, priority, dates, personal scope, tags or
   message evidence. Use null to clear a date. Adding type:<kind> reclassifies the unit.
-- link_units(parent_id, child_id, relation), unlink_units(parent_id, child_id, relation): add or
+- link_units(parent_id, child_id, relation), link_units_bulk(parent_id, child_ids, relation),
+  unlink_units(parent_id, child_id, relation): add or
   remove an explicit graph edge. The default relation is part_of; a child can have several parents.
   For a related topic without a containment meaning use relation related_to; all edges are directed
   and cycles are refused. Choose the direction from the user's request, or ask when ambiguous.
 - rename_tag(from_tag, to_tag): rename a tag across all units, consolidating duplicates when the
   destination tag already exists. This changes tags, not unit identity or graph edges.
 
-For graph organization, inspect the units and existing edges first, then use link_units for real
-connections. Shared tags help filtering but do not create edges. Keep other parents when adding a
-connection. Use unlink_units only when asked to remove or move a connection. For duplicate tags,
+For graph organization, inspect the units and existing edges first, then use link_units_bulk when
+one parent should receive several children, or link_units for an individual connection. Shared tags
+help filtering but do not create edges. Keep other parents when adding a connection. Use unlink_units
+only when asked to remove or move a connection. For duplicate tags,
 inspect list_tags before rename_tag. Never claim a change succeeded when a tool returns an error.
 
 Counts: msgs includes all descendant branches; repeated message attachments and shared branches count again.
@@ -104,12 +107,16 @@ TOOLS = [
            "message_ids": IDS, "remove_message_ids": IDS}, ["id"]),
     _tool("link_units", "Add a directed parent-to-child graph edge. Preserves other parents; refuses cycles.",
           EDGE, ["parent_id", "child_id"]),
+    _tool("link_units_bulk", "Atomically add one parent-to-child edge for several children; preserves other parents and refuses cycles.",
+          {"parent_id": {"type": "integer"}, "child_ids": IDS,
+           "relation": {"type": "string", "description": "Directed edge label; defaults to part_of."}},
+          ["parent_id", "child_ids"]),
     _tool("unlink_units", "Remove only the specified graph edge; preserves units, tags, evidence and other edges.",
           EDGE, ["parent_id", "child_id"]),
     _tool("rename_tag", "Rename/consolidate a tag across ALL units in its namespace. Reserved tags cannot be renamed.",
           {"from_tag": {"type": "string"}, "to_tag": {"type": "string"}}, ["from_tag", "to_tag"]),
 ]
-WRITE_TOOLS = {"create_unit", "update_unit", "link_units", "unlink_units", "rename_tag"}
+WRITE_TOOLS = {"create_unit", "update_unit", "link_units", "link_units_bulk", "unlink_units", "rename_tag"}
 
 
 def _tz(cfg):
@@ -253,6 +260,33 @@ def _run_tool(cfg, store, name, args, changes):
         action = "created" if creating else "updated"
         changes.append({"action": action, "id": uid, "fields": list(fields)})
         return {action: uid}
+    if name == "link_units_bulk":
+        parent = int(args["parent_id"])
+        children = list(dict.fromkeys(int(child) for child in (args.get("child_ids") or [])))
+        if not children:
+            raise ValueError("child_ids must contain at least one unit")
+        _require_units(store, [parent, *children])
+        relation = args.get("relation", "part_of").strip()
+        if not relation or len(relation) > 60:
+            raise ValueError("relation must be 1 to 60 characters")
+        # Validate every edge before inserting any of them, so one bad child cannot leave a
+        # partially applied bulk organization request.
+        if parent in children:
+            raise ValueError("link would create a cycle or self-link")
+        for child in children:
+            if child in U.ancestors(store, parent) or child == parent:
+                raise ValueError("link would create a cycle or self-link")
+        linked = []
+        for child in children:
+            edge = (parent, child, relation)
+            exists = bool(store.q("SELECT 1 FROM unit_links WHERE parent_id=? AND child_id=? AND relation=?", edge).fetchone())
+            if not exists and not U.link(store, parent, child, relation):
+                raise ValueError("link would create a cycle or self-link")
+            if not exists:
+                linked.append(child)
+                changes.append({"action": "linked", "parent_id": parent, "child_id": child, "relation": relation, "changed": True})
+        return {"parent_id": parent, "child_ids": children, "relation": relation,
+                "linked": linked, "changed": len(linked)}
     if name in ("link_units", "unlink_units"):
         parent, child = int(args["parent_id"]), int(args["child_id"])
         _require_units(store, [parent, child])
@@ -296,6 +330,48 @@ def _tool_content(result):
                        "hint": "Narrow filters/limits or request specific unit/message IDs."}, ensure_ascii=False)
 
 
+def _legacy_tool_calls(content: str):
+    """Parse DeepSeek's legacy DSML function-call text when no structured tool_calls are returned."""
+    text = (content or "").replace("｜", "|").replace("＜", "<").replace("＞", ">")
+    if not re.search(r"<\|[^>]{0,40}DSML|invoke\s+name=", text, re.I):
+        return text, []
+    invocations = list(re.finditer(r"invoke\s+name=[\"']([^\"']+)[\"']", text, re.I))
+    if not invocations:
+        return text, []
+    calls = []
+    for index, match in enumerate(invocations):
+        end = invocations[index + 1].start() if index + 1 < len(invocations) else len(text)
+        block = text[match.end():end]
+        params = {}
+        marks = list(re.finditer(r"parameter\s+name=[\"']([^\"']+)[\"'][^>]*>", block, re.I))
+        for pidx, pmark in enumerate(marks):
+            stop = marks[pidx + 1].start() if pidx + 1 < len(marks) else len(block)
+            value = block[pmark.end():stop]
+            # DeepSeek may emit either HTML-looking tags or tokens such as
+            # ``<|DSML| | parameter>``.  Both mark the end of a parameter.
+            value = re.split(r"(?:<\|[^>]{0,80}DSML[^>]*>|</?\|?parameter[^>]*>)", value,
+                             maxsplit=1, flags=re.I)[0]
+            value = re.sub(r"<[^>]*>", "", value).strip()
+            params[pmark.group(1)] = value
+        calls.append({"id": f"legacy-{index}", "type": "function",
+                      "function": {"name": match.group(1), "arguments": json.dumps(params, ensure_ascii=False)}})
+    # DSML is protocol text, never user-facing assistant prose.
+    return "", calls
+
+
+def _message_tool_calls(msg):
+    content = msg.get("content") or ""
+    calls = msg.get("tool_calls") or []
+    if calls:
+        return content, calls
+    return _legacy_tool_calls(content)
+
+
+def _legacy_protocol_started(text):
+    """Return true when streamed content has entered a legacy DSML call."""
+    return bool(re.search(r"<\|[^>]{0,40}DSML|invoke\s+name=", text or "", re.I))
+
+
 def _post(ai, messages, tools=True):
     body = {"model": ai["model"], "max_tokens": int(ai.get("max_tokens", 4000)), "stream": False, "messages": messages}
     if tools:
@@ -334,10 +410,10 @@ def chat(cfg, store, history: list[dict]) -> dict:
         cost += _record_usage(store, ai, {"input": u.get("prompt_tokens", 0), "output": u.get("completion_tokens", 0),
                                           "cache_read": (u.get("prompt_tokens_details") or {}).get("cached_tokens", 0), "cache_write": 0})
         msg = (data.get("choices") or [{}])[0].get("message") or {}
-        messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": msg.get("tool_calls")})
-        calls = msg.get("tool_calls") or []
+        clean_content, calls = _message_tool_calls(msg)
+        messages.append({"role": "assistant", "content": clean_content, "tool_calls": calls or None})
         if not calls or force_answer:
-            reply = msg.get("content") or ("Done." if changes else "I couldn't find anything to answer that.")
+            reply = clean_content or ("Done." if changes else "I couldn't find anything to answer that.")
             return {"reply": reply, "changes": changes, "cost": round(cost, 5)}
         for call in calls:
             fn = call.get("function", {})
@@ -389,7 +465,9 @@ def _tool_label(name, args):
         return f"creating a unit: {args.get('title', '')[:40]}…"
     if name == "update_unit":
         return f"updating unit {args.get('id')}…"
-    if name in ("link_units", "unlink_units"):
+    if name in ("link_units", "link_units_bulk", "unlink_units"):
+        if name == "link_units_bulk":
+            return f"linking {len(args.get('child_ids') or [])} units under {args.get('parent_id')}…"
         return f"{'linking' if name == 'link_units' else 'unlinking'} units {args.get('parent_id')} → {args.get('child_id')}…"
     if name == "rename_tag":
         return f"renaming tag {args.get('from_tag')} → {args.get('to_tag')}…"
@@ -418,6 +496,7 @@ def chat_stream(cfg, store, lock, history: list[dict]):
     for step in range(MAX_TOOL_CALLS + 1):
         force_answer = step == MAX_TOOL_CALLS
         parts, tcs, usage = [], {}, None
+        legacy_mode = False
         try:
             for chunk in _post_stream(ai, messages, tools=not force_answer):
                 if chunk.get("usage"):
@@ -426,7 +505,11 @@ def chat_stream(cfg, store, lock, history: list[dict]):
                 delta = ch.get("delta") or {}
                 if delta.get("content"):
                     parts.append(delta["content"])
-                    yield {"type": "delta", "text": delta["content"]}
+                    raw = "".join(parts)
+                    if _legacy_protocol_started(raw):
+                        legacy_mode = True
+                    elif not legacy_mode:
+                        yield {"type": "delta", "text": delta["content"]}
                 for tc in delta.get("tool_calls") or []:
                     slot = tcs.setdefault(tc.get("index", 0), {"id": None, "name": "", "args": ""})
                     if tc.get("id"):
@@ -444,10 +527,17 @@ def chat_stream(cfg, store, lock, history: list[dict]):
             with lock:
                 cost += _record_usage(store, ai, {"input": usage.get("prompt_tokens", 0), "output": usage.get("completion_tokens", 0),
                                                   "cache_read": (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0), "cache_write": 0})
+        raw_content = "".join(parts)
+        clean_content, legacy_calls = _legacy_tool_calls(raw_content)
         calls = list(tcs.values())
-        messages.append({"role": "assistant", "content": "".join(parts),
+        if not calls and legacy_calls:
+            calls = [{"id": c["id"], "name": c["function"]["name"],
+                      "args": c["function"]["arguments"]} for c in legacy_calls]
+        messages.append({"role": "assistant", "content": clean_content,
                          "tool_calls": [{"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": c["args"]}} for c in calls] or None})
         if not calls or force_answer:
+            if legacy_mode and clean_content:
+                yield {"type": "delta", "text": clean_content}
             yield {"type": "done", "changes": changes, "cost": round(cost, 5)}; return
         for c in calls:
             try:

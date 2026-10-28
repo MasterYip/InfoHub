@@ -51,6 +51,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from ..backup import BackupManager
 from ..organize import agent_bridge, ai_organizer
+from ..store import Store
 from ..sync import policy as policy_mod
 from ..organize import units as U
 from . import auth
@@ -58,6 +59,43 @@ from . import brief as brief_mod
 from . import scheduler as scheduler_mod
 
 WEB = Path(__file__).resolve().parent / "web"
+_AI_KICK_LOCK = threading.Lock()
+
+
+def _kick_ai(cfg) -> bool:
+    """Wake a short-lived AI worker after an explicit flag/organize request.
+
+    The regular service loop remains the fallback. A separate Store connection keeps the HTTP
+    request responsive and prevents two manual kicks from processing the same queue concurrently.
+    """
+    if not cfg.get("ai", {}).get("enabled") or not _AI_KICK_LOCK.acquire(blocking=False):
+        return False
+    def worker():
+        s = Store(cfg["hub"]["database"])
+        try:
+            ai_organizer.run(cfg, s)
+        except Exception:
+            pass
+        finally:
+            s.db.close()
+            _AI_KICK_LOCK.release()
+    threading.Thread(target=worker, name="infohub-ai-kick", daemon=True).start()
+    return True
+
+
+def _queue_segments(store, segment_ids) -> int:
+    """Close and enqueue selected segments after an explicit Watch/Flag action."""
+    ids = list(dict.fromkeys(int(sid) for sid in segment_ids if sid is not None))
+    if not ids:
+        return 0
+    now = int(time.time())
+    for sid in ids:
+        store.q("UPDATE segments SET closed=1, policy='watch', rule_done=0, ai_done=0, updated_at=? WHERE id=?", (now, sid))
+        store.q("""INSERT INTO jobs(kind, ref_id, status, created_at, updated_at, not_before)
+                  VALUES('segment',?,'pending',?,?,0)
+                  ON CONFLICT(kind, ref_id) DO UPDATE SET status='pending', not_before=0,
+                  last_error=NULL, updated_at=excluded.updated_at""", (sid, now, now))
+    return len(ids)
 
 
 def viewer_payload(store) -> dict:
@@ -210,6 +248,7 @@ def _gnode(u, seed: bool) -> dict:
     tags = u.get("tags", []) or []
     return {"id": u["id"], "kind": u["kind"], "title": u["title"], "status": u["status"],
             "for_me": u.get("for_me"), "due_at": u.get("due_at"),
+            "first_activity_at": u.get("first_activity_at"), "last_evidence_at": u.get("last_evidence_at"),
             "at": u.get("last_activity_at") or u.get("updated_at"),
             "n_messages": u.get("n_messages"), "n_direct_messages": u.get("n_direct_messages"),
             "n_children": u.get("n_children"), "n_descendants": u.get("n_descendants"),
@@ -561,8 +600,8 @@ def serve(cfg, store, poll_fn):
             if p == "/api/chat/stream":                 # Server-Sent Events: stream outside the global lock
                 from . import chat as chat_mod
                 self.send_response(200)
-                for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
-                             ("X-Content-Type-Options", "nosniff"), ("Connection", "close")):
+                for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store, no-transform"),
+                             ("X-Content-Type-Options", "nosniff"), ("X-Accel-Buffering", "no"), ("Connection", "close")):
                     self.send_header(k, v)
                 self.end_headers()
                 try:
@@ -578,6 +617,7 @@ def serve(cfg, store, poll_fn):
                 elif p == "/api/teach":
                     if body.get("kind") not in ("mute", "watch", "watch_person", "digest", "vip"):
                         return self._send(400, {"error": "bad kind"})
+                    queued = 0
                     if body.get("undo"):
                         store.remove_override(body["kind"], body["source"], body["value"])
                     else:
@@ -586,6 +626,10 @@ def serve(cfg, store, poll_fn):
                             pol = {"mute": "ignore", "watch": "watch", "digest": "digest"}[body["kind"]]
                             store.q("UPDATE channels SET policy=? WHERE source=? AND channel=?", (pol, body["source"], body["value"]))
                             store.q("UPDATE messages SET policy=? WHERE source=? AND channel=?", (pol, body["source"], body["value"]))
+                            if body["kind"] == "watch":
+                                segment_rows = store.q("SELECT DISTINCT segment_id FROM messages WHERE source=? AND channel=? AND segment_id IS NOT NULL",
+                                                        (body["source"], body["value"])).fetchall()
+                                queued = _queue_segments(store, [r["segment_id"] for r in segment_rows])
                             if pol == "ignore":
                                 store.q("UPDATE messages SET done=1 WHERE source=? AND channel=?", (body["source"], body["value"]))
                         elif body["kind"] == "watch_person":
@@ -598,9 +642,10 @@ def serve(cfg, store, poll_fn):
                                     (body["source"], body["value"], label, label))
                             segment_ids = [r["segment_id"] for r in rows if r["segment_id"] is not None]
                             if segment_ids:
-                                marks = ",".join("?" * len(segment_ids))
-                                store.q(f"UPDATE segments SET policy='watch', rule_done=0 WHERE id IN ({marks})", segment_ids)
-                            store.db.commit()
+                                queued = _queue_segments(store, segment_ids)
+                    store.db.commit()
+                    return self._send(200, {"ok": True, "queued": queued,
+                                            "ai_started": bool(queued and _kick_ai(cfg))})
                 elif p == "/api/units":
                     src_msg = None
                     if body.get("from_message"):
@@ -684,8 +729,14 @@ def serve(cfg, store, poll_fn):
                     cur = store.q("""UPDATE messages SET priority='P1', done=0
                                      WHERE source=? AND account=? AND channel=? AND sent_at>=?""",
                                   (source, account, channel, since))
+                    # Flagging is an explicit request to organize these messages. Reopen their
+                    # segments, reset any previous AI completion, and enqueue them immediately.
+                    segs = [r[0] for r in store.q("SELECT DISTINCT segment_id FROM messages WHERE source=? AND account=? AND channel=? AND sent_at>=? AND segment_id IS NOT NULL",
+                                                   (source, account, channel, since))]
+                    queued = _queue_segments(store, segs)
                     store.db.commit()
                     return self._send(200, {"ok": True, "flagged": cur.rowcount,
+                                            "queued": queued, "ai_started": _kick_ai(cfg),
                                             "source": source, "channel": channel, "hours": hours})
                 elif p == "/api/backups":
                     queued = backups.request()
@@ -727,7 +778,9 @@ def serve(cfg, store, poll_fn):
                     from . import chat as chat_mod
                     return self._send(200, chat_mod.chat(cfg, store, body.get("messages") or []))
                 elif p == "/api/poll":
-                    return self._send(200, poll_fn())
+                    result = poll_fn()
+                    result["ai_started"] = _kick_ai(cfg)
+                    return self._send(200, result)
                 else:
                     return self._send(404, {"error": "not found"})
             self._send(200, {"ok": True})

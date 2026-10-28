@@ -60,6 +60,16 @@ class ChatTools(unittest.TestCase):
         self.assertIn("error", self.tool("link_units", parent_id=ids[-1], child_id=ids[0]))
         self.assertFalse(self.changes)
 
+    def test_bulk_links_are_atomic_and_preserve_existing_edges(self):
+        self.tool("link_units", parent_id=self.control, child_id=self.reward)
+        out = self.tool("link_units_bulk", parent_id=self.world, child_ids=[self.reward, self.control])
+        self.assertEqual(out["changed"], 2)
+        self.assertEqual(set(out["linked"]), {self.reward, self.control})
+        self.assertEqual({p["id"] for p in U.get(self.store, self.reward)["parents"]}, {self.world, self.control})
+        self.assertEqual({p["id"] for p in U.get(self.store, self.control)["parents"]}, {self.world})
+        self.assertEqual(self.tool("link_units_bulk", parent_id=self.reward, child_ids=[self.world, self.control]).get("error") is not None, True)
+        self.assertEqual({p["id"] for p in U.get(self.store, self.control)["parents"]}, {self.world})
+
     def test_create_and_edit_dates_kind_scope_and_evidence(self):
         mid = self.store.add_messages([{"source": "demo", "item_key": "1", "channel_name": "Research Lab",
                                        "sender_name": "Alex", "sent_at": 100, "kind": "text",
@@ -151,6 +161,16 @@ class ChatTools(unittest.TestCase):
         self.assertTrue(any(e["type"] == "status" and "unlinking" in e["text"] for e in events))
         self.assertEqual(self.tool("get_graph")["edges"], [])
         self.assertTrue(json.loads(chat._tool_content({"text": "long " * 10000}))["truncated"])
+
+    def test_legacy_dsml_calls_are_structured_and_not_user_visible(self):
+        raw = ('<|DSML| | calls>\n'
+               '<|DSML| | invoke name="search">\n'
+               '<|DSML| | parameter name="query" string="true">DiffTaichi'
+               '<|DSML| | parameter>\n<|DSML| | invoke>\n<|DSML| | calls>')
+        content, calls = chat._legacy_tool_calls(raw)
+        self.assertEqual(content, "")
+        self.assertEqual(calls[0]["function"]["name"], "search")
+        self.assertEqual(json.loads(calls[0]["function"]["arguments"]), {"query": "DiffTaichi"})
 
 
 if __name__ == "__main__":

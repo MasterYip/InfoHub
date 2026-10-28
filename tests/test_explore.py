@@ -71,6 +71,7 @@ class Explore(unittest.TestCase):
         unit = U.get(self.store, self.topic, depth=2)
         self.assertEqual(unit["n_messages"], 8)
         self.assertEqual(unit["n_children"], 2)
+        self.assertEqual(unit["first_activity_at"], self.now)
         self.assertEqual(len(unit["children"]), 2)
         self.assertEqual(len(unit["messages"]), 1)
         self.assertEqual([u["n_messages"] for u in U.query(self.store, q="World")], [8])

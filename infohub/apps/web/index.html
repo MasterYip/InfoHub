@@ -64,12 +64,24 @@ main{padding:12px 16px}
 .src.slack{background:#611f69}.src.telegram{background:#229ed9}
 .title{font-weight:600}.text{white-space:pre-wrap;word-break:break-word;max-height:8em;overflow:hidden}
 .chat-text{white-space:pre-wrap;word-break:break-word;line-height:1.55}
+.chat-tool-status{margin:2px 0 7px;color:var(--mute);font-size:12px}
 .md{line-height:1.55;word-break:break-word}
 .md p{margin:.4em 0}.md h4{margin:.6em 0 .3em;font-size:14px}.md h5{margin:.5em 0 .3em;font-size:13px;color:var(--sub)}
 .md ul,.md ol{margin:.3em 0;padding-left:1.4em}.md li{margin:.15em 0}
 .md code{background:var(--chip-bg);border:1px solid var(--input-border);border-radius:4px;padding:0 4px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
 .md pre{position:relative;background:var(--stripe);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin:.5em 0;overflow:auto}
 .md pre code{background:none;border:0;padding:0;white-space:pre}
+.md-table-wrap{overflow:auto;margin:.55em 0;border:1px solid var(--line);border-radius:8px}
+.md-table{border-collapse:collapse;width:100%;min-width:360px;font-size:12.5px}
+.md-table th,.md-table td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.md-table th{background:var(--stripe);color:var(--ink);font-weight:650}
+.md-table tr:last-child td{border-bottom:0}
+.md-html{margin:.55em 0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--stripe)}
+.md-html .md-html-bar{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-bottom:1px solid var(--line);color:var(--sub);font-size:11px}
+.md-html iframe{display:block;width:100%;min-height:180px;border:0;background:#fff}
+.md-mermaid{margin:.55em 0;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--stripe);overflow:auto}
+.md-mermaid svg{display:block;min-width:320px;max-width:100%;height:auto}
+.md-mermaid .mermaid-fallback{white-space:pre-wrap;color:var(--sum);font-family:ui-monospace,Consolas,monospace;font-size:12px}
 .md blockquote{margin:.4em 0;padding:2px 10px;border-left:3px solid var(--dash);color:var(--sum)}
 .md a{text-decoration:underline}
 .code-copy{position:absolute;right:6px;top:6px;opacity:.6;font-size:11px}.md pre:hover .code-copy{opacity:1}
@@ -108,6 +120,8 @@ main{padding:12px 16px}
 .graph-row{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;color:var(--sub)}
 .graph-row b{color:var(--ink);font-size:11px;text-transform:uppercase;letter-spacing:.04em;min-width:52px}
 .graph-sel{background:var(--input-bg);color:var(--ink);border:1px solid var(--input-border);border-radius:6px;padding:1px 5px;font-size:12px}
+.tag-editor select.graph-sel{height:28px;min-height:0;padding:1px 6px;line-height:1.2;vertical-align:middle}
+.tag-editor .chips{align-items:center}
 .graph-row .gsep{color:var(--mute)}
 .kind-chip{text-transform:capitalize;padding:1px 8px}.kind-chip:not(.on){opacity:.5}
 .kind-chip i{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:4px;vertical-align:middle}
@@ -120,6 +134,26 @@ main{padding:12px 16px}
 .graph-count{position:absolute;left:10px;top:8px;font-size:11px;color:var(--mute);pointer-events:none}
 .graph-overlay{position:absolute;right:12px;top:30px;width:min(360px,80%);max-height:calc(100% - 46px);overflow:auto;background:var(--lane);border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:5}
 .graph-close{position:absolute;right:8px;top:8px;z-index:6}
+.gantt-host{display:flex;flex-direction:column;overflow:hidden;padding:12px 14px 18px;min-height:340px}
+.gantt-scroll{min-width:0;min-height:0;overflow:auto;position:relative;flex:1 1 auto}
+.gantt-chart{width:max-content;min-width:720px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--input-bg)}
+.gantt-axis,.gantt-line{display:grid;grid-template-columns:220px minmax(500px,1fr);min-height:28px}
+.gantt-axis{border-bottom:1px solid var(--line);background:var(--lane);position:sticky;top:0;z-index:2}
+.gantt-axis-label{position:sticky;left:0;z-index:4;padding:7px 10px;font-size:11px;color:var(--mute);border-right:1px solid var(--line);background:var(--lane);display:flex;align-items:center}
+.gantt-scale{position:relative;height:52px}
+.gantt-scale-row{position:absolute;left:0;right:0;height:26px}
+.gantt-scale-row.date{top:0;border-bottom:1px solid var(--line)}
+.gantt-scale-row.hour{top:26px}
+.gantt-tick{position:absolute;top:0;height:100%;border-left:1px solid var(--line);color:var(--mute);font-size:10px;padding:6px 4px;white-space:nowrap}
+.gantt-line{min-height:34px;border-bottom:1px solid color-mix(in srgb,var(--line) 65%,transparent)}
+.gantt-line:last-child{border-bottom:0}
+.gantt-row-label{position:sticky;left:0;z-index:3;padding:7px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-right:1px solid var(--line);background:var(--input-bg);font-size:12px}
+.gantt-track{position:relative;min-height:34px;background-image:linear-gradient(to right,color-mix(in srgb,var(--line) 65%,transparent) 1px,transparent 1px);background-size:20% 100%}
+.gantt-bar{position:absolute;top:6px;height:22px;border:0;border-radius:5px;padding:3px 7px;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--on-accent);font-size:11px;font-weight:600;cursor:pointer;min-width:28px}
+.gantt-bar:hover{filter:brightness(1.15);box-shadow:0 0 0 2px var(--on-accent)}
+.gantt-point{position:absolute;top:11px;width:12px;min-width:0;height:12px;margin-left:-6px;border-radius:50%;border:2px solid var(--on-accent);box-sizing:border-box;cursor:pointer;padding:0}
+.gantt-point:hover{transform:scale(1.3);box-shadow:0 0 0 2px var(--on-accent)}
+.gantt-empty{padding:30px;color:var(--mute);text-align:center}
 .day{font-size:12px;color:var(--sub);margin:10px 2px 4px;font-weight:600}
 table.kv td{padding:2px 8px;font-size:12.5px;color:var(--sum)}
 .schedule-form{container-type:inline-size;padding:14px 16px 12px;border-left:3px solid var(--link);background:var(--card)}
@@ -173,6 +207,7 @@ padding:4px 6px;border-radius:6px;font-size:12.5px;border-left:3px solid transpa
 "use strict";
 const $ = id => document.getElementById(id);
 let CHAT = [];   // conversation history for the assistant
+let CHAT_BUSY = false; // keep an in-progress stream DOM stable during background refreshes
 let CHAT_DRAFT = "";   // survives dashboard refreshes while the user is composing
 function el(tag, attrs = {}, ...kids) {             // message/unit text is only ever inserted as text nodes
   const n = document.createElement(tag);
@@ -261,14 +296,20 @@ const GRAPH_CFG = Object.fromEntries(Object.entries(GRAPH_DEF).map(([k, fallback
   const v = usedPreviousDefaults ? undefined : OLD_GRAPH_CFG[k];
   return [k, typeof v === "number" && Number.isFinite(v) ? Math.max(GRAPH_RANGE[k][0], Math.min(GRAPH_RANGE[k][1], v)) : fallback];
 }));
-const EXPLORE_FILTERS = Object.assign({query: "", kinds: OLD_GRAPH_CFG.kinds || [], days: OLD_GRAPH_CFG.days || 0,
-  status: "", roots: false, context: false, tags: []}, readPreference("exploreFilters", {}));
+const SAVED_EXPLORE_FILTERS = readPreference("exploreFilters", {});
+const EXPLORE_FILTERS = Object.assign({query: "", kinds: OLD_GRAPH_CFG.kinds || [], kindsMode: "all", days: OLD_GRAPH_CFG.days || 0,
+  status: "", roots: false, context: false, tags: []}, SAVED_EXPLORE_FILTERS);
 if (!Array.isArray(EXPLORE_FILTERS.kinds)) EXPLORE_FILTERS.kinds = [];
+if (!Object.prototype.hasOwnProperty.call(SAVED_EXPLORE_FILTERS, "kindsMode"))
+  EXPLORE_FILTERS.kindsMode = EXPLORE_FILTERS.kinds.length ? "custom" : "all";
+if (!(EXPLORE_FILTERS.kindsMode === "all" || EXPLORE_FILTERS.kindsMode === "custom")) EXPLORE_FILTERS.kindsMode = "all";
 if (Array.isArray(EXPLORE_FILTERS.tags)) SEL = new Set(EXPLORE_FILTERS.tags.filter(t => typeof t === "string"));
 const saveGraphCfg = () => localStorage.setItem("graphCfg", JSON.stringify(GRAPH_CFG));
 const saveExploreFilters = () => localStorage.setItem("exploreFilters", JSON.stringify({...EXPLORE_FILTERS, tags: [...SEL]}));
 function exploreQuery() {
-  const q = new URLSearchParams({tags: [...SEL].join(","), kind: EXPLORE_FILTERS.kinds.join(","),
+  const kindValue = EXPLORE_FILTERS.kindsMode === "all" ? "" :
+    (EXPLORE_FILTERS.kinds.length ? EXPLORE_FILTERS.kinds.join(",") : "__none__");
+  const q = new URLSearchParams({tags: [...SEL].join(","), kind: kindValue,
     q: String(EXPLORE_FILTERS.query || "").trim(), days: String(EXPLORE_FILTERS.days || 0),
     status: EXPLORE_FILTERS.status || "", roots: EXPLORE_FILTERS.roots ? "1" : "0",
     mine: SCOPE === "mine" ? "1" : "0", order: EXPLORE_SORT, limit: "400"});
@@ -322,7 +363,7 @@ function whenLabel(u) {
   return el("span", {class: "when" + (t < now() && u.kind === "todo" ? " overdue" : "")}, (u.kind === "todo" ? "due " : "") + fmt(t));
 }
 function timeLabel(u) {                      // every unit shows when it is from
-  const t = u.last_activity_at || u.updated_at || u.created_at;
+  const t = u.first_activity_at || u.created_at;
   return t ? el("span", {class: "ago", title: new Date(t * 1000).toLocaleString()}, fmt(t)) : null;
 }
 function tagChips(tags) {
@@ -718,6 +759,115 @@ async function openUnit(id, anchor = {x: MOUSE.x, y: MOUSE.y}) {
     addEventListener("mousemove", mv); addEventListener("mouseup", up);
   };
 }
+async function buildGantt(panel, baseQ) {
+  const host = el("div", {class: "gantt-host"}, el("div", {class: "status"}, "Loading timeline…"));
+  panel.append(host);
+  const units = await api(`/api/units?${baseQ}`);
+  if (!host.isConnected) return;
+  const windowEnd = Math.floor(Date.now() / 1000);
+  const windowStart = EXPLORE_FILTERS.days ? windowEnd - EXPLORE_FILTERS.days * 86400 : null;
+  const items = (Array.isArray(units) ? units : []).map(u => {
+    const rawStart = Number(u.first_activity_at || u.created_at || u.last_activity_at || 0);
+    const evidenceEnd = Number(u.last_evidence_at || 0);
+    const rawEnd = evidenceEnd > rawStart ? evidenceEnd : rawStart;
+    const start = windowStart ? Math.max(rawStart, windowStart) : rawStart;
+    const end = windowStart ? Math.min(rawEnd, windowEnd) : rawEnd;
+    return {u, start, end, point: !(evidenceEnd > rawStart)};
+  }).filter(item => item.start > 0 && item.end >= item.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end || a.u.id - b.u.id);
+  let zoom = Number(localStorage.getItem("ganttZoom") || 1);
+  if (!Number.isFinite(zoom)) zoom = 1;
+  zoom = Math.max(.5, Math.min(3, zoom));
+  const controls = el("div", {class: "graph-row", style: "margin-bottom:10px"});
+  const zoomValue = el("span", {class: "status"}, Math.round(zoom * 100) + "%");
+  const zoomInput = el("input", {type: "range", min: 50, max: 300, step: 10, value: Math.round(zoom * 100),
+    title: "Timeline zoom", "aria-label": "Timeline zoom"});
+  const chart = el("div", {class: "gantt-chart"});
+  const scroll = el("div", {class: "gantt-scroll"});
+  const draw = () => {
+    zoom = Math.max(.5, Math.min(3, Number(zoomInput.value) / 100));
+    zoomValue.textContent = Math.round(zoom * 100) + "%";
+    localStorage.setItem("ganttZoom", String(zoom));
+    chart.replaceChildren();
+    if (!items.length) { chart.append(el("div", {class: "gantt-empty"}, "No units with time evidence.")); return; }
+    let minT = Math.min(...items.map(x => x.start)), maxT = Math.max(...items.map(x => x.end));
+    if (maxT - minT < 3600) {
+      const center = (minT + maxT) / 2;
+      minT = center - 1800; maxT = center + 1800;
+    }
+    const span = maxT - minT, rows = [];
+    // Zoom controls the visible time window: the minimum is the complete range,
+    // while the maximum shows one hour and exposes the rest through horizontal scroll.
+    const minWindow = Math.min(span, 3600), zoomRatio = (zoom - .5) / 2.5;
+    const windowSpan = span <= 3600 ? span : span * (1 - zoomRatio) + minWindow * zoomRatio;
+    const trackWidth = Math.max(560, Math.round(720 * span / Math.max(1, windowSpan))), grid = `220px ${trackWidth}px`;
+    const minBarDuration = span * 28 / trackWidth, minPointDuration = span * 12 / trackWidth;
+    const kindOrder = Object.keys(KIND_COLOR);
+    const groups = new Map(kindOrder.map(kind => [kind, []]));
+    for (const item of items) (groups.get(item.u.kind) || groups.get("topic")).push(item);
+    for (const [kind, group] of groups) {
+      if (!group.length) continue;
+      const kindRows = [];
+      for (const item of group) {
+        const occupiedUntil = item.point ? item.start + minPointDuration : Math.max(item.end, item.start + minBarDuration);
+        const row = kindRows.find(r => r.end <= item.start);
+        if (row) { row.items.push(item); row.end = occupiedUntil; } else kindRows.push({items: [item], end: occupiedUntil});
+      }
+      kindRows.sort((a, b) => Math.max(...a.items.map(x => x.end - x.start)) - Math.max(...b.items.map(x => x.end - x.start))).reverse();
+      for (const row of kindRows) rows.push({kind, ...row});
+    }
+    const scale = el("div", {class: "gantt-scale"});
+    const dateScale = el("div", {class: "gantt-scale-row date"}), hourScale = el("div", {class: "gantt-scale-row hour"});
+    const stamp = ts => {
+      const d = new Date(ts * 1000), short = span < 3 * 86400;
+      return short ? d.toLocaleString([], {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"})
+        : d.toLocaleDateString([], {month: "short", day: "numeric"});
+    };
+    const windowLabel = windowSpan >= 86400 ? `${Math.round(windowSpan / 86400)}d window` : `${Math.max(1, Math.round(windowSpan / 3600))}h window`;
+    zoomValue.textContent = windowLabel;
+    const step = windowSpan <= 2 * 3600 ? 3600 : windowSpan <= 12 * 3600 ? 2 * 3600 : windowSpan <= 48 * 3600 ? 6 * 3600 : 86400;
+    let lastDate = "";
+    for (let ts = maxT, i = 0; ts >= minT - step; ts -= step, i++) {
+      const t = Math.max(minT, ts), left = (maxT - t) / span * 100, date = new Date(t * 1000);
+      const dateText = date.toLocaleDateString([], {month: "short", day: "numeric"});
+      hourScale.append(el("span", {class: "gantt-tick", style: `left:${left}%`}, date.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})));
+      if (dateText !== lastDate || i === 0) { dateScale.append(el("span", {class: "gantt-tick", style: `left:${left}%`}, dateText)); lastDate = dateText; }
+      if (t === minT) break;
+    }
+    scale.append(dateScale, hourScale);
+    const axis = el("div", {class: "gantt-axis"}); axis.style.gridTemplateColumns = grid;
+    axis.append(el("div", {class: "gantt-axis-label"}, `${items.length} unit${items.length === 1 ? "" : "s"} · ${rows.length} parallel lane${rows.length === 1 ? "" : "s"}`), scale);
+    chart.append(axis);
+    for (const row of rows) {
+      const line = el("div", {class: "gantt-line"}); line.style.gridTemplateColumns = grid;
+      const label = el("div", {class: "gantt-row-label", title: row.items.map(x => x.u.title).join(" · ")},
+        `${row.kind} · ` + (row.items.length === 1 ? row.items[0].u.title : `${row.items.length} overlapping topics`));
+      const track = el("div", {class: "gantt-track"});
+      for (const item of row.items) {
+        // The newest time is on the left by default, like a latest-first activity view.
+        const left = (maxT - item.end) / span * 100, right = (maxT - item.start) / span * 100;
+        const bar = el("button", {type: "button", class: "gantt-bar" + (item.point ? " gantt-point" : ""),
+          title: `${item.u.title} · ${stamp(item.start)}${item.point ? "" : " – " + stamp(item.end)}`,
+          style: item.point ? `left:${left}%;background:${kColor(item.u.kind)}` :
+            `left:${left}%;width:${Math.max(0.8, right - left)}%;background:${kColor(item.u.kind)}`,
+          onclick: e => { e.stopPropagation(); openUnit(item.u.id, {x: e.clientX, y: e.clientY}); }});
+        if (!item.point) bar.textContent = item.u.title;
+        track.append(bar);
+      }
+      line.append(label, track); chart.append(line);
+    }
+  };
+  zoomInput.oninput = draw;
+  scroll.onwheel = e => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    zoomInput.value = String(Math.max(50, Math.min(300, Number(zoomInput.value) + (e.deltaY < 0 ? 10 : -10))));
+    draw();
+  };
+  controls.append(el("b", {}, "Timeline"), el("span", {class: "status"}, "Zoom"), zoomInput, zoomValue,
+    el("span", {class: "status"}, "Newest left · separate lanes by kind and overlap"));
+  scroll.append(chart); host.replaceChildren(controls, scroll); draw();
+}
 // Assistant replies cite things: [[u:<id>]] a unit, [[g:<chat name>]] a group, [[p:<name>]] a person.
 function refChip(kind, val) {
   if (kind === "u") { const id = parseInt(val, 10); return el("span", {class: "chip ref", title: "Open unit " + id, onclick: () => openUnit(id)}, "▸ unit " + id); }
@@ -741,39 +891,90 @@ function mdInline(text) {
   if (last < text.length) frag.append(text.slice(last));
   return frag;
 }
+function splitMdRow(line) {
+  let s = line.trim(); if (s.startsWith("|")) s = s.slice(1); if (s.endsWith("|")) s = s.slice(0, -1);
+  return s.split(/(?<!\\)\|/).map(x => x.trim().replace(/\\\|/g, "|"));
+}
+function isMdTableSep(line) {
+  const cells = splitMdRow(line); return cells.length > 0 && cells.every(c => /^:?-{3,}:?$/.test(c));
+}
+function svgNode(tag, attrs = {}, text = null) {
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  if (text != null) n.append(document.createTextNode(text));
+  return n;
+}
+function renderMermaid(code) {
+  const box = el("div", {class: "md-mermaid"}), raw = (code || "").split("\n");
+  const direction = ((raw[0] || "").match(/(?:graph|flowchart)\s+(LR|RL|TB|TD|BT)/i) || [])[1] || "TD";
+  const nodes = new Map(), edges = [];
+  const addNode = (id, label, shape) => {
+    if (!id) return; if (!nodes.has(id)) nodes.set(id, {id, label: label || id, shape: shape || "rect"});
+    else if (label) nodes.get(id).label = label;
+  };
+  const nodeToken = "([A-Za-z0-9_:-]+)(?:\\s*([\\[\\(\\{])([^\\]\\)\\}]+)[\\]\\)\\}])?";
+  for (const source of raw.slice(1)) {
+    const line = source.replace(/%%.*$/, "").trim(); if (!line) continue;
+    const edge = line.match(new RegExp("^" + nodeToken + "\\s*(?:-->|-.->|==>)(?:\\|([^|]*)\\|)?\\s*" + nodeToken));
+    if (edge) {
+      const shapeFor = x => x === "(" ? "round" : x === "{" ? "diamond" : "rect";
+      addNode(edge[1], edge[3], shapeFor(edge[2])); addNode(edge[5], edge[7], shapeFor(edge[6]));
+      edges.push({from: edge[1], to: edge[5], label: edge[4] || ""}); continue;
+    }
+    const def = line.match(new RegExp("^" + nodeToken + "$"));
+    if (def) addNode(def[1], def[3], def[2] === "(" ? "round" : def[2] === "{" ? "diamond" : "rect");
+  }
+  if (!nodes.size || !edges.length) { box.append(el("div", {class: "mermaid-fallback"}, code)); return box; }
+  const ids = [...nodes.keys()], incoming = new Map(ids.map(id => [id, 0])), next = new Map(ids.map(id => [id, []]));
+  for (const e of edges) { incoming.set(e.to, incoming.get(e.to) + 1); next.get(e.from).push(e.to); }
+  const level = new Map(), queue = ids.filter(id => !incoming.get(id)); queue.forEach(id => level.set(id, 0));
+  for (let q = 0; q < queue.length; q++) for (const to of next.get(queue[q])) {
+    level.set(to, Math.max(level.get(to) || 0, (level.get(queue[q]) || 0) + 1)); if (!queue.includes(to)) queue.push(to);
+  }
+  ids.forEach(id => { if (!level.has(id)) level.set(id, 0); });
+  const buckets = {}; ids.forEach(id => (buckets[level.get(id)] ||= []).push(id));
+  const horizontal = direction === "LR" || direction === "RL", gapX = horizontal ? 190 : 180, gapY = horizontal ? 78 : 120;
+  const positions = new Map(); let maxCross = 1;
+  for (const [lev, bucket] of Object.entries(buckets)) { maxCross = Math.max(maxCross, bucket.length); bucket.forEach((id, idx) => positions.set(id, horizontal ? {x: +lev * gapX + 90, y: idx * gapY + 42} : {x: idx * gapX + 90, y: +lev * gapY + 42})); }
+  const width = horizontal ? (Math.max(...Object.keys(buckets).map(Number)) + 1) * gapX : maxCross * gapX;
+  const height = horizontal ? maxCross * gapY : (Math.max(...Object.keys(buckets).map(Number)) + 1) * gapY;
+  const svg = svgNode("svg", {viewBox: `0 0 ${Math.max(width, 320)} ${Math.max(height, 100)}`, role: "img", "aria-label": "Mermaid diagram"});
+  const defs = svgNode("defs"), marker = svgNode("marker", {id: "md-arrow", markerWidth: 8, markerHeight: 8, refX: 7, refY: 3, orient: "auto", markerUnits: "strokeWidth"});
+  marker.append(svgNode("path", {d: "M0,0 L0,6 L7,3 z", fill: "currentColor"})); defs.append(marker); svg.append(defs);
+  for (const e of edges) { const a = positions.get(e.from), b = positions.get(e.to); svg.append(svgNode("line", {x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: "currentColor", "stroke-opacity": ".55", "marker-end": "url(#md-arrow)"})); if (e.label) svg.append(svgNode("text", {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 5, "text-anchor": "middle", fill: "currentColor", "font-size": "11"}, e.label)); }
+  for (const node of nodes.values()) { const p = positions.get(node.id), w = Math.max(86, Math.min(170, node.label.length * 8 + 22)), h = 32;
+    const group = svgNode("g", {}); if (node.shape === "diamond") group.append(svgNode("polygon", {points: `${p.x},${p.y-h/2} ${p.x+w/2},${p.y} ${p.x},${p.y+h/2} ${p.x-w/2},${p.y}`, fill: "var(--chip-bg)", stroke: "currentColor", "stroke-opacity": ".7"}));
+    else group.append(svgNode(node.shape === "round" ? "rect" : "rect", {x: p.x-w/2, y: p.y-h/2, width: w, height: h, rx: node.shape === "round" ? 16 : 5, fill: "var(--chip-bg)", stroke: "currentColor", "stroke-opacity": ".7"}));
+    group.append(svgNode("text", {x: p.x, y: p.y + 4, "text-anchor": "middle", fill: "currentColor", "font-size": "12"}, node.label.slice(0, 28))); svg.append(group);
+  }
+  box.append(svg); const details = el("details", {style: "margin-top:6px"}, el("summary", {class: "status"}, "source"), el("pre", {}, el("code", {}, code))); box.append(details); return box;
+}
+function renderCodeFence(lang, code) {
+  const normalized = (lang || "").toLowerCase(), pre = el("pre", {});
+  pre.append(el("button", {class: "b code-copy", onclick: e => copyText(code, e.target)}, "copy"), el("code", {}, code));
+  if (!["html", "htm", "svg"].includes(normalized)) return normalized === "mermaid" ? renderMermaid(code) : pre;
+  const box = el("div", {class: "md-html"}), frame = el("iframe", {title: "HTML preview", sandbox: ""}); frame.srcdoc = code;
+  const source = el("details", {}, el("summary", {class: "status"}, "source"), pre);
+  box.append(el("div", {class: "md-html-bar"}, el("span", {}, "HTML preview"), el("span", {class: "status"}, "sandboxed")), frame, source); return box;
+}
 function renderMarkdown(md) {
-  const root = el("div", {class: "md"}), lines = (md || "").split("\n");
-  let i = 0;
+  const root = el("div", {class: "md"}), lines = (md || "").split("\n"); let i = 0;
   const isBullet = s => /^\s*([-*+])\s+/.test(s), isNum = s => /^\s*\d+\.\s+/.test(s);
-  const isBlockStart = s => /^```/.test(s) || /^(#{1,6})\s/.test(s) || isBullet(s) || isNum(s) || /^\s*>\s?/.test(s) || /^\s*$/.test(s);
+  const isBlockStart = (s, pos) => /^```/.test(s) || /^(#{1,6})\s/.test(s) || isBullet(s) || isNum(s) || /^\s*>\s?/.test(s) || /^\s*$/.test(s) || (s.includes("|") && isMdTableSep(lines[pos + 1] || ""));
   while (i < lines.length) {
     const line = lines[i];
-    if (/^```/.test(line)) {
-      const buf = []; i++;
-      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
-      i++;
-      const code = buf.join("\n"), pre = el("pre", {});
-      pre.append(el("button", {class: "b code-copy", onclick: e => copyText(code, e.target)}, "copy"), el("code", {}, code));
-      root.append(pre); continue;
+    const fence = line.match(/^```\s*([A-Za-z0-9_-]*)\s*$/);
+    if (fence) { const buf = []; i++; while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]); if (i < lines.length) i++; root.append(renderCodeFence(fence[1], buf.join("\n"))); continue; }
+    if (line.includes("|") && i + 1 < lines.length && isMdTableSep(lines[i + 1])) {
+      const head = splitMdRow(line), aligns = splitMdRow(lines[i + 1]); i += 2; const table = el("table", {class: "md-table"}), thead = el("thead"), tr = el("tr");
+      head.forEach((cell, n) => { const th = el("th", {}, mdInline(cell)); if (/^:/.test(aligns[n] || "")) th.style.textAlign = /^:-/.test(aligns[n]) ? "left" : "center"; if (/-:$/.test(aligns[n] || "")) th.style.textAlign = "right"; tr.append(th); }); thead.append(tr); table.append(thead);
+      const tbody = el("tbody"); while (i < lines.length && lines[i].includes("|") && lines[i].trim()) { const row = el("tr"); splitMdRow(lines[i++]).forEach(cell => row.append(el("td", {}, mdInline(cell)))); tbody.append(row); } table.append(tbody); root.append(el("div", {class: "md-table-wrap"}, table)); continue;
     }
     if (/^\s*$/.test(line)) { i++; continue; }
-    const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if (h) { root.append(el(h[1].length <= 2 ? "h4" : "h5", {}, mdInline(h[2]))); i++; continue; }
-    if (/^\s*>\s?/.test(line)) {
-      const buf = []; while (i < lines.length && /^\s*>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
-      const bq = el("blockquote", {}); bq.append(mdInline(buf.join("\n"))); root.append(bq); continue;
-    }
-    if (isBullet(line) || isNum(line)) {
-      const ordered = isNum(line), list = el(ordered ? "ol" : "ul", {});
-      while (i < lines.length && (ordered ? isNum(lines[i]) : isBullet(lines[i])))
-        list.append(el("li", {}, mdInline(lines[i++].replace(/^\s*([-*+]|\d+\.)\s+/, ""))));
-      root.append(list); continue;
-    }
-    const buf = [line]; i++;
-    while (i < lines.length && !isBlockStart(lines[i])) buf.push(lines[i++]);
-    const p = el("p", {});
-    buf.join("\n").split("\n").forEach((pl, idx) => { if (idx) p.append(el("br")); p.append(mdInline(pl)); });
-    root.append(p);
+    const h = line.match(/^(#{1,6})\s+(.*)$/); if (h) { root.append(el(h[1].length <= 2 ? "h4" : "h5", {}, mdInline(h[2]))); i++; continue; }
+    if (/^\s*>\s?/.test(line)) { const buf = []; while (i < lines.length && /^\s*>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, "")); const bq = el("blockquote", {}); bq.append(mdInline(buf.join("\n"))); root.append(bq); continue; }
+    if (isBullet(line) || isNum(line)) { const ordered = isNum(line), list = el(ordered ? "ol" : "ul", {}); while (i < lines.length && (ordered ? isNum(lines[i]) : isBullet(lines[i]))) list.append(el("li", {}, mdInline(lines[i++].replace(/^\s*([-*+]|\d+\.)\s+/, "")))); root.append(list); continue; }
+    const buf = [line]; i++; while (i < lines.length && !isBlockStart(lines[i], i)) buf.push(lines[i++]); const p = el("p", {}); buf.join("\n").split("\n").forEach((pl, idx) => { if (idx) p.append(el("br")); p.append(mdInline(pl)); }); root.append(p);
   }
   return root;
 }
@@ -910,9 +1111,12 @@ const TABS = {
       input.onchange = () => { EXPLORE_FILTERS[key] = input.checked; apply(); };
       return el("label", {style: "display:flex;align-items:center;gap:6px;margin:6px 0"}, input, label);
     };
-    const kinds = el("div", {id: "explore-kinds", class: "chips"}, ...Object.keys(KIND_COLOR).map(k =>
-      el("button", {type: "button", class: "chip kind-chip" + (EXPLORE_FILTERS.kinds.includes(k) ? " on" : ""),
-        onclick: () => { const index = EXPLORE_FILTERS.kinds.indexOf(k); index < 0 ? EXPLORE_FILTERS.kinds.push(k) : EXPLORE_FILTERS.kinds.splice(index, 1); apply(); }},
+    const allKinds = Object.keys(KIND_COLOR), allKindsOn = EXPLORE_FILTERS.kindsMode === "all";
+    const kinds = el("div", {id: "explore-kinds", class: "chips"},
+      el("button", {type: "button", class: "chip kind-chip" + (allKindsOn ? " on" : ""), title: "Show every kind",
+        onclick: () => { EXPLORE_FILTERS.kindsMode = allKindsOn ? "custom" : "all"; EXPLORE_FILTERS.kinds = []; apply(); }}, "All kinds"),
+      ...allKinds.map(k => el("button", {type: "button", class: "chip kind-chip" + (allKindsOn || EXPLORE_FILTERS.kinds.includes(k) ? " on" : ""),
+        onclick: () => { if (EXPLORE_FILTERS.kindsMode === "all") { EXPLORE_FILTERS.kindsMode = "custom"; EXPLORE_FILTERS.kinds = allKinds.filter(x => x !== k); } else { const selected = [...EXPLORE_FILTERS.kinds]; const index = selected.indexOf(k); index < 0 ? selected.push(k) : selected.splice(index, 1); EXPLORE_FILTERS.kinds = selected; if (selected.length === allKinds.length) { EXPLORE_FILTERS.kindsMode = "all"; EXPLORE_FILTERS.kinds = []; } } apply(); }},
         el("i", {style: `background:${kColor(k)}`}), k)));
     const selectedTags = el("div", {class: "chips"}, ...[...SEL].map(tag => el("button", {type: "button", class: "chip on",
       onclick: () => { SEL.delete(tag); apply(); }}, tag + " ×")));
@@ -924,22 +1128,28 @@ const TABS = {
     const row = (label, control) => el("tr", {}, el("td", {}, label), el("td", {}, control));
     const table = el("table", {class: "kv", style: "width:100%;margin-bottom:8px"}, row("Sort", sort), row("Activity", days), row("Status", status));
     const clear = el("button", {id: "explore-reset", class: "b", onclick: () => {
-      Object.assign(EXPLORE_FILTERS, {query: "", kinds: [], days: 0, status: "", roots: false, context: false});
+      Object.assign(EXPLORE_FILTERS, {query: "", kinds: [], kindsMode: "all", days: 0, status: "", roots: false, context: false});
       SEL.clear(); apply();
     }}, "Clear filters");
-    const tagLane = lane("Sort & filters", null, [searchForm, table, el("div", {class: "day"}, "Kinds (none selected = all)"), kinds,
+    const tagLane = lane("Sort & filters", null, [searchForm, table, el("div", {class: "day"}, "Kinds (All kinds toggles all)"), kinds,
       checkbox("explore-roots", "Top-level matches only", "roots"),
       checkbox("explore-context", "Show linked context (Graph)", "context"),
       el("div", {class: "empty"}, "Top-level keeps the outermost matches; a parent outside your filters does not hide a match. List and Graph share filters. Context adds faded neighbors only when enabled."), clear,
       el("div", {class: "day"}, "Tags — OR within a namespace, AND across"), selectedTags, ...chips]);
     const modePick = (value, label) => el("button", {class: "chip" + (EXPLORE_VIEW === value ? " on" : ""),
       onclick: () => { EXPLORE_VIEW = value; localStorage.setItem("exploreView", value); apply(); }}, label);
-    const modeToggle = el("span", {style: "display:flex;gap:4px"}, modePick("list", "☰ List"), modePick("graph", "⚹ Graph"));
+    const modeToggle = el("span", {style: "display:flex;gap:4px"}, modePick("list", "☰ List"), modePick("graph", "⚹ Graph"), modePick("gantt", "▥ Gantt"));
     const filterQ = exploreQuery();
     if (EXPLORE_VIEW === "graph") {
       const panel = el("section", {class: "lane", style: "padding:0;overflow:hidden;position:relative;display:flex;flex-direction:column;height:calc(100vh - 92px)"});
       panel.append(el("h2", {style: "padding:10px 14px 0"}, "Info-unit graph", modeToggle));
       buildGraph(panel, filterQ);
+      return el("div", {class: "grid g2"}, tagLane, panel);
+    }
+    if (EXPLORE_VIEW === "gantt") {
+      const panel = el("section", {class: "lane", style: "padding:0;overflow:hidden;position:relative;display:flex;flex-direction:column;height:calc(100vh - 92px)"});
+      panel.append(el("h2", {style: "padding:10px 14px 0"}, "Topic timeline", modeToggle));
+      buildGantt(panel, filterQ);
       return el("div", {class: "grid g2"}, tagLane, panel);
     }
     const units = await api(`/api/units?${filterQ}`);
@@ -984,7 +1194,8 @@ const TABS = {
           ? (m.content ? renderMarkdown(m.content) : el("span", {class: "status"}, m.streaming ? "…" : ""))
           : el("div", {class: "chat-text"}, m.content || "");
         if (m.streaming && m.content) bodyEl.append(el("span", {class: "caret"}, "▋"));
-        return el("div", {class: "it " + (m.role === "user" ? "P2" : "")}, meta, bodyEl);
+        const toolStatus = m.status ? el("div", {class: "chat-tool-status"}, "↳ " + m.status) : null;
+        return el("div", {class: "it " + (m.role === "user" ? "P2" : "")}, meta, toolStatus, bodyEl);
       });
       if (!CHAT.length) cards.push(el("div", {class: "empty"},
         "Ask about your hub, or tell me to do something — e.g. “what are my deadlines this week?”, "
@@ -998,39 +1209,49 @@ const TABS = {
       const text = input.value.trim(); if (!text) return;
       CHAT.push({role: "user", content: text}); CHAT_DRAFT = ""; input.value = "";
       const payload = CHAT.map(m => ({role: m.role, content: m.content}));
-      const asst = {role: "assistant", content: "", changes: [], cost: 0, streaming: true};
-      CHAT.push(asst); scrollPinned = true; draw();
+      const asst = {role: "assistant", content: "", changes: [], cost: 0, status: "", streaming: true};
+      CHAT.push(asst); scrollPinned = true; draw(); CHAT_BUSY = true;
       input.disabled = true; $("status").textContent = "thinking…";
-      let streamed = false;
+      let streamStarted = false, streamDone = false, streamError = null;
+      const handleSseRecord = record => {
+        const line = record.split("\n").find(l => l.startsWith("data:")); if (!line) return;
+        let ev; try { ev = JSON.parse(line.slice(5).trim()); } catch (_) { return; }
+        streamStarted = true;
+        if (ev.type === "delta") { asst.status = ""; asst.content += ev.text || ""; draw(); }
+        else if (ev.type === "status") { asst.status = ev.text || ""; $("status").textContent = ev.text || ""; draw(); }
+        else if (ev.type === "error") { streamError = ev.text || "stream failed"; asst.content = (asst.content ? asst.content + "\n\n" : "") + "⚠ " + streamError; streamDone = true; draw(); }
+        else if (ev.type === "done") { asst.status = ""; asst.changes = ev.changes || []; asst.cost = ev.cost || 0; streamDone = true; }
+      };
       try {
-        const resp = await fetch("/api/chat/stream", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({messages: payload})});
-        if (resp.status === 401) { location.href = "/login?next=" + encodeURIComponent(location.pathname); return; }
-        if (!resp.ok || !resp.body) throw new Error("no stream");
-        const reader = resp.body.getReader(), dec = new TextDecoder();
-        let buf = "";
-        for (;;) {
-          const {value, done} = await reader.read(); if (done) break;
-          buf += dec.decode(value, {stream: true});
-          let idx;
-          while ((idx = buf.indexOf("\n\n")) >= 0) {
-            const line = buf.slice(0, idx).split("\n").find(l => l.startsWith("data:")); buf = buf.slice(idx + 2);
-            if (!line) continue;
-            const ev = JSON.parse(line.slice(5).trim()); streamed = true;
-            if (ev.type === "delta") { asst.content += ev.text; draw(); }
-            else if (ev.type === "status") { $("status").textContent = ev.text; }
-            else if (ev.type === "error") { asst.content = (asst.content ? asst.content + "\n\n" : "") + "⚠ " + ev.text; }
-            else if (ev.type === "done") { asst.changes = ev.changes || []; asst.cost = ev.cost || 0; }
+        try {
+          const resp = await fetch("/api/chat/stream", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({messages: payload})});
+          if (resp.status === 401) { location.href = "/login?next=" + encodeURIComponent(location.pathname); return; }
+          if (!resp.ok || !resp.body) throw new Error("no stream");
+          const reader = resp.body.getReader(), dec = new TextDecoder(); let buf = "";
+          for (;;) {
+            const {value, done} = await reader.read();
+            if (done) { buf += dec.decode(); break; }
+            buf += dec.decode(value, {stream: true});
+            let idx; while ((idx = buf.indexOf("\n\n")) >= 0) { handleSseRecord(buf.slice(0, idx)); buf = buf.slice(idx + 2); }
           }
+          if (buf.trim()) handleSseRecord(buf.trim());
+          if (streamStarted && !streamDone) streamError = "stream ended before the assistant finished";
+        } catch (err) {
+          if (!streamStarted) streamError = err;
+          else if (!streamDone) streamError = "stream interrupted before the assistant finished";
         }
-      } catch (_) { streamed = false; }
-      if (!streamed) {                                  // fallback: non-streaming endpoint
-        const r = await api("/api/chat", {messages: payload});
-        if (r.error) asst.content = "⚠ " + r.error;
-        else { asst.content = r.reply; asst.changes = r.changes || []; asst.cost = r.cost || 0; }
+        if (!streamStarted) {
+          const r = await api("/api/chat", {messages: payload});
+          if (r.error) asst.content = "⚠ " + r.error;
+          else { asst.content = r.reply; asst.changes = r.changes || []; asst.cost = r.cost || 0; }
+        } else if (streamError && !asst.content.includes(String(streamError))) {
+          asst.content = (asst.content ? asst.content + "\n\n" : "") + "⚠ " + String(streamError);
+        }
+      } finally {
+        asst.streaming = false; CHAT_BUSY = false;
+        $("status").textContent = (asst.changes && asst.changes.length) ? asst.changes.length + " change(s) applied" : (streamError ? "stream ended" : "");
+        input.disabled = false; draw(); input.focus();
       }
-      asst.streaming = false;
-      $("status").textContent = (asst.changes && asst.changes.length) ? asst.changes.length + " change(s) applied" : "";
-      input.disabled = false; draw(); input.focus();
     };
     input.onkeydown = e => { if (e.key === "Enter") send(); };
     draw();
@@ -1446,6 +1667,7 @@ function enhanceGrids(root) {
 }
 let renderVersion = 0;
 async function render(keepScroll = true) {
+  if (TAB === "chat" && CHAT_BUSY && $("main").dataset.tab === "chat") return;
   const version = ++renderVersion, tab = TAB;
   const active = document.activeElement;
   const draft = active && active.id === "chat-input" ? active.value : (typeof CHAT_DRAFT === "undefined" ? "" : CHAT_DRAFT);
@@ -1464,9 +1686,16 @@ async function render(keepScroll = true) {
     if (keepChatFocus) { chatInput.focus(); chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length); }
   }
   if (state) restoreScroll(state);
+  if (tab === "chat") requestAnimationFrame(() => {
+    const lane = $("main").querySelector(".lane"); if (lane) lane.scrollTop = lane.scrollHeight;
+  });
   $("status").textContent = "updated " + new Date().toLocaleTimeString();
 }
-$("poll").onclick = async e => { e.target.disabled = true; $("status").textContent = "syncing…"; await api("/api/poll", {}); e.target.disabled = false; render(); };
+$("poll").onclick = async e => {
+  e.target.disabled = true; $("status").textContent = "syncing…";
+  try { await api("/api/poll", {}); $("status").textContent = "sync complete — current view kept"; }
+  finally { e.target.disabled = false; }
+};
 // the tab bar scrolls horizontally with a plain mouse wheel (scrollbar itself is hidden)
 $("tabs").addEventListener("wheel", e => { if (e.deltaY && $("tabs").scrollWidth > $("tabs").clientWidth) { $("tabs").scrollLeft += e.deltaY; e.preventDefault(); } }, {passive: false});
 function goTag(tag) {
@@ -1503,7 +1732,7 @@ const _p = new URLSearchParams(location.search);
 if (VIEWER_MODE) { document.body.classList.add("viewer-mode"); TAB = "explore"; SCOPE = "all"; document.title = "Info Hub Viewer"; }
 if (_p.get("theme")) applyTheme(_p.get("theme"));
 if (_p.get("scope")) SCOPE = _p.get("scope");
-if (_p.get("view") === "graph" || _p.get("view") === "list") EXPLORE_VIEW = _p.get("view");
+if (["graph", "list", "gantt"].includes(_p.get("view"))) EXPLORE_VIEW = _p.get("view");
 if (_p.get("demo") === "chat") CHAT = [                      // a sample conversation for docs/screenshots
   {role: "user", content: "What are my deadlines this week, and what's the main thing happening in MimicNet?"},
   {role: "assistant", cost: 0.0094, changes: [], content:

@@ -145,12 +145,16 @@ def _rows(store, rows, stats=None) -> list[dict]:
         return []
     stats = rollup_stats(store) if stats is None else stats
     tags = {d["id"]: [] for d in data}
+    evidence_times = _evidence_times(store, tuple(tags))
     placeholders = ",".join("?" for _ in tags)
     for uid, tag in store.q(f"SELECT unit_id, tag FROM unit_tags WHERE unit_id IN ({placeholders}) ORDER BY tag", tuple(tags)):
         tags[uid].append(tag)
     targets = source_targets(store, tuple(tags))
     for d in data:
         d.update(stats.get(d["id"], {}))
+        first_at, last_at = evidence_times.get(d["id"], (None, None))
+        d["first_activity_at"] = first_at
+        d["last_evidence_at"] = last_at
         d["tags"] = tags[d["id"]]
         d.update(targets.get(d["id"], {"open_link": None, "open_channel": None}))
     return data
@@ -158,6 +162,27 @@ def _rows(store, rows, stats=None) -> list[dict]:
 
 def _row(store, r, stats=None) -> dict:
     return _rows(store, [r], stats)[0]
+
+
+def _evidence_times(store, ids) -> dict[int, tuple[int | None, int | None]]:
+    """Earliest and latest evidence times, including messages in child branches."""
+    ids = tuple(ids or ())
+    if not ids:
+        return {}
+    marks = ",".join("?" for _ in ids)
+    rows = store.q(f"""
+        WITH RECURSIVE branch(root,id) AS (
+            SELECT id,id FROM units WHERE id IN ({marks})
+            UNION
+            SELECT b.root,l.child_id FROM unit_links l JOIN branch b ON l.parent_id=b.id
+        )
+        SELECT b.root, min(m.sent_at) AS first_at, max(m.sent_at) AS last_at
+        FROM branch b
+        LEFT JOIN unit_messages um ON um.unit_id=b.id
+        LEFT JOIN messages m ON m.id=um.message_id
+        GROUP BY b.root
+    """, ids)
+    return {r["root"]: (r["first_at"], r["last_at"]) for r in rows}
 
 
 def get(store, uid: int, depth: int = 1, with_messages=True, _stats=None) -> dict | None:

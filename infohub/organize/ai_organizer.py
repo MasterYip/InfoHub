@@ -58,6 +58,10 @@ def process_job(cfg, store, provider, job) -> dict:
         limit = max(20, limit // (2 ** job["attempts"]))     # answer did not fit: send a smaller slice
     payload, allowed, seg = prompt.build_input(cfg, store, job["ref_id"], limit)
     if not payload["messages"]:
+        # Empty/filtered segments are still complete. Mark the segment itself so the rule
+        # organizer does not enqueue the same job again on every cycle.
+        store.q("UPDATE segments SET ai_done=1 WHERE id=?", (seg["id"],))
+        store.db.commit()
         _finish(store, job["id"], "done")
         return {"empty": True}
     backoff = min(3600, 60 * 2 ** job["attempts"])
