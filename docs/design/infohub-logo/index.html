@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Info Hub · Logo Studies</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f5f7;color:#1b2130;font:14px/1.5 system-ui,"Segoe UI","Microsoft YaHei",sans-serif;letter-spacing:0}
+main{max-width:1400px;margin:auto;padding:32px 40px 40px}header{display:flex;align-items:baseline;justify-content:space-between;gap:20px;border-bottom:1px solid #d7dde5;padding-bottom:18px;margin-bottom:24px}
+h1{margin:0;font-size:28px;font-weight:650}header span{color:#697586;font-size:13px}h2{font-size:15px;margin:0;font-weight:600}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+article{background:#fff;border:1px solid #dce2e9;border-radius:8px;overflow:hidden}.label{display:flex;align-items:center;gap:9px;padding:16px;border-bottom:1px solid #edf0f4}.label input{accent-color:#2563eb;width:16px;height:16px;margin:0;flex:none}.label label{cursor:pointer}
+.meta{font-size:12px;color:#718096;font-weight:400;margin-top:3px}.pair{display:grid;grid-template-columns:1fr 1fr;height:148px}.swatch{display:grid;place-items:center;color:#2563eb;background:#fff}.swatch.dark{background:#0f141c;color:#6da5ff}.symbol{width:72px;height:72px;display:block;flex:none}
+.sizes{height:75px;display:flex;justify-content:center;align-items:center;gap:20px;border-bottom:1px solid #edf0f4}.size{display:flex;align-items:center;gap:5px;flex-direction:column;color:#2563eb}.size small{color:#7b8797;font-size:10px}.nav{display:flex;align-items:center;gap:14px;min-height:52px;padding:0 16px;white-space:nowrap;background:#fff;color:#1b2130}.nav.dark{background:#0f141c;color:#e8eef6}.brand{display:flex;gap:8px;align-items:center;font-size:16px;font-weight:650;flex:none}.brand svg{width:22px;height:22px;color:#2563eb}.dark .brand svg{color:#6da5ff}.tab{font-size:12px;color:#748299}.tab.active{background:#2563eb;color:#fff;border-radius:6px;padding:4px 9px}
+.selection{margin-top:30px}.section-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.section-label span{color:#718096;font-size:12px}.window{overflow:hidden;border-radius:8px;box-shadow:0 6px 24px #1723300a;border:1px solid #dce2e9}.window .nav{gap:20px;min-height:56px}.window .brand{margin-right:10px}.window .tab{font-size:13px}.tools{margin-left:auto;display:flex;gap:12px;align-items:center;color:#8793a2;font-size:12px}.windows{display:flex;gap:22px;align-items:center;margin-left:14px;color:#617083}.windows svg{width:13px;height:13px}.content{display:grid;grid-template-columns:180px 1fr;min-height:136px;background:#f6f7f9;border-top:1px solid #e3e6ea}.sidebar{padding:20px;color:#8793a2;font-size:12px;border-right:1px solid #e3e6ea}.sidebar b{display:block;color:#394657;font-size:13px;margin-bottom:9px}.rows{padding:18px 24px}.row{display:flex;align-items:center;gap:10px;padding:8px 0;color:#566477;font-size:13px}.dot{width:7px;height:7px;background:#3b82f6;border-radius:50%;flex:none}.row:nth-child(2) .dot{background:#14b8a6}.row:nth-child(3) .dot{background:#a78bfa}.date{margin-left:auto;color:#96a0ae;font-size:12px}.note{display:flex;justify-content:space-between;margin-top:16px;color:#718096;font-size:12px}
+@media(max-width:1050px){main{padding:24px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.window .tools{display:none}.window .nav{gap:14px}}
+@media(max-width:560px){main{padding:20px 16px}header{align-items:start;gap:12px}header span{max-width:120px;text-align:right}h1{font-size:24px}.grid{grid-template-columns:1fr}.pair{height:132px}.window .nav{overflow-x:auto}.content{grid-template-columns:100px 1fr}.sidebar{padding:16px 12px}.rows{padding:12px}.date{display:none}.note{display:block}.note span{display:block;margin-top:4px}}
+</style>
+<main>
+  <header><h1>Info Hub</h1><span>Logo studies / 02<br>切角矩形 + 衬线 i</span></header>
+  <div class="grid" id="boards"></div>
+  <section class="selection">
+    <div class="section-label"><h2 id="selected-title">B · 标准</h2><span>Desktop header</span></div>
+    <div class="window">
+      <div class="nav" id="header-light"></div>
+      <div class="nav dark" id="header-dark"></div>
+      <div class="content">
+        <div class="sidebar"><b>Explorer</b>Topics<br>Resources<br>Recent activity</div>
+        <div class="rows">
+          <div class="row"><span class="dot"></span>Research &amp; ideas<span class="date">Today</span></div>
+          <div class="row"><span class="dot"></span>Project updates<span class="date">Today</span></div>
+          <div class="row"><span class="dot"></span>Reading list<span class="date">Yesterday</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="note"><span>Info Hub / Identity exploration</span><span>16 · 20 · 24 · 32 px</span></div>
+</main>
+<script>
+const options = [
+  {id:'A',name:'细致',detail:'3.5 px 框线 · 纤细衬线',shape:'<path d="M22 7H52V47L42 57H12V17Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><circle cx="32" cy="21" r="2.7"/><path d="M25 29.8 34.5 28.5V43.5Q34.5 46 39 46V48H25V46Q29.5 46 29.5 43.5V33Q29.5 31.8 25 31.8Z"/>'},
+  {id:'B',name:'标准',detail:'4.5 px 框线 · 弧形衬线',shape:'<path d="M22 7H52V47L42 57H12V17Z" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round"/><circle cx="32" cy="21" r="3"/><path d="M24.5 29.8 35 28.5V43Q35 45.5 39.5 45.5V48H24.5V45.5Q29 45.5 29 43V33Q29 32 24.5 32Z"/>'},
+  {id:'C',name:'小尺寸',detail:'5 px 框线 · 加粗衬线',shape:'<path d="M22 7H52V47L42 57H12V17Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><circle cx="32" cy="20.5" r="3.5"/><path d="M24 29.5 35.5 28V42.5Q35.5 45 40 45V48H24V45Q28.5 45 28.5 42.5V33Q28.5 32 24 32Z"/>'}
+];
+function icon(option,size=72){return `<svg class="symbol" style="width:${size}px;height:${size}px" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true">${option.shape}</svg>`}
+function brand(option){return `<span class="brand">${icon(option,22)}Info Hub</span>`}
+const boards=document.getElementById('boards');
+for(const option of options){
+  const card=document.createElement('article');
+  card.innerHTML=`<div class="label"><input type="radio" name="variant" id="variant-${option.id}" value="${option.id}" ${option.id==='B'?'checked':''}><label for="variant-${option.id}"><h2>${option.id} · ${option.name}</h2><div class="meta">${option.detail}</div></label></div><div class="pair"><div class="swatch">${icon(option)}</div><div class="swatch dark">${icon(option)}</div></div><div class="sizes">${[16,20,24,32].map(size=>`<div class="size">${icon(option,size)}<small>${size}</small></div>`).join('')}</div><div class="nav">${brand(option)}<span class="tab active">Today</span></div><div class="nav dark">${brand(option)}<span class="tab active">Today</span></div>`;
+  boards.append(card);
+}
+function select(id){
+  const option=options.find(item=>item.id===id);
+  document.getElementById('selected-title').textContent=`${id} · ${option.name}`;
+  const controls='<span class="windows" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M2 8h12" fill="none" stroke="currentColor"/></svg><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" fill="none" stroke="currentColor"/></svg><svg viewBox="0 0 16 16"><path d="m3 3 10 10M13 3 3 13" fill="none" stroke="currentColor"/></svg></span>';
+  for(const mode of ['light','dark']) document.getElementById('header-'+mode).innerHTML=brand(option)+'<span class="tab">Today</span><span class="tab">Groups</span><span class="tab active">Explorer</span><span class="tab">Chat</span><span class="tab">Settings</span><span class="tools">Search<span>Sync now</span></span>'+controls;
+}
+boards.addEventListener('change',event=>select(event.target.value));
+select('B');
+</script>
+</html>

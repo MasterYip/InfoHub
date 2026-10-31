@@ -7,6 +7,8 @@ are used to watch local units. Runtime state lives beside the configured databas
 from __future__ import annotations
 
 import hashlib
+import ctypes
+from ctypes import wintypes
 import json
 import logging
 import os
@@ -23,8 +25,19 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from ..config import ROOT
+from .desktop_chrome import apply_window_chrome
 
 log = logging.getLogger(__name__)
+
+
+def configure_taskbar_identity():
+    # Set before creating any windows so Explorer does not group us under pythonw.exe.
+    set_id = ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID
+    set_id.argtypes = [ctypes.c_wchar_p]
+    set_id.restype = ctypes.c_long
+    result = set_id("InfoHub.Desktop")
+    if result < 0:
+        raise OSError(f"Could not set Info Hub taskbar identity: HRESULT {result:#x}")
 
 
 def dashboard_url(cfg):
@@ -196,14 +209,219 @@ class ManagedService:
 
 
 def icon_image():
-    from PIL import Image, ImageDraw
-    im = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(im)
-    draw.rounded_rectangle((2, 2, 62, 62), radius=15, fill="#2563eb")
-    draw.line([(18, 20), (43, 18), (32, 44), (18, 20)], fill="#bfdbfe", width=4)
-    for x, y in [(18, 20), (43, 18), (32, 44)]:
-        draw.ellipse((x-6, y-6, x+6, y+6), fill="white")
-    return im
+    from PIL import Image
+    with Image.open(Path(__file__).parent / "web" / "logo.png") as image:
+        return image.convert("RGBA")
+
+
+def preview_placement(cursor, size, work, scale=1):
+    """Match the HTML float card's pointer offset, bounded by its monitor."""
+    left, top, right, bottom = work
+    margin = round(8 * scale)
+    left, top, right, bottom = left + margin, top + margin, right - margin, bottom - margin
+    width, height = min(size[0], right - left), min(size[1], bottom - top)
+    gap = round(14 * scale)
+    x, y = cursor[0] + gap, cursor[1] - round(12 * scale)
+    if x + width > right:
+        x = cursor[0] - width - gap
+    return max(left, min(x, right - width)), max(top, min(y, bottom - height)), width, height
+
+
+class PreviewPointer:
+    """Native hit testing also works while the pointer is inside a remote WebView."""
+
+    def __init__(self):
+        self.api = ctypes.windll.user32
+        self.api.GetForegroundWindow.restype = wintypes.HWND
+        self.api.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+        self.api.MonitorFromPoint.restype = wintypes.HANDLE
+        self.api.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.c_void_p]
+        self.api.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+        self.api.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
+                                        ctypes.c_int, ctypes.c_int, wintypes.UINT]
+        self.api.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+        self.api.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+        self.api.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
+
+    def position(self):
+        point = wintypes.POINT()
+        self.api.GetCursorPos(ctypes.byref(point))
+        return point.x, point.y
+
+    def work_area(self):
+        class Monitor(ctypes.Structure):
+            _fields_ = [("size", wintypes.DWORD), ("monitor", wintypes.RECT),
+                        ("work", wintypes.RECT), ("flags", wintypes.DWORD)]
+        info = Monitor(); info.size = ctypes.sizeof(info)
+        handle = self.api.MonitorFromPoint(wintypes.POINT(*self.position()), 2)
+        if not self.api.GetMonitorInfoW(handle, ctypes.byref(info)):
+            raise OSError("Monitor information unavailable")
+        return info.work.left, info.work.top, info.work.right, info.work.bottom
+
+    @staticmethod
+    def handle(window):
+        return window.native.Handle.ToInt64()
+
+    def bounds(self, window):
+        rect = wintypes.RECT()
+        self.api.GetWindowRect(self.handle(window), ctypes.byref(rect))
+        return rect.left, rect.top, rect.right, rect.bottom
+
+    def place(self, window, cursor, scale=1):
+        bounds = self.bounds(window)
+        box = preview_placement(cursor, (bounds[2] - bounds[0], bounds[3] - bounds[1]), self.work_area(), scale)
+        self.api.SetWindowPos(self.handle(window), -1, *box, 0x10)  # topmost, no activation
+
+    def show_at(self, window, cursor, scale=1):
+        from System import Action
+        def reveal():
+            self.place(window, cursor, scale)
+            self.api.ShowWindow(self.handle(window), 4)  # SW_SHOWNOACTIVATE
+        window.native.Invoke(Action(reveal))
+
+    def allow_focus(self, window):
+        window.focus = True
+        hwnd = self.handle(window)
+        self.api.SetWindowLongW(hwnd, -20, self.api.GetWindowLongW(hwnd, -20) & ~0x08000000)
+
+
+class PreviewAPI:
+    """Expose only window creation to the local dashboard, never to preview websites."""
+
+    def __init__(self, app):
+        self._app = app
+
+    def window_action(self, action):
+        app = self._app
+        current, expected = urlsplit(app.window.get_current_url() or ""), urlsplit(app.url)
+        if (current.scheme, current.netloc) != (expected.scheme, expected.netloc) or current.path not in ("/", "/index.html"):
+            return {"ok": False}
+        allowed = {"minimize", "maximize", "close", "drag",
+                   "resize-n", "resize-s", "resize-e", "resize-w",
+                   "resize-ne", "resize-nw", "resize-se", "resize-sw"}
+        if action not in allowed:
+            return {"ok": False}
+        from System import Action
+        result = {}
+        def perform():
+            result.update(ok=True, maximized=app.window._infohub_chrome.window_action(action))
+        app.window.native.Invoke(Action(perform))
+        return result
+
+    def set_theme(self, theme):
+        app = self._app
+        current, expected = urlsplit(app.window.get_current_url() or ""), urlsplit(app.url)
+        if (current.scheme, current.netloc) != (expected.scheme, expected.netloc) or current.path not in ("/", "/index.html"):
+            return {"ok": False}
+        if theme not in ("dark", "light"):
+            return {"ok": False}
+        app._theme = theme
+        apply_window_chrome(app.window, theme)
+        if app._preview_window is not None:
+            apply_window_chrome(app._preview_window, theme, preview=True)
+        return {"ok": True}
+
+    def open_preview(self, url, hover=None):
+        app = self._app
+        current = urlsplit(app.window.get_current_url() or "")
+        expected = urlsplit(app.url)
+        if (current.scheme, current.netloc) != (expected.scheme, expected.netloc) or current.path not in ("/", "/index.html"):
+            return {"ok": False}
+        try:
+            target = urlsplit(url)
+            if target.scheme not in ("http", "https") or not target.hostname or target.username or target.password:
+                return {"ok": False}
+            if any(ord(c) < 32 for c in url):
+                return {"ok": False}
+        except (TypeError, ValueError):
+            return {"ok": False}
+        if hover is not None and app._preview_hover and app._preview_window is not None and app._preview_url == url:
+            return {"ok": True}
+        pointer, source, anchor, scale = None, None, None, 1
+        if hover is not None:
+            try:
+                values = [float(hover[k]) for k in ("left", "top", "right", "bottom", "scale")]
+                if not all(-10000 < n < 10000 for n in values) or not 0.25 <= values[4] <= 8:
+                    return {"ok": False}
+                pointer = PreviewPointer()
+                x, y = pointer.position()
+                anchor = (x, y)
+                scale = values[4]
+                source = tuple(int(base + n * scale) for base, n in zip((x, y, x, y), values[:4]))
+            except (KeyError, TypeError, ValueError, OSError):
+                return {"ok": False}
+        app._preview_generation += 1
+        generation = app._preview_generation
+        previous, app._preview_window = app._preview_window, None
+        app._preview_hover = hover is not None
+        if previous is not None:
+            previous.destroy()
+        preview = app.webview.create_window("Preview - " + target.hostname, url, **app._preview_size,
+                                           min_size=(360, 260), resizable=True, text_select=True,
+                                           focus=hover is None, on_top=hover is not None,
+                                           hidden=True, frameless=True, easy_drag=False, shadow=True,
+                                           background_color="#f6f7f9" if app._theme == "light" else "#0f141c")
+        apply_window_chrome(preview, app._theme, preview=True)
+        if generation != app._preview_generation:
+            preview.destroy()
+            return {"ok": False}
+        app._preview_window = preview
+        app._preview_url = url
+        app._preview_hover = hover is not None
+        def closed():
+            if app._preview_window is preview:
+                app._preview_window = None
+        preview.events.closed += closed
+        def resized(width, height):
+            app._preview_size = {"width": int(width), "height": int(height)}
+            try:
+                app._preview_preferences.write_text(json.dumps(app._preview_size), encoding="utf-8")
+            except OSError:
+                log.warning("Could not save preview size")
+        preview.events.resized += resized
+        if pointer:
+            pointer.show_at(preview, anchor, scale)
+            threading.Thread(target=self._watch_hover, args=(preview, pointer, source),
+                             name="infohub-preview-hover", daemon=True).start()
+        else:
+            preview.show()
+        return {"ok": True}
+
+    def close_hover_preview(self):
+        app = self._app
+        if app._preview_hover:
+            app._preview_generation += 1
+            preview, app._preview_window = app._preview_window, None
+            app._preview_hover = False
+            if preview is not None:
+                preview.destroy()
+
+    def _watch_hover(self, preview, pointer, source):
+        app = self._app
+        try:
+            if not preview.events.shown.wait(10) or app._preview_window is not preview:
+                return
+            last_inside = time.monotonic()
+            contains = lambda r, p: r[0] <= p[0] <= r[2] and r[1] <= p[1] <= r[3]
+            while app._preview_window is preview and not app.stopping.wait(0.1):
+                point, now = pointer.position(), time.monotonic()
+                foreground = pointer.api.GetForegroundWindow()
+                if foreground not in (pointer.handle(app.window), pointer.handle(preview)):
+                    break
+                in_preview = contains(pointer.bounds(preview), point)
+                if in_preview and not preview.focus:
+                    pointer.allow_focus(preview)
+                dragging = foreground == pointer.handle(preview) and pointer.api.GetAsyncKeyState(1) & 0x8000
+                if in_preview or contains(source, point) or dragging:
+                    last_inside = now
+                elif now - last_inside >= 0.8:
+                    break
+            if app._preview_window is preview:
+                self.close_hover_preview()
+        except Exception:
+            if app._preview_window is preview:
+                log.exception("Preview hover tracking failed")
+                self.close_hover_preview()
 
 
 class DesktopApp:
@@ -224,13 +442,31 @@ class DesktopApp:
         self.latest_id, self.unread = None, 0
         self.icon = None
         self.worker = None
+        self._preview_window = None
+        self._preview_hover = False
+        self._preview_url = None
+        self._preview_generation = 0
+        self._theme = "dark"
+        self._preview_preferences = state_root(cfg["hub"]["database"]).with_suffix(".preview.local.json")
+        self._preview_size = {"width": 720, "height": 520}
+        try:
+            saved = json.loads(self._preview_preferences.read_text(encoding="utf-8"))
+            if isinstance(saved, dict):
+                for key, minimum in (("width", 360), ("height", 260)):
+                    if isinstance(saved.get(key), int):
+                        self._preview_size[key] = max(minimum, min(3840, saved[key]))
+        except (OSError, ValueError):
+            pass
         self.window = webview.create_window(title, self.url, width=1280, height=860, min_size=(760, 540),
-                                             hidden=hidden, text_select=True)
+                                             hidden=hidden, text_select=True, js_api=PreviewAPI(self),
+                                             frameless=True, easy_drag=False, shadow=True, background_color="#0f141c")
+        apply_window_chrome(self.window, self._theme)
         self.window.events.closing += self.on_closing
 
     def on_closing(self):
         if self.stopping.is_set():
             return True
+        PreviewAPI(self).close_hover_preview()
         self.window.hide()
         return False
 
@@ -271,6 +507,8 @@ class DesktopApp:
 
     def quit(self, *_):
         self.stopping.set()
+        if self._preview_window is not None:
+            self._preview_window.destroy()
         self.window.destroy()
 
     def monitor(self):
@@ -329,7 +567,7 @@ class DesktopApp:
         tray = threading.Thread(target=self.start_tray, name="infohub-tray", daemon=True)
         profile = state_root(self.cfg["hub"]["database"]).with_suffix(".webview")
         icon_path = profile.with_suffix(".ico")
-        icon_image().save(icon_path, format="ICO", sizes=[(16, 16), (32, 32), (64, 64)])
+        icon_image().save(icon_path, format="ICO", sizes=[(size, size) for size in (16, 20, 24, 32, 40, 48, 64, 128, 256)])
         try:
             # pywebview runs the tray bootstrap off its main GUI thread.
             self.webview.start(tray.start, gui="edgechromium", private_mode=False, storage_path=str(profile), icon=str(icon_path))
@@ -355,6 +593,7 @@ def run(cfg, *, hidden=False):
     try:
         if not instance.acquire():
             return
+        configure_taskbar_identity()
         try:
             import webview
             import pystray

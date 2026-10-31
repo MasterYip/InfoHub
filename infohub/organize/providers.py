@@ -2,7 +2,7 @@
 
 - "openai_compatible": any OpenAI-style /chat/completions endpoint (DeepSeek by default); stdlib HTTP only.
 - "anthropic": Claude through the official SDK (pip install -r requirements-ai.txt).
-API keys are read from the environment variable named in `ai.api_key_env`; never stored in the repo.
+API keys use local `ai.api_key`, falling back to the environment variable named in `ai.api_key_env`.
 """
 from __future__ import annotations
 
@@ -55,6 +55,8 @@ class ProviderError(RuntimeError):
 
 
 def api_key(ai: dict) -> str | None:
+    if ai.get("api_key"):
+        return ai["api_key"]
     name = ai.get("api_key_env") or ""
     if not name:
         return None
@@ -76,7 +78,7 @@ class OpenAICompatible:
         self.ai = ai
         self.key = api_key(ai)
         if not self.key:
-            raise ProviderError(f"environment variable {ai.get('api_key_env')} is not set", fatal=True)
+            raise ProviderError("API key is not configured in Settings or the configured environment variable", fatal=True)
         self.url = ai["base_url"].rstrip("/") + "/chat/completions"
 
     def complete(self, payload: dict, system: str | None = None, schema: dict | None = None) -> Reply:

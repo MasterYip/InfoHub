@@ -271,6 +271,14 @@ class Explore(unittest.TestCase):
                 self.assertEqual(response.status, 200)
                 return data
             try:
+                from infohub import config as cm
+                cfg["ai"]["api_key"] = "test-private-key"
+                with patch.object(cm, "read_settings", return_value={"ai.api_key": "test-private-key"}):
+                    settings = get("/api/settings")
+                self.assertTrue(settings["api_key_configured"])
+                self.assertNotIn("ai.api_key", settings["values"])
+                self.assertNotIn("ai.api_key", settings["saved"])
+                self.assertNotIn("test-private-key", json.dumps(settings))
                 for qs in [{"kind": "topic", "order": "messages", "limit": 2},
                            {"kind": "topic,digest", "roots": 1, "order": "children"},
                            {"q": "world reward", "kind": "topic", "mine": 1},

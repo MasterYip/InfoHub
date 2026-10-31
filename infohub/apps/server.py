@@ -564,7 +564,11 @@ def serve(cfg, store, poll_fn):
                         for part in key.split("."):
                             node = node.get(part) if isinstance(node, dict) else None
                         current[key] = saved[key] if key in saved else node
+                    from ..organize.providers import api_key
+                    current.pop("ai.api_key", None)
+                    saved = {k: v for k, v in saved.items() if k != "ai.api_key"}
                     return self._send(200, {"editable": config_mod.EDITABLE, "values": current,
+                                            "api_key_configured": bool(api_key(cfg["ai"])),
                                             "saved": saved,
                                             "restart_needed_for": ["hub.poll_minutes", "ai.interval_minutes"]})
                 if u.path == "/api/schedules":
@@ -816,6 +820,7 @@ def serve(cfg, store, poll_fn):
                         # A changed name list must affect messages and units that are already stored.
                         from ..organize import units as units_mod
                         rescan = units_mod.apply_me_names(store, cfg["me"]["names"])
+                    saved = {k: v for k, v in saved.items() if k != "ai.api_key"}
                     return self._send(200, {"ok": True, "saved": saved, "rescan": rescan,
                                             "note": "Backup settings apply immediately; restart for sync/AI interval changes."})
                 elif p == "/api/schedules":

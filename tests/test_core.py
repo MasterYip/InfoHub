@@ -510,6 +510,25 @@ class Chat(unittest.TestCase):
 
 
 class Settings(unittest.TestCase):
+    def test_local_api_settings_and_key_precedence(self):
+        import infohub.config as cm
+        from infohub.organize.providers import api_key
+        with tempfile.TemporaryDirectory() as tmp:
+            orig = cm.SETTINGS_FILE
+            cm.SETTINGS_FILE = Path(tmp) / "settings.local.json"
+            try:
+                saved = cm.write_settings({"ai.base_url": "https://example.test/v1/", "ai.model": "test-model",
+                                           "ai.api_key": "test-private-key"})
+                self.assertEqual(saved["ai.base_url"], "https://example.test/v1")
+                self.assertEqual(api_key(cm._nest(saved)["ai"]), "test-private-key")
+                cm.write_settings({"ai.daily_budget_usd": 10})
+                self.assertEqual(cm.read_settings()["ai.api_key"], "test-private-key")
+                for url in ("file:///tmp/key", "https://user:password@example.test", "https://example.test?key=secret"):
+                    with self.assertRaises(ValueError):
+                        cm.write_settings({"ai.base_url": url})
+            finally:
+                cm.SETTINGS_FILE = orig
+
     def test_overlay_and_whitelist(self):
         import infohub.config as cm
         with tempfile.TemporaryDirectory() as tmp:

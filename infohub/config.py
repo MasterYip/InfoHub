@@ -102,7 +102,7 @@ SETTINGS_FILE = ROOT / "config" / "settings.local.json"
 EDITABLE = ["hub.backup.enabled", "hub.backup.interval_days", "me.names", "hub.poll_minutes", "hub.retention_days", "apps.today_scope",
             "apps.reminders.enabled", "apps.reminders.toast", "apps.reminders.todo_lead_hours",
             "apps.reminders.event_lead_minutes", "organize.polish", "ai.enabled", "ai.model",
-            "ai.daily_budget_usd", "ai.interval_minutes", "ai.policies", "ai.polish_policies",
+            "ai.base_url", "ai.api_key", "ai.daily_budget_usd", "ai.interval_minutes", "ai.policies", "ai.polish_policies",
             "segment_max_messages", "segment_gap_minutes"]
 
 
@@ -118,6 +118,19 @@ def read_settings() -> dict:
 def write_settings(flat: dict) -> dict:
     """Save a flat {"ai.enabled": true} mapping; unknown keys are refused."""
     flat = dict(flat)
+    for key in ("ai.base_url", "ai.model", "ai.api_key"):
+        if key in flat:
+            if not isinstance(flat[key], str):
+                raise ValueError(f"{key} must be text")
+            flat[key] = flat[key].strip()
+            if key != "ai.api_key" and not flat[key]:
+                raise ValueError(f"{key} cannot be empty")
+    if "ai.base_url" in flat:
+        from urllib.parse import urlsplit
+        url = urlsplit(flat["ai.base_url"])
+        if url.scheme not in ("http", "https") or not url.hostname or url.username or url.password or url.query or url.fragment:
+            raise ValueError("API URL must be an HTTP(S) endpoint without credentials, query or fragment")
+        flat["ai.base_url"] = flat["ai.base_url"].rstrip("/")
     if "me.names" in flat:
         raw = flat["me.names"]
         if isinstance(raw, str):

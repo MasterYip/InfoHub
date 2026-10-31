@@ -14,7 +14,20 @@ from infohub.store import Store
 
 
 class Desktop(unittest.TestCase):
+    def test_taskbar_identity_is_distinct_from_python(self):
+        setter = MagicMock(return_value=0)
+        with patch.object(desktop.ctypes, "windll", create=True) as native:
+            native.shell32.SetCurrentProcessExplicitAppUserModelID = setter
+            desktop.configure_taskbar_identity()
+            setter.assert_called_once_with("InfoHub.Desktop")
+            setter.return_value = -1
+            with self.assertRaises(OSError):
+                desktop.configure_taskbar_identity()
+
     def setUp(self):
+        self.chrome_patch = patch.object(desktop, "apply_window_chrome")
+        self.chrome = self.chrome_patch.start()
+        self.addCleanup(self.chrome_patch.stop)
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.cfg = copy.deepcopy(DEFAULTS)
@@ -169,6 +182,128 @@ class Desktop(unittest.TestCase):
         self.window.show.assert_called_once()
         self.window.restore.assert_called_once()
         self.window.load_url.assert_called_once_with(app.url)
+
+    def test_preview_is_top_level_resizable_and_has_no_dashboard_bridge(self):
+        app = self.app()
+        main = app.window
+        main.get_current_url.return_value = app.url + "?tab=chat"
+        api = self.view.create_window.call_args.kwargs["js_api"]
+        preview = MagicMock()
+        resize_event = preview.events.resized
+        self.view.create_window.return_value = preview
+        self.assertEqual(api.open_preview("https://example.com/page"), {"ok": True})
+        args = self.view.create_window.call_args
+        self.assertEqual(args.args[1], "https://example.com/page")
+        self.assertTrue(args.kwargs["resizable"])
+        self.assertNotIn("js_api", args.kwargs)
+        self.assertTrue(args.kwargs["frameless"])
+        self.assertFalse(args.kwargs["easy_drag"])
+        self.assertTrue(args.kwargs["hidden"])
+        preview.show.assert_called_once()
+        self.assertIs(app._preview_window, preview)
+        resized = resize_event.__iadd__.call_args.args[0]
+        resized(850, 600)
+        self.assertEqual(app._preview_size, {"width": 850, "height": 600})
+        self.assertEqual(json.loads(app._preview_preferences.read_text()), app._preview_size)
+        for url in ["file:///etc/passwd", "javascript:alert(1)", "https://user:pass@example.com", "https://example.com/\n"]:
+            self.assertEqual(api.open_preview(url), {"ok": False})
+        main.get_current_url.return_value = "https://example.com"
+        self.assertEqual(api.open_preview("https://example.com/page"), {"ok": False})
+        app.quit()
+        preview.destroy.assert_called_once()
+        main.destroy.assert_called_once()
+
+    def test_hover_preview_stays_near_link_and_does_not_steal_focus(self):
+        app = self.app()
+        app.window.get_current_url.return_value = app.url
+        pointer = MagicMock()
+        pointer.position.return_value = (200, 150)
+        with patch.object(desktop, "PreviewPointer", return_value=pointer), patch.object(desktop.threading, "Thread"):
+            result = desktop.PreviewAPI(app).open_preview("https://example.com", {
+                "left": -10, "top": -5, "right": 40, "bottom": 15, "scale": 2})
+        self.assertTrue(result["ok"])
+        options = self.view.create_window.call_args.kwargs
+        self.assertFalse(options["focus"])
+        self.assertTrue(options["on_top"])
+        self.assertTrue(options["resizable"])
+        self.assertTrue(options["hidden"])
+        pointer.show_at.assert_called_once_with(app._preview_window, (200, 150), 2)
+        self.assertTrue(app._preview_hover)
+        desktop.PreviewAPI(app).close_hover_preview()
+        self.assertIsNone(app._preview_window)
+
+    def test_hover_tracking_crosses_gap_and_closes_after_leaving(self):
+        app = self.app()
+        preview = MagicMock()
+        preview.focus = False
+        app._preview_window, app._preview_hover = preview, True
+        pointer = MagicMock()
+        pointer.handle.side_effect = lambda w: 1 if w is app.window else 2
+        pointer.api.GetForegroundWindow.return_value = 1
+        pointer.bounds.return_value = (50, 0, 200, 200)
+        pointer.position.side_effect = [(10, 10), (45, 10), (100, 10), (400, 400), (400, 400)]
+        with patch.object(app.stopping, "wait", return_value=False), \
+             patch.object(desktop.time, "monotonic", side_effect=[0, .1, .2, .4, .7, 1.3]):
+            desktop.PreviewAPI(app)._watch_hover(preview, pointer, (0, 0, 40, 20))
+        pointer.place.assert_not_called()
+        pointer.allow_focus.assert_called_once_with(preview)
+        preview.destroy.assert_called_once()
+        self.assertIsNone(app._preview_window)
+
+    def test_hover_placement_is_clamped_on_offset_monitors(self):
+        self.assertEqual(desktop.preview_placement((100, 50), (500, 400), (0, 0, 1920, 1080)),
+                         (114, 38, 500, 400))
+        self.assertEqual(desktop.preview_placement((-80, 800), (700, 500), (-1920, 0, 0, 1080)),
+                         (-794, 572, 700, 500))
+        self.assertEqual(desktop.preview_placement((100, 50), (500, 400), (0, 0, 1920, 1080), 2),
+                         (128, 26, 500, 400))
+
+    def test_hover_position_is_set_before_nonactivating_show(self):
+        pointer = desktop.PreviewPointer.__new__(desktop.PreviewPointer)
+        pointer.api = MagicMock()
+        window = MagicMock()
+        window.native.Handle.ToInt64.return_value = 42
+        window.native.Invoke.side_effect = lambda callback: callback()
+        calls = []
+        pointer.place = MagicMock(side_effect=lambda *_: calls.append("place"))
+        pointer.api.ShowWindow.side_effect = lambda *_: calls.append("show")
+        system = MagicMock()
+        system.Action.side_effect = lambda callback: callback
+        with patch.dict("sys.modules", {"System": system}):
+            pointer.show_at(window, (100, 200), 2)
+        self.assertEqual(calls, ["place", "show"])
+        pointer.place.assert_called_once_with(window, (100, 200), 2)
+        pointer.api.ShowWindow.assert_called_once_with(42, 4)
+        window.native.Show.assert_not_called()
+
+    def test_theme_updates_both_windows_from_dashboard_only(self):
+        app = self.app()
+        self.assertTrue(self.view.create_window.call_args.kwargs["frameless"])
+        app.window.get_current_url.return_value = app.url
+        app._preview_window = MagicMock()
+        api = desktop.PreviewAPI(app)
+        self.assertEqual(api.set_theme("light"), {"ok": True})
+        self.chrome.assert_any_call(app.window, "light")
+        self.chrome.assert_any_call(app._preview_window, "light", preview=True)
+        self.assertEqual(app._theme, "light")
+        self.assertEqual(api.set_theme("arbitrary"), {"ok": False})
+        app.window.get_current_url.return_value = "https://example.com"
+        self.assertEqual(api.set_theme("dark"), {"ok": False})
+
+    def test_window_controls_are_limited_to_dashboard(self):
+        app = self.app()
+        api = desktop.PreviewAPI(app)
+        app.window.get_current_url.return_value = "https://example.com"
+        self.assertEqual(api.window_action("close"), {"ok": False})
+        app.window.get_current_url.return_value = app.url
+        self.assertEqual(api.window_action("resize-invalid"), {"ok": False})
+        system = MagicMock()
+        system.Action.side_effect = lambda callback: callback
+        app.window.native.Invoke.side_effect = lambda callback: callback()
+        app.window._infohub_chrome.window_action.return_value = True
+        with patch.dict("sys.modules", {"System": system}):
+            self.assertEqual(api.window_action("maximize"), {"ok": True, "maximized": True})
+        app.window._infohub_chrome.window_action.assert_called_once_with("maximize")
 
     def test_monitor_notifies_and_balloon_click_opens_latest(self):
         app = self.app()

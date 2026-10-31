@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Info Hub</title>
+<link id="app-favicon" rel="icon" type="image/svg+xml">
 <style>
 :root{
   --bg:#0f141c;--lane:#161d27;--card:#1d2532;--line:#232c39;--ink:#e8eef6;--sub:#93a2b6;--mute:#6f7d90;
@@ -26,6 +27,32 @@
   --scroll:#c7cfda;--scroll-hover:#aab3bf;--dash:#d4dae2;--stripe:#f3f5f8;
   --p3:#cbd2db}
 .viewer-mode #scopeToggle,.viewer-mode #q,.viewer-mode #poll,.viewer-mode #status,.viewer-mode header form{display:none!important}
+.window-controls,.window-edge{display:none}
+.desktop-icon{display:block;width:24px;height:24px;color:var(--link);margin-right:7px;flex:none}
+#app-brand{display:flex;align-items:center;user-select:none;cursor:default}
+:root[data-desktop] header{padding-right:0;user-select:none}
+:root[data-desktop] .window-controls{display:flex;align-self:stretch;flex:0 0 auto;margin:-10px 0 -10px 4px}
+.window-controls button{width:38px;min-height:48px;padding:0;border:0;border-radius:0;background:transparent;color:var(--ink);font:12px "Segoe MDL2 Assets";cursor:default}
+.window-controls button:hover{background:var(--btn-hover)}
+.window-controls button:focus-visible{outline:2px solid var(--link);outline-offset:-3px}
+.window-controls .window-close:hover{background:#dc2626;color:white}
+:root[data-desktop] header>#status{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root[data-desktop] header>#q{width:clamp(100px,14vw,220px)}
+:root[data-desktop]:not([data-maximized]) .window-edge{display:block;position:fixed;z-index:1000}
+.window-edge[data-edge=n],.window-edge[data-edge=s]{left:6px;right:6px;height:4px;cursor:ns-resize}
+.window-edge[data-edge=n]{top:0}.window-edge[data-edge=s]{bottom:0}
+.window-edge[data-edge=w],.window-edge[data-edge=e]{top:6px;bottom:6px;width:4px;cursor:ew-resize}
+.window-edge[data-edge=w]{left:0}.window-edge[data-edge=e]{right:0}
+.window-edge[data-edge=nw],.window-edge[data-edge=ne],.window-edge[data-edge=sw],.window-edge[data-edge=se]{width:6px;height:6px}
+.window-edge[data-edge=nw]{top:0;left:0;cursor:nwse-resize}.window-edge[data-edge=ne]{top:0;right:0;cursor:nesw-resize}
+.window-edge[data-edge=sw]{bottom:0;left:0;cursor:nesw-resize}.window-edge[data-edge=se]{bottom:0;right:0;cursor:nwse-resize}
+@media(max-width:1100px){
+  :root[data-desktop] header{flex-wrap:wrap}
+  :root[data-desktop] #app-brand,:root[data-desktop] #tabs,:root[data-desktop] .window-controls{order:-2}
+  :root[data-desktop] #tabs{flex-basis:0}
+  :root[data-desktop] header::after{content:"";flex-basis:100%;height:0;order:-1}
+  :root[data-desktop] .window-controls{align-self:center;margin-bottom:-2px}
+}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,"Segoe UI","Microsoft YaHei",sans-serif}
 header{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:3}
@@ -101,6 +128,7 @@ main{padding:12px 16px}
 .fc-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px -4px 4px;position:sticky;top:-10px;background:var(--lane);padding:2px 4px}
 .fc-grip{cursor:move;color:var(--mute);user-select:none;letter-spacing:2px}
 .float-close{padding:1px 8px}
+.link-preview-trigger{padding:0 3px;margin-left:3px;border:0;background:transparent;color:var(--mute);cursor:pointer;font:inherit}
 .update-banner{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid #fbbf24;border-left:4px solid #fbbf24;border-radius:9px;padding:7px 10px;box-shadow:0 8px 28px rgba(0,0,0,.35);font-size:12.5px}
 .update-banner .b{padding:3px 9px}
 .sum{color:var(--sum);font-size:12.5px;margin-top:2px}
@@ -198,7 +226,7 @@ padding:4px 6px;border-radius:6px;font-size:12.5px;border-left:3px solid transpa
 </head>
 <body>
 <header>
-  <b>Info Hub</b>
+  <b id="app-brand"><svg class="desktop-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="currentColor"><path d="M22 7H52V47L42 57H12V17Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><circle cx="32" cy="20.5" r="3.5"/><path d="M24 29.5 35.5 28V42.5Q35.5 45 40 45V48H24V45Q28.5 45 28.5 42.5V33Q28.5 32 24 32Z"/></svg>Info Hub</b>
   <span id="tabs"></span>
   <span class="sp"></span>
   <button id="themeBtn" title="Toggle light / dark"></button>
@@ -207,6 +235,11 @@ padding:4px 6px;border-radius:6px;font-size:12.5px;border-left:3px solid transpa
   <button class="b" id="poll">Sync now</button>
   <span class="status" id="status"></span>
   <form method="post" action="/logout" style="margin:0"><button class="b" type="submit">Log out</button></form>
+  <div class="window-controls" aria-label="Window controls">
+    <button type="button" data-window-action="minimize" title="Minimize" aria-label="Minimize">&#xe921;</button>
+    <button type="button" data-window-action="maximize" title="Maximize" aria-label="Maximize">&#xe922;</button>
+    <button type="button" data-window-action="close" class="window-close" title="Hide to tray" aria-label="Hide to tray">&#xe8bb;</button>
+  </div>
 </header>
 <main id="main"></main>
 <datalist id="tagsuggest">
@@ -329,8 +362,44 @@ const mineQ = () => SCOPE === "mine" ? "&mine=1" : "";
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   localStorage.setItem("theme", t);
+  const favicon = document.querySelector('#app-brand svg').cloneNode(true);
+  favicon.removeAttribute('class');
+  favicon.style.color = t === 'light' ? '#2563eb' : '#8ab4ff';
+  document.getElementById('app-favicon').href = 'data:image/svg+xml,' + encodeURIComponent(new XMLSerializer().serializeToString(favicon));
   const b = document.getElementById("themeBtn"); if (b) b.textContent = t === "light" ? "\u263E Dark" : "\u2600 Light";
+  window.pywebview?.api?.set_theme?.(t).catch(() => {});
 }
+addEventListener("pywebviewready", () => {
+  document.documentElement.setAttribute("data-desktop", "true");
+  window.pywebview?.api?.set_theme?.(document.documentElement.getAttribute("data-theme") || "dark").catch(() => {});
+  if (!document.querySelector('.window-edge')) {
+    for (const edge of ['n','s','e','w','ne','nw','se','sw']) {
+      const grip = document.createElement('div');
+      grip.className = 'window-edge'; grip.dataset.edge = edge;
+      grip.onmousedown = e => { if (e.button === 0) { e.preventDefault(); desktopWindowAction('resize-' + edge); } };
+      document.body.append(grip);
+    }
+  }
+});
+async function desktopWindowAction(action) {
+  const result = await window.pywebview?.api?.window_action?.(action).catch(() => null);
+  if (!result?.ok) return;
+  document.documentElement.toggleAttribute('data-maximized', result.maximized);
+  const button = document.querySelector('[data-window-action="maximize"]');
+  button.textContent = result.maximized ? '\ue923' : '\ue922';
+  button.title = result.maximized ? 'Restore' : 'Maximize';
+  button.setAttribute('aria-label', button.title);
+}
+document.querySelector('.window-controls').onclick = e => {
+  const action = e.target.closest('[data-window-action]')?.dataset.windowAction;
+  if (action) desktopWindowAction(action);
+};
+const desktopDragTarget = target => target.closest('#app-brand') || target.matches('header,#tabs,.sp');
+document.querySelector('header').addEventListener('mousedown', e => {
+  if (e.button === 0 && document.documentElement.hasAttribute('data-desktop') && desktopDragTarget(e.target)) {
+    e.preventDefault(); desktopWindowAction(e.detail === 2 ? 'maximize' : 'drag');
+  }
+});
 applyTheme(localStorage.getItem("theme") || "dark");
 document.getElementById("themeBtn").onclick = () =>
   applyTheme(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light");
@@ -360,7 +429,7 @@ function msgCard(m, opts = {}) {
   const link = safeLink(m.link);
   return el("div", {class: "it " + (m.priority || "")},
     el("div", {class: "meta"}, srcBadge(m.source, m.account), m.channel_name, m.sender_name && "· " + m.sender_name, "· " + fmt(m.sent_at)),
-    el("div", {class: "text"}, m.text || ""),
+    el("div", {class: "text"}, linkedText(m.text || "")),
     el("div", {class: "acts"},
       opts.extra || null,
       el("button", {class: "b", onclick: async e => { e.target.disabled = true; await api("/api/done", {id: m.id}); render(); }}, "✓ Done"),
@@ -388,7 +457,7 @@ function unitCard(u, depth = 0) {
        u.n_descendants ? el("span", {title: `${u.n_children || 0} direct; includes every child branch`}, `· ${u.n_descendants} subtopics`) : "",
        u.n_messages ? el("span", {title: `${u.n_direct_messages || 0} directly attached; total includes all subtopic branches`}, `· ${u.n_messages} msgs total`) : ""),
     el("div", {class: "title"}, u.title),
-    u.summary && el("div", {class: "sum"}, u.summary),
+    u.summary && el("div", {class: "sum"}, linkedText(u.summary)),
     tagRow);
   // ---- tags: filter chips + an in-place editor (importance presets + free-form add/remove) ----
   const editor = el("div", {class: "tag-editor"}); editor.hidden = true;
@@ -445,7 +514,7 @@ function unitCard(u, depth = 0) {
     more.replaceChildren(
       ...(full.parents || []).map(p => el("div", {class: "msg"}, el("i", {}, "in: "), p.title)),
       ...(full.children || []).map(c => unitCard(c, depth + 1)),
-      ...(full.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, `${fmt(m.sent_at)} ${m.sender_name || ""}: `), m.text || "")));
+      ...(full.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, `${fmt(m.sent_at)} ${m.sender_name || ""}: `), linkedText(m.text || ""))));
     more.hidden = false;
   }}, "Expand"));
   box.append(acts, editor, more);
@@ -734,6 +803,7 @@ function buildGraph(panel, baseQ) {
 const MOUSE = {x: innerWidth / 2, y: 160};
 addEventListener("mousemove", e => { MOUSE.x = e.clientX; MOUSE.y = e.clientY; }, {passive: true});
 let unitCardVersion = 0;
+let previewTimer = null;
 function fitUnitCard(card, left = parseFloat(card.style.left) || 8, top = parseFloat(card.style.top) || 8) {
   const bounds = card.getBoundingClientRect(), {clientWidth: width, clientHeight: height} = document.documentElement;
   card.style.left = Math.max(8, Math.min(left, width - bounds.width - 8)) + "px";
@@ -743,11 +813,24 @@ const unitCardObserver = new ResizeObserver(entries => {
   for (const {target} of entries) if (target.isConnected) fitUnitCard(target);
 });
 function closeUnitCards() {
+  clearTimeout(previewTimer);
   ++unitCardVersion;
   unitCardObserver.disconnect();
   document.querySelectorAll(".float-card").forEach(card => card.remove());
 }
-addEventListener("keydown", e => { if (e.key === "Escape") closeUnitCards(); });
+function closeHoverWebsite() {
+  window.pywebview?.api?.close_hover_preview?.().catch(() => {});
+}
+addEventListener("keydown", e => { if (e.key === "Escape") { closeUnitCards(); closeHoverWebsite(); } });
+// Capture outside interactions before they can start another asynchronous preview.
+for (const event of ["pointerdown", "focusin", "wheel"]) {
+  document.addEventListener(event, e => {
+    if (!e.target.closest?.(".float-card")) closeUnitCards();
+    if (!e.target.closest?.(".preview-link") || event === "wheel") closeHoverWebsite();
+  }, {capture: true, passive: true});
+}
+addEventListener("blur", closeUnitCards);
+document.addEventListener("visibilitychange", () => { if (document.hidden) { closeUnitCards(); closeHoverWebsite(); } });
 addEventListener("resize", () => document.querySelectorAll(".float-card").forEach(card => fitUnitCard(card)));
 async function openUnit(id, anchor = {x: MOUSE.x, y: MOUSE.y}) {
   if (VIEWER_MODE) return;
@@ -756,10 +839,12 @@ async function openUnit(id, anchor = {x: MOUSE.x, y: MOUSE.y}) {
   const full = await api(`/api/unit/${id}`);
   if (version !== unitCardVersion || !full || full.error) return;
   const card = el("div", {class: "float-card"});
+  card.tabIndex = -1;
   const grip = el("span", {class: "fc-grip", title: "Drag to move"}, "⠿");
   card.append(el("div", {class: "fc-bar"}, grip, el("button", {class: "b float-close", onclick: closeUnitCards}, "✕")), unitCard(full));
   document.body.append(card);
   fitUnitCard(card, anchor.x + 14, anchor.y - 12);
+  card.focus({preventScroll: true});
   unitCardObserver.observe(card);
   grip.onmousedown = e => {                         // drag by the grip, keeping the card in view
     e.preventDefault();
@@ -768,6 +853,65 @@ async function openUnit(id, anchor = {x: MOUSE.x, y: MOUSE.y}) {
     const up = () => { removeEventListener("mousemove", mv); removeEventListener("mouseup", up); };
     addEventListener("mousemove", mv); addEventListener("mouseup", up);
   };
+}
+function previewLink(value, label = value) {
+  let url;
+  try { url = new URL(value, location.href); } catch (_) { return document.createTextNode(label); }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return document.createTextNode(label);
+  const localUnit = url.origin === location.origin && (url.searchParams.get("unit") || url.pathname.match(/^\/api\/unit\/(\d+)$/)?.[1]);
+  const internal = localUnit && /^\d+$/.test(localUnit);
+  const link = el("a", {href: url.href, target: "_blank", rel: "noopener noreferrer"}, label);
+  const show = (hover = false) => {
+    const bounds = link.getBoundingClientRect(), anchor = {x: bounds.left, y: bounds.bottom + 8};
+    if (internal) openUnit(Number(localUnit), anchor);
+    else if (url.origin !== location.origin) {
+      const rect = wrap.getBoundingClientRect();
+      openWebsite(url, hover ? {left: rect.left - MOUSE.x, top: rect.top - MOUSE.y,
+        right: rect.right - MOUSE.x, bottom: rect.bottom - MOUSE.y, scale: devicePixelRatio} : null);
+    }
+  };
+  if (internal || url.origin !== location.origin) link.onclick = e => {
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) { e.preventDefault(); show(); }
+  };
+  if (!internal && url.origin === location.origin) return link;
+  const wrap = el("span", {class: "preview-link"}, link,
+    el("button", {class: "link-preview-trigger", type: "button", title: "Preview link", "aria-label": "Preview " + label,
+      onclick: () => show()}, "↗"));
+  wrap.onmouseenter = () => {
+    // Keep links inside an existing card usable without replacing that card on hover.
+    if (internal || window.pywebview?.api?.open_preview) {
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(() => { if (wrap.isConnected && wrap.matches(":hover")) show(true); }, 450);
+    }
+  };
+  wrap.onmouseleave = () => clearTimeout(previewTimer);
+  return wrap;
+}
+function linkedText(text) {
+  const frag = document.createDocumentFragment();
+  const re = /https?:\/\/[^\s<>"\u3000-\u303f\uff00-\uffef]+/gi;
+  let last = 0;
+  for (const match of String(text).matchAll(re)) {
+    const url = match[0].replace(/[.,;:!?\])}]+$/, "");
+    frag.append(String(text).slice(last, match.index), previewLink(url));
+    last = match.index + url.length;
+  }
+  frag.append(String(text).slice(last));
+  return frag;
+}
+async function openWebsite(url, hover = null) {
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return;
+  closeUnitCards();
+  // Top-level navigation supports websites that reject all iframe embedding.
+  // Both window types use the browser's system proxy rather than ai.proxy.
+  if (window.pywebview?.api?.open_preview) {
+    try {
+      const result = await window.pywebview.api.open_preview(url.href, hover);
+      if (!result?.ok) $("status").textContent = "Could not open preview window.";
+    } catch (_) { $("status").textContent = "Could not open preview window."; }
+    return;
+  }
+  window.open(url.href, "_blank", "popup=yes,width=1000,height=760,resizable=yes,scrollbars=yes,noopener,noreferrer");
 }
 async function buildGantt(panel, baseQ) {
   // Same dismiss rule as the graph: any further interaction in the timeline closes the
@@ -890,7 +1034,7 @@ function refChip(kind, val) {
   return el("span", {class: "chip ref", title: "Show this person", onclick: () => goTag("person:" + val)}, "@ " + val);
 }
 // Minimal, dependency-free Markdown → DOM (built as text nodes/elements, never innerHTML).
-const MD_INLINE = /`([^`]+)`|\*\*([^*]+)\*\*|(?:\*|_)([^*_]+)(?:\*|_)|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\[\[([ugp]):([^\]]+)\]\]/g;
+const MD_INLINE = /`([^`]+)`|\*\*([^*]+)\*\*|(?:\*|_)([^*_]+)(?:\*|_)|\[([^\]]+)\]\(((?:https?:\/\/|\/|\?)[^\s)]+)\)|\[\[([ugp]):([^\]]+)\]\]|(https?:\/\/[^\s<>"\u3000-\u303f\uff00-\uffef]+)/g;
 function mdInline(text) {
   const frag = document.createDocumentFragment();
   const re = new RegExp(MD_INLINE.source, "g");   // local copy: recursion must not share lastIndex
@@ -900,8 +1044,9 @@ function mdInline(text) {
     if (m[1] != null) frag.append(el("code", {}, m[1]));
     else if (m[2] != null) frag.append(el("b", {}, mdInline(m[2])));
     else if (m[3] != null) frag.append(el("i", {}, mdInline(m[3])));
-    else if (m[4] != null) frag.append(el("a", {href: m[5], target: "_blank", rel: "noopener"}, m[4]));
-    else frag.append(refChip(m[6], m[7]));
+    else if (m[4] != null) frag.append(previewLink(m[5], m[4]));
+    else if (m[6] != null) frag.append(refChip(m[6], m[7]));
+    else frag.append(linkedText(m[8]));
     last = m.index + m[0].length;
   }
   if (last < text.length) frag.append(text.slice(last));
@@ -1196,7 +1341,7 @@ const TABS = {
     const cards = d.segments.map(sg => el("div", {class: "it P2"},
       el("div", {class: "meta"}, srcBadge(sg.source, sg.account), el("b", {}, sg.channel_name || sg.channel),
         `${sg.n} msgs`, "· since " + fmt(sg.start_at), "· last " + fmt(sg.end_at)),
-      ...(sg.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, (m.sender_name || "") + ": "), m.text || "")),
+      ...(sg.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, (m.sender_name || "") + ": "), linkedText(m.text || ""))),
       el("div", {class: "acts"}, el("button", {class: "b", onclick: e => organizeNow(sg.channel, e.target)}, "⚡ Organize this now"))));
     return el("div", {}, head, el("div", {class: "grid", style: "grid-template-columns:repeat(auto-fill,minmax(360px,1fr))"},
       ...(cards.length ? cards : [el("div", {class: "empty"}, "No conversations in progress — everything is organized.")])));
@@ -1215,7 +1360,7 @@ const TABS = {
           meta.append(el("button", {class: "b msg-copy", title: "Copy reply", onclick: e => copyText(m.content, e.target)}, "⧉ copy"));
         const bodyEl = m.role === "assistant"
           ? (m.content ? renderMarkdown(m.content) : el("span", {class: "status"}, m.streaming ? "…" : ""))
-          : el("div", {class: "chat-text"}, m.content || "");
+          : el("div", {class: "chat-text"}, linkedText(m.content || ""));
         if (m.streaming && m.content) bodyEl.append(el("span", {class: "caret"}, "▋"));
         const toolStatus = m.status ? el("div", {class: "chat-tool-status"}, "↳ " + m.status) : null;
         let reasoning = null;
@@ -1309,7 +1454,7 @@ const TABS = {
     const save = async (key, value) => {
       const result = await api("/api/settings", {[key]: value});
       if (result.error) { $("status").textContent = result.error; return false; }
-      cfg.values[key] = value;
+      if (key !== "ai.api_key") cfg.values[key] = result.saved?.[key] ?? value;
       $("status").textContent = "saved " + key;
       if (key.startsWith("hub.backup.") && refreshBackups) await refreshBackups();
       return result;
@@ -1319,14 +1464,22 @@ const TABS = {
       const inp = el("input", {id: "f_" + key, type: type === "bool" ? "checkbox" : type,
         style: type === "bool" ? "width:auto" : "width:160px"});
       if (type === "bool") inp.checked = !!v; else inp.value = Array.isArray(v) ? v.join(", ") : (v ?? "");
+      if (type === "password") {
+        inp.autocomplete = "new-password";
+        inp.placeholder = cfg.api_key_configured ? "Configured" : "API key";
+      }
+      if (key === "ai.base_url" || key === "ai.model") inp.style.width = "min(360px, 100%)";
       if (key === "hub.backup.interval_days") { inp.min = "1"; inp.max = "3650"; inp.step = "1"; }
       inp.onchange = async () => {
         if (!inp.reportValidity()) return;
         let out = type === "bool" ? inp.checked : inp.value;
+        if (type === "password" && !out.trim()) return;
         if (type === "number") out = Number(out);
         if (Array.isArray(v) || key.endsWith("names") || key.endsWith("policies")) out = String(out).split(/[,，]/).map(x => x.trim()).filter(Boolean);
         if (!await save(key, out)) {
           if (type === "bool") inp.checked = !!cfg.values[key]; else inp.value = cfg.values[key];
+        } else if (type === "password") {
+          inp.value = ""; inp.placeholder = "Configured"; cfg.api_key_configured = true;
         }
       };
       return el("tr", {}, el("td", {}, label), el("td", {}, inp),
@@ -1377,6 +1530,8 @@ const TABS = {
       field("hub.poll_minutes", "Sync every N minutes", "number"),
       field("ai.enabled", "AI organizing", "bool"),
       field("ai.model", "AI model"),
+      field("ai.base_url", "API base URL", "url"),
+      field("ai.api_key", "API key", "password"),
       field("ai.daily_budget_usd", "AI budget per day ($)", "number"),
       field("ai.interval_minutes", "AI runs every N minutes", "number"),
       field("ai.policies", "AI reads chats with policy"),
