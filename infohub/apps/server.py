@@ -68,6 +68,34 @@ WEB = Path(__file__).resolve().parent / "web"
 _AI_KICK_LOCK = threading.Lock()
 
 
+def unit_edit_fields(body, current):
+    fields = {}
+    for key in ("title", "summary"):
+        if key in body:
+            value = body[key]
+            if not isinstance(value, str) or (key == "title" and not value.strip()):
+                raise ValueError(f"Invalid {key}")
+            fields[key] = value.strip() if key == "title" else value
+    if "status" in body:
+        if body["status"] not in ("open", "done", "dropped"):
+            raise ValueError("Invalid status")
+        fields["status"] = body["status"]
+    if "priority" in body:
+        if body["priority"] not in (None, "P0", "P1", "P2", "P3"):
+            raise ValueError("Invalid priority")
+        fields["priority"] = body["priority"]
+    for key in ("start_at", "end_at", "due_at"):
+        if key in body:
+            value = body[key]
+            if value is not None and (type(value) is not int or not 0 <= value <= 253402300799):
+                raise ValueError(f"Invalid {key}")
+            fields[key] = value
+    start, end = (fields.get(k, current[k]) for k in ("start_at", "end_at"))
+    if any(k in fields for k in ("start_at", "end_at")) and start is not None and end is not None and end < start:
+        raise ValueError("End must be on or after start")
+    return fields
+
+
 def web_build() -> str:
     """Build id of the dashboard assets, so open pages can notice a redeploy."""
     try:
@@ -115,6 +143,8 @@ def _queue_segments(store, segment_ids) -> int:
 def viewer_payload(store) -> dict:
     """Build the read-only Explorer snapshot embedded in the viewer HTML."""
     units = U.query(store, status="all", order="activity", limit=1000, mine=False)
+    for unit in units:
+        unit.pop("agent_task", None)
     return {"tags": U.tag_counts(store, limit=400), "units": units,
             "graph": graph(store, status="all", limit=1000, order="activity", include_context=False),
             "views": []}
@@ -225,6 +255,14 @@ def today(store, mine: bool = False) -> dict:
     seen = {u["id"] for u in dated}
     recent = [u for u in U.query(store, kind=["todo", "question", "decision"], status="open",
                                  since=now - 7 * 86400, limit=80, mine=mine) if u["id"] not in seen]
+    needs = dated + recent
+    if mine:
+        # Personal todos remain actionable until completed or ignored, regardless of age.
+        seen = {u["id"] for u in needs}
+        needs.extend(u for u in U.query(store, kind="todo", status="open", mine=True,
+                                       order="due", limit=-1) if u["id"] not in seen)
+        needs.sort(key=lambda u: (u["due_at"] is None, u["due_at"] or 0,
+                                  -(u["last_activity_at"] or u["updated_at"] or 0), -u["id"]))
     from ..sync.triage import actionable, trivial
     rows = _rows(store.q("""SELECT id, source, account, channel, channel_name, sender, sender_name, sent_at,
                              kind, text, link, flags, mentions_me, priority, rule FROM messages
@@ -236,7 +274,7 @@ def today(store, mine: bool = False) -> dict:
     unsorted_rows = [m for m in rows if not trivial(m) and (actionable(m) or m.get("mentions_me"))][:50]
     for m in unsorted_rows:
         m.pop("flags", None)
-    return {"needs": dated + recent,
+    return {"needs": needs,
             "events": [u for u in U.query(store, kind="event", status="open", due_before=now + 7 * 86400, order="due",
                                           limit=100, mine=mine) if (u["start_at"] or 0) >= now - 3600],
             "unscheduled_events": U.query(store, kind="event", status="open", unscheduled=True,
@@ -573,6 +611,12 @@ def serve(cfg, store, poll_fn):
                                             "restart_needed_for": ["hub.poll_minutes", "ai.interval_minutes"]})
                 if u.path == "/api/schedules":
                     return self._send(200, store.schedules())
+                if u.path == "/api/agent-tasks":
+                    from ..organize.agent_tasks import tasks
+                    return self._send(200, tasks(store))
+                if u.path == "/api/agent-tasks/overview":
+                    from ..organize.agent_tasks import overview
+                    return self._send(200, overview(cfg, store))
                 if u.path == "/api/units":
                     return self._send(200, U.query(store, **unit_query_params(qs), unscheduled=qs.get("unscheduled") == "1"))
                 if u.path == "/api/graph":
@@ -598,7 +642,7 @@ def serve(cfg, store, poll_fn):
                     return self._send(200, {"brief": brief_mod.brief(cfg, store, int(qs.get("days", 7)), tags),
                                             "status": status(store, cfg, 20)})
                 if u.path == "/api/health":
-                    return self._send(200, {"ok": True, "app": "infohub", "web": web_build()})
+                    return self._send(200, {"ok": True, "app": "infohub", "web": web_build(), "unit_edit": 1})
             self._send(404, {"error": "not found"})
 
         def do_POST(self):
@@ -666,7 +710,22 @@ def serve(cfg, store, poll_fn):
                     pass
                 return
             with lock:
-                if p == "/api/done":
+                if p == "/api/agent-tasks/control":
+                    from ..organize.agent_tasks import control
+                    try:
+                        task = control(cfg, store, int(body.get("message_id", 0)), body.get("action"))
+                    except (ValueError, TypeError) as exc:
+                        return self._send(400, {"error": str(exc)})
+                    if task.pop("organize", False):
+                        msg = store.q("SELECT segment_id FROM messages WHERE id=?", (task["message_id"],)).fetchone()
+                        if msg and msg["segment_id"] is not None:
+                            job = store.q("SELECT status FROM jobs WHERE kind='segment' AND ref_id=?", (msg["segment_id"],)).fetchone()
+                            if not job or job["status"] in ("done", "failed"):
+                                _queue_segments(store, [msg["segment_id"]])
+                            store.db.commit()
+                            _kick_ai(cfg)
+                    return self._send(200, {"ok": True, "task": task})
+                elif p == "/api/done":
                     store.mark_done(int(body["id"]), bool(body.get("done", True)))
                 elif p == "/api/teach":
                     if body.get("kind") not in ("mute", "watch", "watch_person", "digest", "vip"):
@@ -727,11 +786,13 @@ def serve(cfg, store, poll_fn):
                     return self._send(200, {"ok": True, "id": uid})
                 elif m := re.fullmatch(r"/api/unit/(\d+)", p):
                     uid = int(m[1])
-                    if not store.q("SELECT 1 FROM units WHERE id=?", (uid,)).fetchone():
+                    current = store.q("SELECT * FROM units WHERE id=?", (uid,)).fetchone()
+                    if not current:
                         return self._send(404, {"error": "not found"})
-                    fields = {k: body[k] for k in ("status", "title", "summary") if body.get(k)}
-                    if fields.get("status") not in (None, "open", "done", "dropped"):
-                        return self._send(400, {"error": "bad status"})
+                    try:
+                        fields = unit_edit_fields(body, current)
+                    except ValueError as exc:
+                        return self._send(400, {"error": str(exc)})
                     # `type:<kind>` is reserved: adding one means "reclassify this unit", not a literal tag.
                     add = [t for t in (body.get("add_tags") or []) if isinstance(t, str)]
                     kind = body.get("kind")
@@ -815,6 +876,8 @@ def serve(cfg, store, poll_fn):
                         for part in parts[:-1]:
                             node = node.setdefault(part, {})
                         node[parts[-1]] = value
+                    if "agent_tasks.enabled" in body:
+                        cfg["agent_tasks"]["enabled_since"] = saved.get("agent_tasks.enabled_since", 0)
                     rescan = None
                     if "me.names" in body:
                         # A changed name list must affect messages and units that are already stored.

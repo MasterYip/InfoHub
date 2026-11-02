@@ -276,7 +276,10 @@ class ChatTools(unittest.TestCase):
                          if isinstance(h, urllib.request.ProxyHandler)), None)
 
         self.assertIsNone(proxy_handler({"proxy": "direct"}))      # bypasses the system proxy
-        self.assertIsNotNone(proxy_handler({"proxy": "auto"}))     # keeps the default handler
+        with patch.dict(providers._OPENERS, {}, clear=True), \
+             patch("urllib.request.getproxies", return_value={"https": "http://127.0.0.1:7892"}):
+            self.assertEqual(proxy_handler({"proxy": "auto"}).proxies,
+                             {"https": "http://127.0.0.1:7892"})
         self.assertEqual(proxy_handler({"proxy": "http://127.0.0.1:7891"}).proxies,
                          {"http": "http://127.0.0.1:7891", "https": "http://127.0.0.1:7891"})
 

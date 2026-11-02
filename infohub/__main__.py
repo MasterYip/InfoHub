@@ -261,6 +261,8 @@ def main():
             threading.Thread(target=serve_viewer, args=(cfg, Store(cfg["hub"]["database"])),
                              name="infohub-viewer", daemon=True).start()
         threading.Thread(target=schedule_loop, daemon=True, name="infohub-scheduler").start()
+        from .organize.agent_tasks import loop as agent_task_loop
+        threading.Thread(target=agent_task_loop, args=(cfg,), daemon=True, name="infohub-agent-tasks").start()
     web_store = Store(cfg["hub"]["database"])
     serve(cfg, web_store, lambda: cycle(cfg, web_store))
 

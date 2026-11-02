@@ -79,6 +79,14 @@ DEFAULTS = {
         "max_jobs": 30,
         "lease_minutes": 60,          # exported jobs return to the queue if no result arrives in time
     },
+    "agent_tasks": {
+        "enabled": False,
+        "enabled_since": 0,
+        "workspace": "",             # empty: a separate folder per task beside the database
+        "codex_command": "codex",    # executable path; prompts never pass through a shell
+        "sandbox": "workspace-write",
+        "timeout_seconds": 3600,
+    },
     # ---------------- Layer 3: applications ----------------
     "apps": {
         "desktop": {"notifications": True, "mine_only": False, "poll_seconds": 5},
@@ -103,7 +111,8 @@ EDITABLE = ["hub.backup.enabled", "hub.backup.interval_days", "me.names", "hub.p
             "apps.reminders.enabled", "apps.reminders.toast", "apps.reminders.todo_lead_hours",
             "apps.reminders.event_lead_minutes", "organize.polish", "ai.enabled", "ai.model",
             "ai.base_url", "ai.api_key", "ai.daily_budget_usd", "ai.interval_minutes", "ai.policies", "ai.polish_policies",
-            "segment_max_messages", "segment_gap_minutes"]
+            "segment_max_messages", "segment_gap_minutes", "agent_tasks.enabled", "agent_tasks.workspace",
+            "agent_tasks.sandbox"]
 
 
 def read_settings() -> dict:
@@ -157,6 +166,22 @@ def write_settings(flat: dict) -> dict:
         if isinstance(days, bool) or not isinstance(days, int) or not 1 <= days <= 3650:
             raise ValueError("Backup interval must be a whole number of days from 1 to 3650")
     data = {**read_settings(), **flat}
+    if "agent_tasks.sandbox" in flat and flat["agent_tasks.sandbox"] not in ("read-only", "workspace-write", "danger-full-access"):
+        raise ValueError("Unknown agent permission mode")
+    if "agent_tasks.enabled" in flat:
+        if not isinstance(flat["agent_tasks.enabled"], bool):
+            raise ValueError("Agent tasks enabled must be true or false")
+        if flat["agent_tasks.enabled"] and not read_settings().get("agent_tasks.enabled"):
+            import time
+            data["agent_tasks.enabled_since"] = int(time.time())
+    if "agent_tasks.workspace" in flat:
+        value = flat["agent_tasks.workspace"]
+        if not isinstance(value, str):
+            raise ValueError("Agent workspace must be a directory path")
+        value = value.strip()
+        if value and (not Path(value).is_absolute() or not Path(value).is_dir()):
+            raise ValueError("Agent workspace must be an existing absolute directory")
+        data["agent_tasks.workspace"] = value
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = SETTINGS_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

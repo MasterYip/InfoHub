@@ -100,6 +100,16 @@ CREATE TABLE IF NOT EXISTS task_schedules(
   last_status TEXT, last_error TEXT, created_at INTEGER, updated_at INTEGER);
 CREATE INDEX IF NOT EXISTS ts_due ON task_schedules(enabled, next_run);
 
+CREATE TABLE IF NOT EXISTS agent_tasks(
+  id INTEGER PRIMARY KEY, message_id INTEGER NOT NULL UNIQUE, unit_id INTEGER NOT NULL,
+  prompt TEXT NOT NULL, workspace TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+  thread_id TEXT, turn_id TEXT, result TEXT, error TEXT,
+  created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS at_status ON agent_tasks(status, id);
+
+CREATE TABLE IF NOT EXISTS agent_task_context(
+  task_id INTEGER PRIMARY KEY, context TEXT NOT NULL, created_at INTEGER NOT NULL);
+
 -- Agent API: one row per successful write through /api/agent/v1 (never message text).
 CREATE TABLE IF NOT EXISTS agent_audit(
   id INTEGER PRIMARY KEY, at INTEGER NOT NULL, principal TEXT NOT NULL,

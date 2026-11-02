@@ -24,3 +24,4 @@ hub-*.sqlite3
 .pending-*.db*
 .latest-*.tmp
 backup.lock
+*.agent-tasks.lock

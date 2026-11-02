@@ -99,6 +99,32 @@ class Explore(unittest.TestCase):
             self.assertEqual(result["unscheduled_events"], [])
             self.assertIn(mine, {u["id"] for u in result["events"]})
 
+    def test_today_keeps_all_open_personal_todos_regardless_of_age(self):
+        old = self.now - 30 * 86400
+        def aged(title, **kwargs):
+            uid = self.unit(title, **kwargs)
+            self.store.q("UPDATE units SET last_activity_at=? WHERE id=?", (old, uid))
+            self.store.db.commit()
+            return uid
+
+        undated = {aged(f"Old task {i}", kind="todo", for_me=True) for i in range(105)}
+        future = aged("Future task", kind="todo", for_me=True, due_at=self.now + 30 * 86400)
+        overdue = aged("Overdue task", kind="todo", for_me=True, due_at=self.now - 86400)
+        aged("Other person's task", kind="todo")
+        aged("Old question", kind="question", for_me=True)
+        aged("Old decision", kind="decision", for_me=True)
+        aged("Completed task", kind="todo", for_me=True, status="done")
+        aged("Ignored task", kind="todo", for_me=True, status="dropped")
+        with patch("infohub.apps.server.time.time", return_value=self.now):
+            needs = server.today(self.store, mine=True)["needs"]
+            self.assertEqual({u["id"] for u in needs}, undated | {future, overdue})
+            self.assertEqual(len(needs), len(undated) + 2)
+            self.assertEqual([u["id"] for u in needs[:2]], [overdue, future])
+            self.assertTrue(all(u["due_at"] is None for u in needs[2:]))
+            self.assertEqual([u["id"] for u in server.today(self.store)["needs"]], [overdue])
+            U.update(self.store, future, status="done")
+            self.assertNotIn(future, {u["id"] for u in server.today(self.store, mine=True)["needs"]})
+
     def test_aggregate_sorts_happen_before_limit(self):
         self.assertEqual(U.get(self.store, self.standalone)["n_direct_messages"], 4)
         # A topic with only one direct message must beat a topic with four direct messages.

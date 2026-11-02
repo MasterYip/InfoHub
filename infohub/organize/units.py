@@ -150,12 +150,30 @@ def _rows(store, rows, stats=None) -> list[dict]:
     for uid, tag in store.q(f"SELECT unit_id, tag FROM unit_tags WHERE unit_id IN ({placeholders}) ORDER BY tag", tuple(tags)):
         tags[uid].append(tag)
     targets = source_targets(store, tuple(tags))
+    from .agent_tasks import MENTION
+    agents = {}
+    for row in store.q(f"""SELECT um.unit_id, m.id message_id, m.text FROM unit_messages um
+        JOIN messages m ON m.id=um.message_id WHERE um.unit_id IN ({placeholders})
+        AND m.from_me=1 AND m.policy='watch'
+        AND NOT EXISTS(SELECT 1 FROM agent_tasks a WHERE a.message_id=m.id AND a.status='deleted')
+        AND lower(ltrim(m.text)) LIKE '@infohub%' ORDER BY m.id""", tuple(tags)):
+        if MENTION.match(row["text"] or ""):
+            agents.setdefault(row["unit_id"], {"message_id": row["message_id"], "status": "not_queued"})
+    for row in store.q(f"""SELECT DISTINCT coalesce(um.unit_id,t.unit_id) linked_unit,
+        t.unit_id,t.id,t.message_id,t.status,t.thread_id,t.error,t.updated_at FROM agent_tasks t
+        LEFT JOIN unit_messages um ON um.message_id=t.message_id
+        WHERE t.status!='deleted' AND (t.unit_id IN ({placeholders}) OR um.unit_id IN ({placeholders}))""", (*tags, *tags)):
+        meta = {k: row[k] for k in row.keys() if k != "linked_unit"}
+        agents[row["linked_unit"]] = meta
+        agents[row["unit_id"]] = meta
     for d in data:
         d.update(stats.get(d["id"], {}))
         first_at, last_at = evidence_times.get(d["id"], (None, None))
         d["first_activity_at"] = first_at
         d["last_evidence_at"] = last_at
         d["tags"] = tags[d["id"]]
+        if d["kind"] == "todo" and d["id"] in agents:
+            d["agent_task"] = agents[d["id"]]
         d.update(targets.get(d["id"], {"open_link": None, "open_channel": None}))
     return data
 
@@ -191,6 +209,9 @@ def get(store, uid: int, depth: int = 1, with_messages=True, _stats=None) -> dic
         return None
     _stats = rollup_stats(store) if _stats is None else _stats
     d = _row(store, r, _stats)
+    task = store.q("SELECT id,message_id,status,thread_id,result,error,updated_at FROM agent_tasks WHERE unit_id=? AND status!='deleted'", (uid,)).fetchone()
+    if task:
+        d["agent_task"] = dict(task)
     d["parents"] = [dict(x) for x in store.q(
         "SELECT u.id, u.kind, u.title, l.relation FROM unit_links l JOIN units u ON u.id=l.parent_id WHERE l.child_id=?", (uid,))]
     kids = store.q("""SELECT DISTINCT u.* FROM unit_links l JOIN units u ON u.id=l.child_id WHERE l.parent_id=?

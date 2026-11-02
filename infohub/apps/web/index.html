@@ -133,6 +133,21 @@ main{padding:12px 16px}
 .update-banner .b{padding:3px 9px}
 .sum{color:var(--sum);font-size:12.5px;margin-top:2px}
 .acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.unit-menu{position:fixed;z-index:90;min-width:190px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;padding:4px;background:var(--lane);border:1px solid var(--input-border);border-radius:8px;box-shadow:0 6px 24px #0003}
+.unit-menu button{display:block;width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:13px;text-align:left;padding:6px 10px;border-radius:4px;cursor:pointer}
+.unit-menu button:hover,.unit-menu button:focus{background:var(--btn);outline:none}
+.unit-menu button:disabled{color:var(--mute);cursor:default}
+.unit-dialog{width:min(620px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:18px;border:1px solid var(--input-border);border-radius:8px;background:var(--lane);color:var(--ink);overflow:auto;font:inherit}
+.unit-dialog::backdrop{background:#0006}
+.unit-dialog h2{font-size:16px;margin:0 0 12px}
+.unit-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.unit-fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--sub);min-width:0}
+.unit-fields input,.unit-fields select,.unit-fields textarea{width:100%;min-width:0;font-size:13px}
+.unit-fields .wide{grid-column:1 / -1}
+.unit-dialog textarea{min-height:100px}
+.unit-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.unit-error{color:var(--p0);font-size:12px;white-space:pre-wrap}
+@media(max-width:480px){.unit-fields{grid-template-columns:minmax(0,1fr)}.unit-dialog{padding:12px}}
 .group-filters{display:grid;grid-template-columns:minmax(180px,2fr) repeat(4,minmax(120px,1fr));gap:7px;margin-bottom:10px}
 .group-filters input,.group-filters select{width:100%;min-width:0}
 .group-card{min-width:0}
@@ -194,18 +209,39 @@ main{padding:12px 16px}
 .gantt-empty{padding:30px;color:var(--mute);text-align:center}
 .day{font-size:12px;color:var(--sub);margin:10px 2px 4px;font-weight:600}
 table.kv td{padding:2px 8px;font-size:12.5px;color:var(--sum)}
-.schedule-form{container-type:inline-size;padding:14px 16px 12px;border-left:3px solid var(--link);background:var(--card)}
-.schedule-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 16px}
-.schedule-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.schedule-form{container-type:inline-size;padding:10px 12px;border-left:3px solid var(--link);background:var(--card)}
+.schedule-grid{display:grid;grid-template-columns:minmax(120px,1fr) minmax(240px,1.4fr);gap:8px 12px}
+.schedule-field{display:flex;flex-direction:column;gap:3px;min-width:0}
 .schedule-field-wide{grid-column:1 / -1}
-.schedule-label{font-size:12px;font-weight:600;color:var(--sub);letter-spacing:.02em}
-.schedule-when{display:grid;grid-template-columns:minmax(150px,.9fr) minmax(150px,1.1fr);gap:8px;align-items:center}
-.schedule-timing{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:7px;min-width:0;color:var(--sub);font-size:12px}
+.schedule-label{font-size:12px;font-weight:600;color:var(--sub);letter-spacing:0}
+.schedule-form input:not([type=checkbox]),.schedule-form select,.schedule-form textarea{font-size:13px;padding:4px 8px}
+.schedule-form select{min-height:30px}
+.schedule-form textarea{min-height:58px;height:72px}
+.schedule-when{display:grid;grid-template-columns:minmax(76px,.7fr) minmax(128px,1fr);gap:6px;align-items:center}
+.schedule-timing{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:5px;min-width:0;color:var(--sub);font-size:12px}
+.schedule-timing>span:last-child{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap}
 .schedule-timing input{min-width:0;width:100%}
-.schedule-toggle{display:flex;align-items:center;gap:8px;min-height:34px;color:var(--sum);font-size:13px}
-.schedule-actions{display:flex;gap:7px;align-items:center;margin-top:14px;padding-top:11px;border-top:1px solid var(--line)}
-@media(max-width:680px){.schedule-grid{grid-template-columns:1fr}.schedule-field-wide{grid-column:auto}.schedule-when{grid-template-columns:1fr}}
-@container (max-width:620px){.schedule-grid{grid-template-columns:1fr}.schedule-field-wide{grid-column:auto}}
+.schedule-toggle{display:flex;align-items:center;gap:6px;min-height:26px;margin-right:auto;color:var(--sum);font-size:13px}
+.schedule-actions{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:8px}
+.agent-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12px;margin:4px 0}
+.agent-link{display:inline-flex;align-items:center;background:var(--btn);color:var(--btn-ink);border-radius:6px;padding:3px 9px;font-size:12px;line-height:1.5;text-decoration:none}
+.agent-link:hover{background:var(--btn-hover);text-decoration:none}
+.agent-toolbar>.agent-link{margin-left:auto}
+.agent-queue{margin-top:5px;border-top:1px solid var(--line)}
+.agent-row{padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;min-width:0}
+.agent-row-head{display:flex;gap:8px;align-items:center;min-width:0}
+.agent-row-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);text-decoration:none;font-weight:500}
+a.agent-row-title:hover{color:var(--link);text-decoration:underline}
+.agent-row-meta{display:flex;align-items:center;flex-wrap:wrap;gap:5px 8px;margin-top:3px;font-size:11.5px;color:var(--mute)}
+.agent-row-meta .status{font-size:inherit}
+.agent-controls{display:flex;gap:4px;flex-shrink:0;align-items:center}
+.agent-controls button.b,.agent-controls .agent-link{padding:2px 7px;font-size:12px;line-height:1.5}
+.agent-controls button:disabled{cursor:default;opacity:.45}
+.agent-error{color:var(--p0);font-size:12px;overflow-wrap:anywhere}
+.agent-row details{margin-top:3px;font-size:12px}
+@media(max-width:520px){.agent-row-head{flex-wrap:wrap}.agent-row-title{flex-basis:100%}.agent-controls{margin-left:auto}}
+@container (max-width:460px){.schedule-grid{grid-template-columns:1fr}.schedule-field-wide{grid-column:auto}}
+@container (max-width:280px){.schedule-when{grid-template-columns:1fr}}
 a{color:var(--link)}
 *{scrollbar-width:thin;scrollbar-color:var(--scroll) var(--lane)}
 ::-webkit-scrollbar{width:10px;height:10px}
@@ -449,6 +485,99 @@ function tagChips(tags) {
   return (tags || []).filter(t => !t.startsWith("source:")).map(t => el("span", {class: "tag", onclick: () => goTag(t)}, t));
 }
 const IMPORTANCE = [["high", "⭐ High"], ["medium", "● Medium"], ["low", "○ Low"]];
+let unitMenu = null;
+function closeUnitMenu() { unitMenu?.remove(); unitMenu = null; }
+async function saveUnit(id, changes) {
+  const result = await api(`/api/unit/${id}`, changes);
+  if (result?.error) throw new Error(result.error);
+  closeUnitCards();
+  await render();
+}
+function showUnitMenu(e, u) {
+  if (VIEWER_MODE || e.target.closest?.('input,textarea,[contenteditable=true]')) return;
+  e.preventDefault(); e.stopPropagation(); closeUnitMenu();
+  const menu = el('div', {class:'unit-menu', role:'menu', 'aria-label':'Unit actions'});
+  unitMenu = menu;
+  const error = el('div', {class:'unit-error', role:'alert'});
+  const command = (name, fn) => menu.append(el('button', {type:'button', role:'menuitem', onclick:async ev => {
+    const button = ev.currentTarget; button.disabled = true;
+    try { await fn(); closeUnitMenu(); }
+    catch (ex) { error.textContent = ex.message; button.disabled = false; }
+  }}, name));
+  command('Edit', () => editUnit(u.id));
+  command('View details', () => openUnit(u.id, {x:e.clientX, y:e.clientY}));
+  command(u.status === 'open' ? 'Mark done' : 'Reopen', () => saveUnit(u.id, {status:u.status === 'open' ? 'done' : 'open'}));
+  if (u.status !== 'dropped') command('Ignore', () => saveUnit(u.id, {status:'dropped'}));
+  command('Copy link', () => { const url = new URL(location.href); url.search = ''; url.searchParams.set('unit', u.id); return navigator.clipboard.writeText(url.href); });
+  const link = safeLink(u.open_link);
+  if (link) command('Open source', () => { window.open(link, '_blank', 'noopener,noreferrer'); });
+  menu.append(error); document.body.append(menu);
+  const bounds = menu.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(e.clientX, innerWidth - bounds.width - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(e.clientY, innerHeight - bounds.height - 8)) + 'px';
+  menu.querySelector('button').focus();
+  menu.onkeydown = ev => {
+    const buttons = [...menu.querySelectorAll('button:not(:disabled)')], i = buttons.indexOf(document.activeElement);
+    if (['ArrowDown','ArrowUp','Home','End'].includes(ev.key)) {
+      ev.preventDefault(); buttons[ev.key === 'Home' ? 0 : ev.key === 'End' ? buttons.length-1 : (i+(ev.key === 'ArrowDown' ? 1 : -1)+buttons.length)%buttons.length]?.focus();
+    }
+    if (ev.key === 'Escape') closeUnitMenu();
+  };
+}
+document.addEventListener('pointerdown', e => { if (!e.target.closest?.('.unit-menu')) closeUnitMenu(); }, true);
+document.addEventListener('scroll', e => { if (!e.target.closest?.('.unit-menu')) closeUnitMenu(); }, true);
+addEventListener('blur', closeUnitMenu);
+addEventListener('resize', closeUnitMenu);
+async function editUnit(id) {
+  if (VIEWER_MODE) return;
+  if (document.querySelector('.unit-dialog')) { document.querySelector('.unit-dialog').focus(); return; }
+  const health = await api('/api/health');
+  if (health?.unit_edit !== 1) throw new Error('Restart Info Hub to enable detailed editing.');
+  const u = await api(`/api/unit/${id}?depth=0`);
+  if (!u || u.error) throw new Error(u?.error || 'Unit not found');
+  closeUnitCards();
+  const dialog = el('dialog', {class:'unit-dialog', 'aria-labelledby':'unit-edit-title'});
+  const form = el('form'), fields = el('div', {class:'unit-fields'}), inputs = {};
+  const field = (key, title, node, wide=false) => { inputs[key] = node; node.setAttribute('aria-label',title); fields.append(el('label', {class:wide ? 'wide' : ''}, title, node)); return node; };
+  const pick = (values, value) => { const select = el('select'); for (const [key,name] of values) select.append(el('option', {value:key}, name)); select.value = value ?? ''; return select; };
+  field('title','Title',el('input', {value:u.title, required:true, maxlength:1000}),true);
+  const summary = field('summary','Summary',el('textarea'),true); summary.value = u.summary || '';
+  field('kind','Kind',pick(Object.keys(KIND_COLOR).map(k => [k,k]),u.kind));
+  field('status','Status',pick([['open','Open'],['done','Done'],['dropped','Ignored']],u.status));
+  field('priority','Priority',pick([['','None'],['P0','P0 · Urgent'],['P1','P1 · High'],['P2','P2 · Normal'],['P3','P3 · Low']],u.priority));
+  const localDate = value => { if (value == null) return ''; const d = new Date(value*1000); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,19); };
+  for (const [key,title] of [['start_at','Start'],['end_at','End'],['due_at','Due']]) field(key,title,el('input', {type:'datetime-local', step:1, value:localDate(u[key])}));
+  const editableTags = (u.tags || []).filter(t => !t.startsWith('source:') && !t.startsWith('type:'));
+  const tags = field('tags','Tags',el('textarea', {rows:2, style:'min-height:60px'}),true); tags.value = editableTags.join('\n');
+  const original = Object.fromEntries(Object.entries(inputs).map(([key,node]) => [key,node.value]));
+  const error = el('div', {class:'unit-error', role:'alert'});
+  const save = el('button', {class:'b', type:'submit'}, 'Save');
+  form.append(el('h2', {id:'unit-edit-title'}, 'Edit unit'),fields,error,el('footer', {},
+    el('button', {class:'b', type:'button', onclick:() => dialog.close()}, 'Cancel'),save));
+  form.onsubmit = async ev => {
+    ev.preventDefault(); error.textContent = ''; save.disabled = true;
+    try {
+      const body = {};
+      for (const [key,node] of Object.entries(inputs)) {
+        if (key === 'tags' || node.value === original[key]) continue;
+        body[key] = key.endsWith('_at') ? (node.value ? Math.floor(new Date(node.value).getTime()/1000) : null) : key === 'priority' ? (node.value || null) : node.value;
+      }
+      if ('start_at' in body || 'end_at' in body) {
+        const start = 'start_at' in body ? body.start_at : u.start_at, end = 'end_at' in body ? body.end_at : u.end_at;
+        if (start != null && end != null && end < start) throw new Error('End must be on or after start');
+      }
+      if (tags.value !== original.tags) {
+        const next = [...new Set(tags.value.split(/[\n,，]+/).map(t => t.trim()).filter(Boolean))];
+        body.add_tags = next.filter(t => !editableTags.includes(t) && !/^(source|type):/i.test(t));
+        body.remove_tags = editableTags.filter(t => !next.includes(t));
+      }
+      if (Object.keys(body).length) await saveUnit(id, body);
+      dialog.close();
+    } catch (ex) { error.textContent = ex.message; save.disabled = false; }
+  };
+  dialog.onclose = () => dialog.remove();
+  dialog.append(form); document.body.append(dialog); dialog.showModal(); inputs.title.focus();
+}
 function unitCard(u, depth = 0) {
   u.tags = u.tags || [];
   const tagRow = el("div", {});
@@ -498,7 +627,14 @@ function unitCard(u, depth = 0) {
   }
   paintTags();
   if (VIEWER_MODE) return box;
+  box.oncontextmenu = e => showUnitMenu(e, u);
+  if (u.agent_task) {
+    const agent = el('div', {'data-agent-message': u.agent_task.message_id || '', class: 'agent-task-state'});
+    agent.append(agentTaskStatus(u.agent_task, true));
+    box.append(agent);
+  }
   const acts = el("div", {class: "acts"});
+  acts.append(el('button', {class:'b', onclick:() => editUnit(u.id).catch(ex => { $('status').textContent = ex.message; })}, 'Edit'));
   const link = safeLink(u.open_link);
   if (link) acts.append(el("a", {class: "b", href: link, target: "_blank", rel: "noopener noreferrer",
     title: "Open source message" + (u.open_channel ? " in " + u.open_channel : "")}, "Open"));
@@ -512,6 +648,7 @@ function unitCard(u, depth = 0) {
     if (!more.hidden) { more.hidden = true; return; }
     const full = await api(`/api/unit/${u.id}?depth=1`);
     more.replaceChildren(
+      ...(full.agent_task ? [agentTaskStatus(full.agent_task)] : []),
       ...(full.parents || []).map(p => el("div", {class: "msg"}, el("i", {}, "in: "), p.title)),
       ...(full.children || []).map(c => unitCard(c, depth + 1)),
       ...(full.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, `${fmt(m.sent_at)} ${m.sender_name || ""}: `), linkedText(m.text || ""))));
@@ -765,6 +902,7 @@ function buildGraph(panel, baseQ) {
   const pick = w => { let best = null, bd = 1e9; for (const n of nodes) { const d = Math.hypot(n.p.x - w.x, n.p.y - w.y); if (d < n.r + 6 && d < bd) { bd = d; best = n; } } return best; };
 
   cv.onmousedown = e => {
+    if (e.button !== 0) return;
     const w = toWorld(e), n = pick(w);
     if (n) drag = {node: n, dx: n.p.x - w.x, dy: n.p.y - w.y};
     else pan = {x: e.clientX - view.tx, y: e.clientY - view.ty};
@@ -783,12 +921,14 @@ function buildGraph(panel, baseQ) {
     }
   };
   cv.onmouseup = e => {
+    if (e.button !== 0) return;
     const anchor = {x: e.clientX, y: e.clientY};
     if (drag && !panned) openUnit(drag.node.id, anchor);
     else if (pan && !panned) { const n = pick(toWorld(e)); if (n) openUnit(n.id, anchor); }
     drag = pan = null;
   };
   cv.onmouseleave = () => { drag = pan = null; hover = null; };
+  cv.oncontextmenu = e => { const n = pick(toWorld(e)); if (n) showUnitMenu(e, n); };
   cv.onwheel = e => {
     e.preventDefault();
     const rect = cv.getBoundingClientRect(), mx = e.clientX - rect.left, my = e.clientY - rect.top;
@@ -899,6 +1039,114 @@ function linkedText(text) {
   frag.append(String(text).slice(last));
   return frag;
 }
+const AGENT_STATES = {not_queued:'Not queued', waiting:'Organizing', pending:'Queued', starting:'Starting', running:'Running',
+  pausing:'Pausing', paused:'Paused', deleting:'Stopping', deleted:'Deleted',
+  completed:'Completed', needs_attention:'Needs attention', cancelled:'Cancelled'};
+function agentTaskStatus(task, compact = false) {
+  const tone = task.status === 'completed' ? 's-ok' : task.status === 'needs_attention' ? 's-err' : 's-wait';
+  const row = el('div', {class: 'msg'}, el('span', {class: 'src ' + tone}, 'Codex · ' + (AGENT_STATES[task.status] || task.status)));
+  if (/^[0-9a-f-]{36}$/i.test(task.thread_id || '')) {
+    row.append(el('a', {class:'agent-link', href: 'codex://threads/' + task.thread_id, style: 'margin-left:8px'}, 'Open in Codex'));
+  }
+  if (compact) row.append(el('a', {class:'agent-link', href:'/?tab=status', style:'margin-left:8px'}, 'Session status'));
+  if (task.error) row.append(el('div', {class: 'status'}, task.error));
+  if (!compact && task.updated_at) row.append(el('span', {class:'ago', style:'margin-left:8px'}, fmt(task.updated_at)));
+  if (!compact && task.result) {
+    row.append(el('details', {}, el('summary', {}, 'Result'), el('div', {style:'white-space:pre-wrap'}, linkedText(task.result))));
+  }
+  return row;
+}
+function agentQueueRow(task, enabled) {
+  const row = el('div', {class:'agent-row', 'data-task-key':String(task.message_id)});
+  const controls = el('div', {class:'agent-controls'});
+  const error = el('div', {class:'agent-error', role:'alert'});
+  const action = (command,label,title,disabled=false) => el('button', {class:'b', type:'button', title,
+    'aria-label':title, disabled, onclick:async () => {
+      const previous = [...controls.querySelectorAll('button')].map(b => [b,b.disabled]);
+      previous.forEach(([b]) => b.disabled = true);
+      row.dataset.busy = '1'; error.textContent = '';
+      try {
+        const response = await api('/api/agent-tasks/control', {message_id:task.message_id,action:command});
+        if (response.error) throw new Error(response.error);
+        delete row.dataset.busy;
+        await refreshAgentWidgets();
+      } catch (e) { error.textContent = e.message; }
+      finally { delete row.dataset.busy; previous.forEach(([b,disabled]) => b.disabled=disabled); }
+    }}, label);
+  const canStart = ['not_queued','paused','needs_attention','cancelled'].includes(task.status);
+  if (canStart) controls.append(action('start','▶',task.thread_id ? 'Resume task' : 'Start task',!enabled));
+  if (['not_queued','waiting','pending','starting','running'].includes(task.status)) {
+    controls.append(action('pause','Ⅱ','Pause task'));
+  }
+  if (/^[0-9a-f-]{36}$/i.test(task.thread_id || '')) {
+    controls.append(el('a', {class:'agent-link',href:'codex://threads/' + task.thread_id,
+      title:'Open in Codex','aria-label':'Open in Codex'}, '↗'));
+  }
+  controls.append(action('delete','×','Delete and stop task',task.status==='deleting'));
+  const tone = task.status==='completed' ? 's-ok' : task.status==='needs_attention' ? 's-err' : 's-wait';
+  row.append(el('div', {class:'agent-row-head'},
+    task.unit_id ? el('a', {class:'agent-row-title',href:'/?unit='+task.unit_id,title:task.prompt},task.prompt)
+      : el('span',{class:'agent-row-title',title:task.prompt},task.prompt), controls),
+    el('div', {class:'agent-row-meta'},
+      el('span', {class:'src '+tone}, 'Codex · ' + (AGENT_STATES[task.status] || task.status)),
+      task.error ? el('span', {class:'status'},task.error) : null,
+      task.updated_at ? el('time', {}, fmt(task.updated_at)) : null), error);
+  if (task.result) row.append(el('details', {}, el('summary', {}, 'Result'),
+    el('div', {style:'white-space:pre-wrap;overflow-wrap:anywhere'},linkedText(task.result))));
+  return row;
+}
+function agentTaskPanel() {
+  const panel = el('div', {'data-agent-panel':'', role:'region', 'aria-label':'Codex tasks'}, 'Loading Codex tasks…');
+  setTimeout(refreshAgentWidgets, 0);
+  return panel;
+}
+let AGENT_REFRESH_BUSY = false;
+async function refreshAgentWidgets() {
+  if (VIEWER_MODE || AGENT_REFRESH_BUSY || document.hidden) return;
+  const panels = [...document.querySelectorAll('[data-agent-panel]')];
+  const widgets = [...document.querySelectorAll('[data-agent-message]')];
+  if (!panels.length && !widgets.length) return;
+  AGENT_REFRESH_BUSY = true;
+  try {
+    const d = await api('/api/agent-tasks/overview');
+    const tasks = [...(d.tasks || []), ...(d.requests || [])];
+    const byMessage = new Map(tasks.map(t => [String(t.message_id),t]));
+    for (const node of widgets) {
+      const task = byMessage.get(node.dataset.agentMessage);
+      const signature = JSON.stringify(task);
+      if (!task && node.dataset.signature) { node.replaceChildren(); delete node.dataset.signature; }
+      else if (task && node.dataset.signature !== signature) {
+        node.replaceChildren(agentTaskStatus(task, true)); node.dataset.signature = signature;
+      }
+    }
+    const signature = JSON.stringify(d);
+    for (const panel of panels) {
+      if (panel.querySelector('[data-busy]')) continue;
+      if (panel.dataset.signature === signature) continue;
+      const expanded = new Set([...panel.querySelectorAll('[data-task-key]')]
+        .filter(n => n.querySelector('details[open]')).map(n => n.dataset.taskKey));
+      const counts = Object.entries(d.counts || {}).map(([k,v]) => `${AGENT_STATES[k] || k}: ${v}`);
+      if (d.requests?.length) counts.push(`Not queued: ${d.requests.length}`);
+      const entries = tasks.map(task => {
+        const row = agentQueueRow(task, d.enabled);
+        if (expanded.has(String(task.message_id)) && row.querySelector('details')) row.querySelector('details').open = true;
+        return row;
+      });
+      panel.replaceChildren(el('div', {class:'agent-toolbar'},
+        el('span', {class:'src ' + (d.enabled ? 's-ok' : 's-wait')}, d.enabled ? 'Automatic tasks on' : 'Automatic tasks off'),
+        el('span', {class:'status'}, d.sandbox === 'danger-full-access' ? 'Full Access' : d.sandbox),
+        el('a', {class:'agent-link', href:'/?tab=settings'}, 'Settings')),
+        el('div', {class:'status'}, counts.join(' · ')),
+        entries.length ? el('div', {class:'agent-queue'}, ...entries) : el('div', {class:'empty'}, 'No Codex tasks'));
+      panel.dataset.signature = signature;
+    }
+  } catch (error) {
+    for (const panel of panels) {
+      if (!panel.dataset.signature) panel.textContent = 'Could not load Codex tasks: ' + error.message;
+    }
+  } finally { AGENT_REFRESH_BUSY = false; }
+}
+setInterval(refreshAgentWidgets, 4000);
 async function openWebsite(url, hover = null) {
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return;
   closeUnitCards();
@@ -1009,6 +1257,7 @@ async function buildGantt(panel, baseQ) {
           title: `${item.u.title} · ${stamp(item.start)}${item.point ? "" : " – " + stamp(item.end)}`,
           style: item.point ? `left:${left}%;background:${kColor(item.u.kind)}` :
             `left:${left}%;width:${Math.max(0.8, right - left)}%;background:${kColor(item.u.kind)}`,
+          oncontextmenu: e => showUnitMenu(e, item.u),
           onclick: e => { e.stopPropagation(); openUnit(item.u.id, {x: e.clientX, y: e.clientY}); }});
         if (!item.point) bar.textContent = item.u.title;
         track.append(bar);
@@ -1541,6 +1790,29 @@ const TABS = {
       field("apps.reminders.todo_lead_hours", "Remind todos N hours ahead", "number"),
       field("apps.reminders.event_lead_minutes", "Remind events N minutes ahead", "number"),
       field("segment_max_messages", "Max messages per AI call", "number"));
+    const agentPermissions = el('select', {id: 'agent-permissions'},
+      ...[['read-only','Read only'],['workspace-write','Workspace'],['danger-full-access','Full Access']]
+        .map(([value,label]) => el('option', {value}, label)));
+    agentPermissions.value = cfg.values['agent_tasks.sandbox'] || 'workspace-write';
+    agentPermissions.onchange = async () => {
+      if (!await save('agent_tasks.sandbox', agentPermissions.value)) agentPermissions.value = cfg.values['agent_tasks.sandbox'];
+    };
+    const agentTable = el('table', {class: 'kv'},
+      field('agent_tasks.enabled', '@infohub tasks from me', 'bool'),
+      field('agent_tasks.workspace', 'Agent working directory'),
+      el('tr', {}, el('td', {}, 'Agent permissions'), el('td', {}, agentPermissions)));
+    const agentDirectory = agentTable.querySelector('input[type=text]');
+    agentDirectory.placeholder = 'Separate temporary folder per task';
+    agentDirectory.style.width = 'min(360px,100%)';
+    const agentList = el('div');
+    const refreshAgentTasks = async () => {
+      const tasks = await api('/api/agent-tasks');
+      agentList.replaceChildren(...(Array.isArray(tasks) && tasks.length
+        ? tasks.map(task => el('div', {class: 'it'},
+          el('a', {href: '/?unit=' + task.unit_id}, task.prompt.slice(0,100)), agentTaskStatus(task)))
+        : [el('div', {class: 'status'}, 'No agent tasks')]));
+    };
+    await refreshAgentTasks();
     const backupTable = el("table", {class: "kv"},
       field("hub.backup.enabled", "Automatic database backups", "bool"),
       field("hub.backup.interval_days", "Back up every N days", "number"));
@@ -1579,12 +1851,12 @@ const TABS = {
     // ---- user-authored assistant schedules ----
     const scheduleList = el("div", {});
     const scheduleName = el("input", {placeholder: "Schedule name", style: "width:100%"});
-    const scheduleMode = el("select", {style: "width:100%"},
+    const scheduleMode = el("select", {style: "width:100%", title:"Daily times use the hub timezone; intervals start after the previous run finishes."},
       el("option", {value: "daily"}, "Daily"),
       el("option", {value: "interval"}, "Interval"));
     const scheduleTime = el("input", {type: "time", value: "09:00", style: "width:100%"});
     const scheduleInterval = el("input", {type: "number", min: "1", max: "10080", step: "1", value: "60", style: "width:100%"});
-    const schedulePrompt = el("textarea", {placeholder: "Prompt sent to the assistant…", rows: "4", style: "width:100%;resize:vertical"});
+    const schedulePrompt = el("textarea", {placeholder: "Prompt sent to the assistant…", rows: "3", style: "width:100%;resize:vertical"});
     const scheduleEnabled = el("input", {type: "checkbox", checked: true, style: "width:auto"});
     const scheduleId = el("input", {type: "hidden"});
     const scheduleTiming = el("span", {}, scheduleTime);
@@ -1604,8 +1876,6 @@ const TABS = {
       scheduleSave.textContent = "Save schedule"; refreshScheduleForm();
     };
     scheduleCancel.onclick = resetScheduleForm;
-    const scheduleHelp = el("div", {class: "empty"},
-      "Each enabled schedule sends its prompt as a normal assistant turn. Daily times use the hub timezone; interval starts after the previous run finishes.");
     const drawSchedules = () => {
       scheduleList.replaceChildren(...(Array.isArray(schedules) ? schedules : []).map(s => {
         const timing = s.mode === "daily" ? "daily at " + s.daily_time : "every " + s.interval_minutes + " min";
@@ -1653,10 +1923,9 @@ const TABS = {
           el("span", {class: "schedule-label"}, "When"),
           el("div", {class: "schedule-when"}, scheduleMode,
             el("div", {class: "schedule-timing"}, modeLabel, scheduleTiming))),
-        el("label", {class: "schedule-field schedule-field-wide"}, el("span", {class: "schedule-label"}, "Prompt"), schedulePrompt),
-        el("label", {class: "schedule-field"}, el("span", {class: "schedule-label"}, "Status"),
-          el("span", {class: "schedule-toggle"}, scheduleEnabled, "Enabled"))),
-      el("div", {class: "schedule-actions"}, scheduleSave, scheduleCancel));
+        el("label", {class: "schedule-field schedule-field-wide"}, el("span", {class: "schedule-label"}, "Prompt"), schedulePrompt)),
+      el("div", {class: "schedule-actions"},
+        el("label", {class:"schedule-toggle"}, scheduleEnabled, "Enabled"), scheduleSave, scheduleCancel));
     refreshScheduleForm(); drawSchedules();
     // ---- chats: filters, multi-select, batch apply, rule defaults ----
     const picked = new Set(), key = c => c.source + "|" + c.channel;
@@ -1767,7 +2036,9 @@ const TABS = {
     drawVip();
     return el("div", {class: "grid g2"},
       lane("Settings", null, [el("div", {class: "day"}, "Database backups"), backupTable, backupInfo, backupButton,
-        el("div", {class: "day"}, "Assistant task scheduler"), scheduleHelp, scheduleForm, scheduleList,
+        el("div", {class: "day"}, "Local agent tasks"), agentTable,
+        el('button', {class: 'b', onclick: refreshAgentTasks}, 'Refresh tasks'), agentList,
+        el("div", {class: "day"}, "Assistant task scheduler"), scheduleForm, scheduleList,
         el("div", {class: "day"}, "General"), settingsTable, el("div", {class: "empty"},
         "Saved to config/settings.local.json. Chat policies live in the database."),
         el("div", {class: "day"}, "VIP people"), vipBox,
@@ -1824,6 +2095,7 @@ const TABS = {
     }
     return el("div", {class: "grid g2"},
       lane("Overview", null, [overview, el("div", {class: "day"}, "AI"), aiBox,
+        el("div", {class:"day"}, "Codex tasks"), agentTaskPanel(),
         el("div", {class: "day"}, "Needs attention"), ...problems,
         el("div", {class: "day"}, "Units by kind"), units]),
       lane("Run log (newest first)", s.runs.length, log.length ? log : [el("div", {class: "empty"}, "No runs yet.")]));
@@ -1986,7 +2258,11 @@ if (_p.get("demo") === "chat") CHAT = [                      // a sample convers
     + "Also worth a look: the action-plan-then-distill idea [[u:6]] from the world-model thread."},
 ];
 const _tab0 = _p.get("tab");
-api("/api/views").then(v => { VIEWS = v || []; if (_tab0 && !VIEWER_MODE) TAB = _tab0; render(false); });
+api("/api/views").then(async v => {
+  VIEWS = v || []; if (_tab0 && !VIEWER_MODE) TAB = _tab0; await render(false);
+  const unit = _p.get('unit');
+  if (unit && /^\d+$/.test(unit) && !VIEWER_MODE) await openUnit(Number(unit), {x:Math.max(8,innerWidth/2-190),y:100});
+});
 setInterval(() => { if (!document.hidden && document.activeElement !== $("q") && document.activeElement?.id !== "chat-input") render(); }, 120000);
 // Notice a redeployed dashboard and offer a reload instead of silently staying stale
 // (the desktop shell holds one page for the whole session).

@@ -312,7 +312,7 @@ class Layer2(unittest.TestCase):
     def test_missing_key_and_budget_leave_jobs_pending(self):
         job, _ = self._segment_job()
         self.cfg["ai"].update(provider="openai_compatible", api_key_env="INFOHUB_KEY_THAT_IS_NOT_SET")
-        self.assertIn("is not set", ai_organizer.run(self.cfg, self.store)["error"])
+        self.assertIn("API key is not configured", ai_organizer.run(self.cfg, self.store)["error"])
         self.cfg["ai"]["daily_budget_usd"] = 0
         self.assertEqual(ai_organizer.run(self.cfg, self.store)["skipped"], "daily budget reached")
         self.assertEqual(self.store.q("SELECT status FROM jobs").fetchone()[0], "pending")
