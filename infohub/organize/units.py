@@ -268,8 +268,21 @@ def _top_level_matches(store, rows):
     return [row for row in rows if row["id"] not in descendants]
 
 
+def _overlapping_rows(store, rows, since=None, until=None):
+    """Use the same descendant message extent and creation fallback as the timeline."""
+    times = _evidence_times(store, [r["id"] for r in rows])
+    matches = []
+    for row in rows:
+        first, last = times.get(row["id"], (None, None))
+        start = first if first is not None else row["created_at"]
+        end = last if last is not None else start
+        if (since is None or end >= since) and (until is None or start <= until):
+            matches.append(row)
+    return matches
+
+
 def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before=None, roots_only=False,
-          order="activity", limit=200, mine=False, unscheduled=False) -> list[dict]:
+          order="activity", limit=200, mine=False, unscheduled=False, until=None) -> list[dict]:
     where, args = [], []
     groups = {}                                   # namespace -> [tags]: OR within a namespace, AND across
     for t in tags or ():
@@ -304,9 +317,6 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
         args.append(status)
     elif not status:
         where.append("u.status != 'dropped'")
-    if since:
-        where.append("coalesce(u.last_activity_at, u.updated_at) >= ?")
-        args.append(int(since))
     if due_before:
         where.append("coalesce(u.due_at, u.start_at) IS NOT NULL AND coalesce(u.due_at, u.start_at) <= ?")
         args.append(int(due_before))
@@ -332,9 +342,11 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
     }.get(order, "coalesce(u.last_activity_at,u.updated_at) DESC, u.id DESC")
     sql = prefix + f"SELECT u.* FROM units u {'WHERE ' + ' AND '.join(where) if where else ''}"
     metric = {"messages": "n_messages", "children": "n_children", "descendants": "n_descendants"}.get(order)
-    if metric or roots_only:
+    if metric or roots_only or since is not None or until is not None:
         # Select the outermost matches and sort all candidates BEFORE applying the limit.
         rows = store.q(sql + f" ORDER BY {order_sql}", args).fetchall()
+        if since is not None or until is not None:
+            rows = _overlapping_rows(store, rows, since, until)
         if roots_only:
             rows = _top_level_matches(store, rows)
         if not rows:
@@ -347,11 +359,14 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
     return _rows(store, store.q(sql + f" ORDER BY {order_sql} LIMIT ?", (*args, int(limit))))
 
 
-def tag_counts(store, since=None, prefix=None, status=None, limit=300) -> list[dict]:
+def tag_counts(store, since=None, prefix=None, status=None, limit=300, until=None) -> list[dict]:
     where, args = [], []
-    if since:
-        where.append("coalesce(u.last_activity_at, u.updated_at) >= ?")
-        args.append(int(since))
+    if since is not None or until is not None:
+        rows = _overlapping_rows(store, store.q("SELECT id,created_at FROM units").fetchall(), since, until)
+        if not rows:
+            return []
+        where.append(f"u.id IN ({','.join('?' for _ in rows)})")
+        args.extend(row["id"] for row in rows)
     if prefix:
         where.append("t.tag LIKE ?")
         args.append(prefix + "%")

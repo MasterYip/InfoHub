@@ -9,7 +9,7 @@ test('agent settings save permissions and expose session links without rendering
     const page = await browser.newPage({viewport: {width: 1280, height: 900}});
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    const values = {'agent_tasks.enabled': true, 'agent_tasks.workspace': '', 'agent_tasks.sandbox': 'workspace-write'};
+    const values = {'agent_tasks.enabled': true, 'agent_tasks.workspace': '', 'agent_tasks.sandbox': 'workspace-write', 'agent_tasks.codex_command':'codex'};
     await page.route('**/api/**', async route => {
       const pathname = new URL(route.request().url()).pathname;
       let data = [];
@@ -26,6 +26,13 @@ test('agent settings save permissions and expose session links without rendering
       await route.fulfill({json: data});
     });
     await page.goto('http://127.0.0.1:8765/?tab=settings');
+    const section = page.locator('[data-agent-section="settings"]');
+    assert.equal(await section.evaluate(n => n.open), false);
+    await section.locator('summary').first().click();
+    await page.getByRole('textbox',{name:'Codex executable'}).fill('D:\\Tools\\Codex App\\codex.exe');
+    await page.getByRole('textbox',{name:'Codex executable'}).press('Tab');
+    await page.waitForFunction(() => document.getElementById('status').textContent.includes('saved agent_tasks.codex_command'));
+    assert.equal(values['agent_tasks.codex_command'],'D:\\Tools\\Codex App\\codex.exe');
     await page.locator('#agent-permissions').selectOption('danger-full-access');
     await page.waitForFunction(() => document.getElementById('status').textContent.includes('saved agent_tasks.sandbox'));
     assert.equal(values['agent_tasks.sandbox'], 'danger-full-access');
@@ -58,10 +65,15 @@ test('Status tracks Codex sessions and todo status updates without replacing the
       await route.fulfill({json:data});
     });
     await page.goto('http://127.0.0.1:8765/?tab=status');
+    assert.equal(await page.locator('[data-agent-section="status"]').evaluate(n => n.open),false);
+    await page.locator('[data-agent-section="status"] > summary').click();
     const panel = page.getByRole('region', {name:'Codex tasks'});
     await panel.getByText('Codex · Queued', {exact:true}).waitFor();
     task = {...task,status:'running',thread_id:'01a1907e-c8cf-7501-b81a-1719ce4883e2'};
     await panel.getByText('Codex · Running', {exact:true}).waitFor();
+    assert.equal(await page.locator('[data-agent-section="status"]').evaluate(n => n.open),true);
+    await page.evaluate(() => render());
+    assert.equal(await page.locator('[data-agent-section="status"]').evaluate(n => n.open),true);
     assert.equal(await panel.getByRole('link',{name:'Open in Codex'}).getAttribute('href'), 'codex://threads/' + task.thread_id);
     await panel.scrollIntoViewIfNeeded();
     await page.screenshot({path:`${process.env.TEMP}/infohub-codex-status.png`});
@@ -103,6 +115,7 @@ test('compact queue controls start pause delete and open the matching session', 
       await route.fulfill({json:data});
     });
     await page.goto('http://127.0.0.1:8765/?tab=status');
+    await page.locator('[data-agent-section="status"] > summary').click();
     const panel=page.getByRole('region',{name:'Codex tasks'});
     await panel.getByRole('button',{name:'Start task',exact:true}).click();
     await panel.getByText('Codex · Running',{exact:true}).waitFor();

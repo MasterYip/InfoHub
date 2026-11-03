@@ -11,10 +11,61 @@ from __future__ import annotations
 
 import json
 import time
+import threading
 from datetime import date, timedelta, timezone
 
 from . import prompt, providers
 from . import units as U
+
+_RUN_LOCK = threading.Lock()
+
+
+def queue_owner_requests(cfg, store):
+    """Queue each new owner request once, even while its chat is still active."""
+    from .agent_tasks import instruction
+    options = cfg.get("agent_tasks", {})
+    since = int(options.get("enabled_since") or 0)
+    if not options.get("enabled") or not since or not cfg["ai"]["enabled"] or "watch" not in cfg["ai"]["policies"]:
+        return 0
+    rows = store.q("""SELECT m.* FROM messages m JOIN segments s ON s.id=m.segment_id
+        WHERE m.from_me=1 AND m.policy='watch' AND s.policy='watch' AND m.sent_at>=?
+        AND lower(m.text) LIKE '%@infohub%'
+        AND NOT EXISTS(SELECT 1 FROM agent_tasks t WHERE t.message_id=m.id)
+        AND NOT EXISTS(SELECT 1 FROM agent_organize_requests r WHERE r.message_id=m.id)
+        AND NOT EXISTS(SELECT 1 FROM unit_messages um JOIN units u ON u.id=um.unit_id
+                       WHERE um.message_id=m.id AND u.kind='todo' AND s.ai_done=1)
+        ORDER BY m.id""", (since,)).fetchall()
+    queued = 0
+    for message in rows:
+        if not instruction(message):
+            continue
+        now, sid = int(time.time()), message["segment_id"]
+        store.q("INSERT OR IGNORE INTO agent_organize_requests VALUES(?,?)", (message["id"], sid))
+        store.q("UPDATE segments SET closed=1,ai_done=0,updated_at=? WHERE id=?", (now, sid))
+        store.q("""INSERT INTO jobs(kind,ref_id,status,created_at,updated_at,not_before)
+            VALUES('segment',?,'pending',?,?,0) ON CONFLICT(kind,ref_id) DO UPDATE SET
+            status=CASE WHEN jobs.status IN ('done','failed') THEN 'pending' ELSE jobs.status END,
+            not_before=CASE WHEN jobs.status IN ('done','failed') THEN 0 ELSE jobs.not_before END,
+            updated_at=excluded.updated_at""", (sid, now, now))
+        queued += 1
+    store.db.commit()
+    return queued
+
+
+def urgent_pending(store):
+    return bool(store.q("""SELECT 1 FROM jobs j JOIN agent_organize_requests r ON r.segment_id=j.ref_id
+        WHERE j.kind='segment' AND j.status='pending' AND j.not_before<=? LIMIT 1""", (int(time.time()),)).fetchone())
+
+
+def check_owner_requests(cfg, store):
+    if not _RUN_LOCK.acquire(blocking=False):
+        return False
+    try:
+        queue_owner_requests(cfg, store)
+        return (cfg["ai"]["enabled"] and spent_today(store) < float(cfg["ai"]["daily_budget_usd"])
+                and urgent_pending(store))
+    finally:
+        _RUN_LOCK.release()
 
 
 def spent_today(store) -> float:
@@ -106,13 +157,25 @@ def requeue(cfg, store, days: float) -> int:
 
 
 def run(cfg, store, provider=None) -> dict:
+    # The scheduled loop and manual Flag/Start actions share this queue.
+    if not _RUN_LOCK.acquire(blocking=False):
+        return {"skipped": "organizer busy"}
+    try:
+        queue_owner_requests(cfg, store)
+        return _run(cfg, store, provider)
+    finally:
+        _RUN_LOCK.release()
+
+
+def _run(cfg, store, provider=None) -> dict:
     ai = cfg["ai"]
     if not ai["enabled"]:
         return {"skipped": "ai disabled"}
     if spent_today(store) >= float(ai["daily_budget_usd"]):
         return {"skipped": "daily budget reached", "spent": round(spent_today(store), 4)}
     jobs = store.q("""SELECT * FROM jobs WHERE kind='segment' AND status='pending' AND not_before<=?
-                      ORDER BY id LIMIT ?""", (int(time.time()), int(ai["max_jobs_per_run"]))).fetchall()
+                      ORDER BY EXISTS(SELECT 1 FROM agent_organize_requests r WHERE r.segment_id=jobs.ref_id) DESC,
+                      id LIMIT ?""", (int(time.time()), int(ai["max_jobs_per_run"]))).fetchall()
     if not jobs:
         return {"jobs": 0}
     try:

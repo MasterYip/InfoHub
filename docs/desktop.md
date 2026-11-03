@@ -36,6 +36,23 @@ Quit also stops that service. If a service was already running, desktop reuses i
 leaves it running on exit. The browser dashboard stays reachable at the configured
 `hub.dashboard` address while that service runs.
 
+### Double-click shortcut
+
+Double-click **InfoHub.exe** in the repository root to launch without a console window.
+This small Windows launcher embeds the InfoHub icon and locates
+`scripts/start-desktop.ps1` relative to itself, so the entire repository can be moved
+or copied to another folder. Keep the launcher inside the repository. To put it on the Windows desktop, use
+**Send to > Desktop (create shortcut)** on this file instead of moving it there.
+
+A new machine still needs `scripts/setup.ps1 -Desktop` and a local configuration;
+Python virtual environments are machine-specific. Missing setup produces a dialog.
+The launcher source is `scripts/InfoHubLauncher.cs`. To rebuild the tracked executable
+and icon on Windows using Pillow and the bundled .NET Framework C# compiler:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/build-launcher.py
+```
+
 ## Tray actions and notifications
 
 - **Open Info Hub** (also click the tray icon): show or restore the window.

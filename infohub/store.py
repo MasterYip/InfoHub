@@ -110,6 +110,9 @@ CREATE INDEX IF NOT EXISTS at_status ON agent_tasks(status, id);
 CREATE TABLE IF NOT EXISTS agent_task_context(
   task_id INTEGER PRIMARY KEY, context TEXT NOT NULL, created_at INTEGER NOT NULL);
 
+CREATE TABLE IF NOT EXISTS agent_organize_requests(
+  message_id INTEGER PRIMARY KEY, segment_id INTEGER NOT NULL);
+
 -- Agent API: one row per successful write through /api/agent/v1 (never message text).
 CREATE TABLE IF NOT EXISTS agent_audit(
   id INTEGER PRIMARY KEY, at INTEGER NOT NULL, principal TEXT NOT NULL,

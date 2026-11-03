@@ -146,6 +146,10 @@ For a dedicated window, install the optional desktop packages and launch:
 .\scripts\start-desktop.ps1
 ```
 
+After setup, double-click **InfoHub.exe** in the repository root for a console-free
+launch with the InfoHub icon. The launcher stays usable when the entire repository
+is moved or copied; see [shortcut details](docs/desktop.md#double-click-shortcut).
+
 Close the window to keep Info Hub in the tray. Click the tray icon to reopen it, or use
 **Open in browser** for the original web interface. The tray groups new-unit notifications,
 can limit them to **For me**, and opens the latest unit when a notification is clicked.

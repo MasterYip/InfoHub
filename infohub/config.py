@@ -112,7 +112,7 @@ EDITABLE = ["hub.backup.enabled", "hub.backup.interval_days", "me.names", "hub.p
             "apps.reminders.event_lead_minutes", "organize.polish", "ai.enabled", "ai.model",
             "ai.base_url", "ai.api_key", "ai.daily_budget_usd", "ai.interval_minutes", "ai.policies", "ai.polish_policies",
             "segment_max_messages", "segment_gap_minutes", "agent_tasks.enabled", "agent_tasks.workspace",
-            "agent_tasks.sandbox"]
+            "agent_tasks.sandbox", "agent_tasks.codex_command"]
 
 
 def read_settings() -> dict:
@@ -166,6 +166,18 @@ def write_settings(flat: dict) -> dict:
         if isinstance(days, bool) or not isinstance(days, int) or not 1 <= days <= 3650:
             raise ValueError("Backup interval must be a whole number of days from 1 to 3650")
     data = {**read_settings(), **flat}
+    if "agent_tasks.codex_command" in flat:
+        value = flat["agent_tasks.codex_command"]
+        if not isinstance(value, str) or any(c in value for c in ('\n', '\r', '\x00')):
+            raise ValueError("Codex executable must be a command name or an absolute executable path")
+        value = value.strip() or "codex"
+        if value.lower() not in ("codex", "codex.exe"):
+            from .organize.codex_client import resolve_command
+            try:
+                resolve_command(value)
+            except FileNotFoundError as exc:
+                raise ValueError(str(exc)) from None
+        data["agent_tasks.codex_command"] = value
     if "agent_tasks.sandbox" in flat and flat["agent_tasks.sandbox"] not in ("read-only", "workspace-write", "danger-full-access"):
         raise ValueError("Unknown agent permission mode")
     if "agent_tasks.enabled" in flat:

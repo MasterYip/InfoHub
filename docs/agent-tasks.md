@@ -1,17 +1,23 @@
 # Local Agent Tasks
 
-In Settings, enable **@infohub tasks from me**. In a Watch group or direct chat, send a new plain-text message that
+In Settings, expand **Local agent tasks** and enable **@infohub tasks from me**. In a Watch group or direct chat, send a new message that
 starts with `@infohub` or `@InfoHub`, followed by the task:
 
 ```text
 @InfoHub Summarize the PDF in D:/Reading into a short Markdown note.
 ```
 
+After sync collects the message, the service checks for owner requests every three seconds,
+queues the conversation immediately and prioritizes it ahead of ordinary pending segments.
+It does not wait for a quiet chat or the regular AI interval. Existing AI calls must finish
+first; daily budget limits and retry backoff still apply. Sync itself keeps its configured interval.
 The AI organizer first prepares a Todo with its relevant messages and task context.
 After that conversation segment finishes AI organization, the local worker tags the
 Todo `type:agent-task`, creates a persistent Codex session, and runs
 the instruction. **Status > Codex tasks** lists queued, starting, running, completed,
 cancelled, and attention-needed tasks, with results and **Open in Codex** links.
+Both Settings and Status agent sections are collapsed initially; expanding them keeps
+them open during in-page updates.
 It also explains why owner requests have not been queued. The panel and Todo
 status badges update every four seconds without replacing the page or input fields.
 The Todo's **Session status** link opens Status. Finished turns close the Todo.
@@ -25,14 +31,16 @@ the same source message from being queued again. Source messages, ordinary Todos
 workspace files, and Codex history are retained.
 
 Only the source adapter's `from_me` identity flag is accepted. Display names and
-quoted mentions do not authorize execution. Store, Digest, Ignore, and non-text messages
-are excluded. The current account's messages must already be syncing into Info Hub.
+quoted mentions do not authorize execution. Store, Digest and Ignore chats are excluded.
+There is no message-type restriction on an owner's decoded `@infohub` request.
+The current account's messages must already be syncing into Info Hub.
 Source adapters that do not populate `from_me` cannot trigger tasks.
 The names in Settings identify mentions and personal tags; they do not authenticate
 the sender of an executable task. Other senders' mentions are not queued or listed
 as unqueued agent requests.
-Codex receives the owner's original request, the organized task title and summary,
-and up to 40 attached messages from that same chat. These messages are supporting
+Before Codex starts, the AI selects relevant graph neighbours, recent conversation units,
+and units with shared subject tags, then reads their messages and prepares a cited brief.
+Codex receives the original request, that brief and the selected evidence. These messages are supporting
 context, not permission to follow instructions from other people. While organization
 is pending, Status shows **Waiting for AI organizer**; it does not bypass the AI queue.
 
@@ -56,8 +64,13 @@ installed and signed in as the same OS user as the desktop app, with the same
 `thread/start` and `turn/start` requests, and the default configured model.
 It does not require an OpenAI API key in Info Hub's Settings.
 
-The local YAML can override `agent_tasks.codex_command` with an executable path
-and `agent_tasks.timeout_seconds` (default 3600). Prompts are sent as JSON data,
+**Settings > Local agent tasks > Codex executable** accepts a command name or an absolute
+executable path, without arguments or surrounding quotes. Empty means `codex`: search PATH,
+then the current user's installed Windows Codex desktop bundles. No user-specific path is
+hardcoded. On Windows, select the actual `.exe`, not an npm `.cmd` wrapper. Changes apply
+to the next task launch without restarting the service. Missing executables produce a
+Settings-directed error, and failed tasks can be retried with Start.
+The local YAML can also override `agent_tasks.timeout_seconds` (default 3600). Prompts are sent as JSON data,
 never interpolated into shell commands. Settings overrides remain in the ignored
 `config/settings.local.json`; task records and workspace files remain local.
 

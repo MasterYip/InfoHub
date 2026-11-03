@@ -242,20 +242,34 @@ def main():
 
         def ai_loop():  # separate thread: AI outages or slowness never delay sync
             s = Store(cfg["hub"]["database"])
+            next_regular = 0
+            next_urgent = 0
             while True:
-                res = guarded(s, "organize", "ai", lambda: ai_organizer.run(cfg, s))
-                pol = guarded(s, "organize", "polish", lambda: polish.run(cfg, s))
-                print(time.strftime("%H:%M:%S"), "ai", json.dumps(res, ensure_ascii=False),
-                      "polish", json.dumps(pol, ensure_ascii=False), flush=True)
-                time.sleep(int(cfg["ai"]["interval_minutes"]) * 60)
+                try:
+                    current = config_mod.load(cfg.get("_path"))
+                    urgent = ai_organizer.check_owner_requests(current, s)
+                    regular = time.monotonic() >= next_regular
+                    if regular or (urgent and time.monotonic() >= next_urgent):
+                        res = guarded(s, "organize", "ai", lambda: ai_organizer.run(current, s))
+                        # Authentication/model failures leave jobs pending; do not retry
+                        # the provider every three seconds while it needs attention.
+                        next_urgent = time.monotonic() + (60 if res.get("error") else 0)
+                        pol = guarded(s, "organize", "polish", lambda: polish.run(current, s)) if regular else {}
+                        print(time.strftime("%H:%M:%S"), "ai", json.dumps(res, ensure_ascii=False),
+                              "polish", json.dumps(pol, ensure_ascii=False), flush=True)
+                        if regular:
+                            next_regular = time.monotonic() + max(1, int(current["ai"]["interval_minutes"])) * 60
+                except Exception:
+                    s.db.rollback()
+                    traceback.print_exc()
+                time.sleep(3)
 
         def schedule_loop():
             from .apps.scheduler import loop
             loop(cfg)
 
         threading.Thread(target=layer1_loop, daemon=True).start()
-        if cfg["ai"]["enabled"]:
-            threading.Thread(target=ai_loop, daemon=True).start()
+        threading.Thread(target=ai_loop, daemon=True).start()
         if cfg["hub"].get("viewer", {}).get("enabled"):
             from .apps.server import serve_viewer
             threading.Thread(target=serve_viewer, args=(cfg, Store(cfg["hub"]["database"])),

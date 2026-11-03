@@ -146,6 +146,52 @@ class AgentTasks(unittest.TestCase):
         self.cfg["agent_tasks"].update(enabled=True, enabled_since=0)
         self.assertEqual(tasks.collect(self.cfg, self.store), 0)
 
+    def test_owner_request_queues_open_segment_once_ahead_of_ordinary_jobs(self):
+        from infohub.organize import ai_organizer
+        ordinary = self.message('Ordinary discussion', organized=False, from_me=0)
+        ordinary_sid = self.store.q('SELECT segment_id FROM messages WHERE id=?', (ordinary,)).fetchone()[0]
+        self.store.q("INSERT INTO jobs(kind,ref_id,status,created_at,updated_at) VALUES('segment',?,'pending',0,0)", (ordinary_sid,))
+        mid = self.message('@infohub Explain this quoted paper', organized=False, kind='link/file')
+        sid = self.store.q('SELECT segment_id FROM messages WHERE id=?', (mid,)).fetchone()[0]
+        self.store.q('UPDATE segments SET closed=0 WHERE id=?', (sid,))
+        self.message('@infohub Other sender', organized=False, from_me=0)
+        self.message('@infohub Old request', organized=False, sent_at=999)
+        self.message('@infohub Unwatched', organized=False, policy='store')
+        self.message('@infohub Already organized')
+        self.store.db.commit()
+        self.assertTrue(ai_organizer.check_owner_requests(self.cfg, self.store))
+        self.assertEqual(self.store.q('SELECT closed FROM segments WHERE id=?', (sid,)).fetchone()[0], 1)
+        self.assertEqual(self.store.q('SELECT count(*) FROM agent_organize_requests').fetchone()[0], 1)
+        self.assertEqual(ai_organizer.queue_owner_requests(self.cfg, self.store), 0)
+        self.cfg['ai']['max_jobs_per_run'] = 1
+        order = []
+        def process(cfg, store, provider, job):
+            order.append(job['ref_id'])
+            self.assertEqual(ai_organizer.run(cfg, store, provider), {'skipped':'organizer busy'})
+            store.q("UPDATE jobs SET status='done' WHERE id=?", (job['id'],))
+            store.db.commit()
+            return {}
+        with patch.object(ai_organizer, 'process_job', side_effect=process):
+            ai_organizer.run(self.cfg, self.store, provider=object())
+        self.assertEqual(order, [sid])
+        self.assertFalse(ai_organizer.urgent_pending(self.store))
+        self.assertEqual(ai_organizer.queue_owner_requests(self.cfg, self.store), 0)
+
+    def test_urgent_requests_respect_disable_budget_and_retry_backoff(self):
+        from infohub.organize import ai_organizer
+        self.message(organized=False)
+        self.cfg['agent_tasks']['enabled'] = False
+        self.assertFalse(ai_organizer.check_owner_requests(self.cfg, self.store))
+        self.cfg['agent_tasks']['enabled'] = True
+        self.cfg['ai']['daily_budget_usd'] = 0
+        self.assertFalse(ai_organizer.check_owner_requests(self.cfg, self.store))
+        self.assertEqual(self.store.q('SELECT count(*) FROM jobs').fetchone()[0], 1)
+        self.cfg['ai']['daily_budget_usd'] = 10
+        self.store.q('UPDATE jobs SET not_before=?', (int(time.time())+60,))
+        self.store.db.commit()
+        self.assertFalse(ai_organizer.check_owner_requests(self.cfg, self.store))
+        self.assertEqual(ai_organizer.queue_owner_requests(self.cfg, self.store), 0)
+
     def test_completion_and_long_silent_period(self):
         self.cfg["agent_tasks"]["sandbox"] = "danger-full-access"
         self.message()

@@ -51,6 +51,7 @@ class Explore(unittest.TestCase):
 
     def unit(self, title, kind="topic", **kwargs):
         uid = U.upsert(self.store, None, kind=kind, title=title, activity_at=self.now - 100, **kwargs)
+        self.store.q("UPDATE units SET created_at=? WHERE id=?", (self.now - 100, uid))
         self.store.db.commit()
         return uid
 
@@ -103,7 +104,7 @@ class Explore(unittest.TestCase):
         old = self.now - 30 * 86400
         def aged(title, **kwargs):
             uid = self.unit(title, **kwargs)
-            self.store.q("UPDATE units SET last_activity_at=? WHERE id=?", (old, uid))
+            self.store.q("UPDATE units SET last_activity_at=?,created_at=? WHERE id=?", (old, old, uid))
             self.store.db.commit()
             return uid
 
@@ -133,6 +134,45 @@ class Explore(unittest.TestCase):
             self.assertEqual([u["id"] for u in rows], [self.topic])
             graph = server.graph(self.store, kind="topic", order=order, limit=1)
             self.assertEqual([n["id"] for n in graph["nodes"]], [self.topic])
+
+    def test_time_overlap_uses_descendant_extent_even_between_messages(self):
+        before, after = self.now - 10 * 86400, self.now + 86400
+        mids = self.store.add_messages([
+            {"source": "demo", "item_key": "extent-first", "sent_at": before, "text": "Earlier"},
+            {"source": "demo", "item_key": "extent-last", "sent_at": after, "text": "Later"}])
+        root, child = self.unit("Long topic"), self.unit("Nested evidence")
+        U.link(self.store, root, child)
+        U.attach(self.store, child, mids)
+        U.add_tags(self.store, root, ["project:extent"])
+        self.store.q("UPDATE units SET last_activity_at=? WHERE id IN (?,?)", (before, root, child))
+        self.store.db.commit()
+        options = dict(tags=["project:extent"], since=self.now - 86400, until=self.now, limit=1, roots_only=True)
+        self.assertEqual([u["id"] for u in U.query(self.store, **options)], [root])
+        self.assertEqual([u["id"] for u in server.graph(self.store, **options)["nodes"]], [root])
+        self.assertEqual(U.tag_counts(self.store, since=self.now - 86400, until=self.now, prefix="project:extent"),
+                         [{"tag": "project:extent", "n": 1}])
+        self.store.q("DELETE FROM unit_links WHERE parent_id=?", (root,))
+        self.store.q("UPDATE units SET created_at=? WHERE id=?", (before, root))
+        self.store.db.commit()
+        self.assertEqual(U.query(self.store, **options), [])
+
+    def test_time_overlap_boundaries_creation_fallback_and_limit(self):
+        start, end = self.now - 1000, self.now
+        matches = set()
+        for i, stamp in enumerate((start - 1, start, end, end + 1)):
+            uid = self.unit(f"Time point {i}")
+            U.add_tags(self.store, uid, ["project:points"])
+            self.store.q("UPDATE units SET created_at=?,last_activity_at=? WHERE id=?", (stamp, end + i, uid))
+            if stamp in (start, end):
+                matches.add(uid)
+        self.store.db.commit()
+        options = dict(tags=["project:points"], since=start, until=end)
+        self.assertEqual({u["id"] for u in U.query(self.store, **options)}, matches)
+        self.assertIn(U.query(self.store, limit=1, **options)[0]["id"], matches)
+        # Existing evidence takes precedence over recent creation/edit timestamps.
+        self.store.q("UPDATE messages SET sent_at=?", (start - 1,))
+        self.store.db.commit()
+        self.assertEqual(U.query(self.store, q="World model", since=start, until=end), [])
 
     def test_strict_topic_graph_excludes_digest_until_context_is_enabled(self):
         strict = server.graph(self.store, kind="topic")
@@ -284,7 +324,8 @@ class Explore(unittest.TestCase):
             httpd = factory(address, handler)
             captured.append(httpd); ready.set()
             return httpd
-        with patch.object(server, "ThreadingHTTPServer", side_effect=capture):
+        with patch.object(server, "ThreadingHTTPServer", side_effect=capture), \
+                patch("infohub.apps.server.time.time", return_value=self.now):
             thread = threading.Thread(target=server.serve, args=(cfg, self.store, lambda: {}), daemon=True)
             thread.start()
             self.assertTrue(ready.wait(3))

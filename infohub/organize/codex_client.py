@@ -2,16 +2,37 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 import queue
+import shutil
 import subprocess
 import threading
 import time
 
 
+def resolve_command(command="codex"):
+    value = str(command or "codex").strip() or "codex"
+    path = Path(os.path.expandvars(value)).expanduser()
+    explicit = path.is_absolute() or "/" in value or "\\" in value
+    found = str(path) if explicit and path.is_file() else (shutil.which(value) if not explicit else None)
+    if found and (os.name != "nt" or Path(found).suffix.lower() == ".exe"):
+        return str(Path(found).resolve())
+    # Desktop launches may inherit an old PATH. Discover the installed bundle rather
+    # than persisting its versioned directory, which changes on app updates.
+    if value.lower() in ("codex", "codex.exe") and os.name == "nt":
+        root = Path(os.environ.get("LOCALAPPDATA", "")) / "OpenAI" / "Codex" / "bin"
+        candidates = [p for p in root.glob("*/codex.exe") if p.is_file()]
+        if candidates:
+            return str(max(candidates, key=lambda p: p.stat().st_mtime).resolve())
+    raise FileNotFoundError("Codex executable not found. Set Settings > Agent tasks > Codex executable "
+                            "to the installed executable path (without arguments).")
+
+
 class CodexClient:
     def __init__(self, command="codex"):
         self.process = subprocess.Popen(
-            [command, "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            [resolve_command(command), "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL, text=True, encoding="utf-8", bufsize=1,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         self.inbox = queue.Queue()

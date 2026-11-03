@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Info Hub</title>
 <link id="app-favicon" rel="icon" type="image/svg+xml">
+<script src="./vendor/marked.umd.js"></script>
+<script src="./vendor/katex.min.js"></script>
 <style>
 :root{
   --bg:#0f141c;--lane:#161d27;--card:#1d2532;--line:#232c39;--ink:#e8eef6;--sub:#93a2b6;--mute:#6f7d90;
@@ -100,6 +102,13 @@ main{padding:12px 16px}
 .md-reasoning[open]>summary::before{content:"▾ "}
 .reasoning-text{white-space:pre-wrap;word-break:break-word;max-height:170px;overflow:auto;color:var(--mute);font-size:12px;line-height:1.5;margin-top:4px}
 .md{line-height:1.55;word-break:break-word}
+.it,.sum,.md{min-width:0}
+.md>:first-child{margin-top:0}.md>:last-child{margin-bottom:0}
+.md-math{font-size:1.1em;overflow-wrap:normal;word-break:normal}
+.md-math.display{display:block;max-width:100%;overflow-x:auto;padding:6px 0}
+.md-math math{font-family:"Cambria Math",math}
+.md .math-error{font:inherit;white-space:pre-wrap;color:var(--sub)}
+.md del{color:var(--sub)}
 .md p{margin:.4em 0}.md h4{margin:.6em 0 .3em;font-size:14px}.md h5{margin:.5em 0 .3em;font-size:13px;color:var(--sub)}
 .md ul,.md ol{margin:.3em 0;padding-left:1.4em}.md li{margin:.15em 0}
 .md code{background:var(--chip-bg);border:1px solid var(--input-border);border-radius:4px;padding:0 4px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
@@ -133,6 +142,9 @@ main{padding:12px 16px}
 .update-banner .b{padding:3px 9px}
 .sum{color:var(--sum);font-size:12.5px;margin-top:2px}
 .acts{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.agent-section{margin:10px 0;border-top:1px solid var(--line);padding-top:7px}
+.agent-section>summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--sub);padding:3px 0}
+.agent-section[open]>summary{margin-bottom:7px}
 .unit-menu{position:fixed;z-index:90;min-width:190px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;padding:4px;background:var(--lane);border:1px solid var(--input-border);border-radius:8px;box-shadow:0 6px 24px #0003}
 .unit-menu button{display:block;width:100%;border:0;background:none;color:var(--ink);font:inherit;font-size:13px;text-align:left;padding:6px 10px;border-radius:4px;cursor:pointer}
 .unit-menu button:hover,.unit-menu button:focus{background:var(--btn);outline:none}
@@ -155,6 +167,7 @@ main{padding:12px 16px}
 .group-messages .msg{padding:3px 0;border-bottom:1px dashed var(--line)}
 .group-messages .msg:last-child{border-bottom:0}
 @media(max-width:850px){.group-filters{grid-template-columns:1fr 1fr}.group-filters input{grid-column:1 / -1}}
+@media(max-width:700px){header{overflow:hidden}header>#q{width:min(160px,28vw)}header>form{display:none}}
 .tag{display:inline-block;font-size:11px;border:1px solid var(--tag-border);border-radius:4px;padding:0 5px;color:var(--sub);margin:1px 2px 1px 0;cursor:pointer}
 .tag:hover{border-color:var(--tag-hover-border);color:var(--tag-hover-ink)}
 .tag.rm{cursor:pointer;background:var(--chip-bg)}.tag.rm:hover{border-color:#ef4444;color:#ef4444}
@@ -312,6 +325,16 @@ function viewerApi(path, body) {
   const url = new URL(path, location.href), p = url.pathname, q = url.searchParams;
   if (p === "/api/views") return Promise.resolve(VIEWER_DATA.views || []);
   if (p === "/api/tags") return Promise.resolve(VIEWER_DATA.tags || []);
+  const unitId = p.match(/^\/api\/unit\/(\d+)$/)?.[1];
+  if (unitId) {
+    const u = VIEWER_DATA.units.find(item => item.id === Number(unitId));
+    if (!u) return Promise.resolve({error: "Unit not included in this snapshot."});
+    const byId = new Map(VIEWER_DATA.units.map(item => [item.id, item]));
+    return Promise.resolve({...u,
+      parents: u.parents || [],
+      children: (u.children_ids || []).map(id => byId.get(id)).filter(Boolean),
+      messages: (u.message_ids || []).map(id => VIEWER_DATA.messages[id]).filter(Boolean)});
+  }
   if (p !== "/api/units" && p !== "/api/graph") return Promise.resolve({error: "Not available in Viewer."});
   const tags = (q.get("tags") || "").split(",").filter(Boolean), kinds = (q.get("kind") || "").split(",").filter(Boolean);
   const status = q.get("status") || "", needle = (q.get("q") || "").trim().toLocaleLowerCase(), days = Number(q.get("days") || 0);
@@ -585,8 +608,8 @@ function unitCard(u, depth = 0) {
     el("div", {class: "meta"}, el("span", {class: "src"}, u.kind), whenLabel(u), timeLabel(u),
        u.n_descendants ? el("span", {title: `${u.n_children || 0} direct; includes every child branch`}, `· ${u.n_descendants} subtopics`) : "",
        u.n_messages ? el("span", {title: `${u.n_direct_messages || 0} directly attached; total includes all subtopic branches`}, `· ${u.n_messages} msgs total`) : ""),
-    el("div", {class: "title"}, u.title),
-    u.summary && el("div", {class: "sum"}, linkedText(u.summary)),
+    el("div", {class: "title md"}, mdInline(u.title || "")),
+    u.summary && el("div", {class: "sum"}, renderMarkdown(u.summary)),
     tagRow);
   // ---- tags: filter chips + an in-place editor (importance presets + free-form add/remove) ----
   const editor = el("div", {class: "tag-editor"}); editor.hidden = true;
@@ -649,7 +672,7 @@ function unitCard(u, depth = 0) {
     const full = await api(`/api/unit/${u.id}?depth=1`);
     more.replaceChildren(
       ...(full.agent_task ? [agentTaskStatus(full.agent_task)] : []),
-      ...(full.parents || []).map(p => el("div", {class: "msg"}, el("i", {}, "in: "), p.title)),
+      ...(full.parents || []).map(p => el("div", {class: "msg"}, el("i", {}, "in: "), refChip("u", String(p.id), p.title))),
       ...(full.children || []).map(c => unitCard(c, depth + 1)),
       ...(full.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, `${fmt(m.sent_at)} ${m.sender_name || ""}: `), linkedText(m.text || ""))));
     more.hidden = false;
@@ -973,15 +996,15 @@ addEventListener("blur", closeUnitCards);
 document.addEventListener("visibilitychange", () => { if (document.hidden) { closeUnitCards(); closeHoverWebsite(); } });
 addEventListener("resize", () => document.querySelectorAll(".float-card").forEach(card => fitUnitCard(card)));
 async function openUnit(id, anchor = {x: MOUSE.x, y: MOUSE.y}) {
-  if (VIEWER_MODE) return;
   closeUnitCards();
   const version = unitCardVersion;
   const full = await api(`/api/unit/${id}`);
-  if (version !== unitCardVersion || !full || full.error) return;
+  if (version !== unitCardVersion) return;
   const card = el("div", {class: "float-card"});
   card.tabIndex = -1;
   const grip = el("span", {class: "fc-grip", title: "Drag to move"}, "⠿");
-  card.append(el("div", {class: "fc-bar"}, grip, el("button", {class: "b float-close", onclick: closeUnitCards}, "✕")), unitCard(full));
+  card.append(el("div", {class: "fc-bar"}, grip, el("button", {class: "b float-close", onclick: closeUnitCards}, "✕")),
+    full && !full.error ? unitCard(full) : el("div", {class: "status", role: "status"}, "Unit " + id + " is not available."));
   document.body.append(card);
   fitUnitCard(card, anchor.x + 14, anchor.y - 12);
   card.focus({preventScroll: true});
@@ -1094,6 +1117,13 @@ function agentQueueRow(task, enabled) {
   if (task.result) row.append(el('details', {}, el('summary', {}, 'Result'),
     el('div', {style:'white-space:pre-wrap;overflow-wrap:anywhere'},linkedText(task.result))));
   return row;
+}
+const AGENT_SECTIONS = {};
+function agentSection(key, title, ...content) {
+  const section = el('details', {class:'agent-section', 'data-agent-section':key}, el('summary', {},title), ...content);
+  section.open = !!AGENT_SECTIONS[key];
+  section.ontoggle = () => { AGENT_SECTIONS[key] = section.open; };
+  return section;
 }
 function agentTaskPanel() {
   const panel = el('div', {'data-agent-panel':'', role:'region', 'aria-label':'Codex tasks'}, 'Loading Codex tasks…');
@@ -1277,36 +1307,83 @@ async function buildGantt(panel, baseQ) {
   scroll.append(chart); host.replaceChildren(controls, scroll); draw();
 }
 // Assistant replies cite things: [[u:<id>]] a unit, [[g:<chat name>]] a group, [[p:<name>]] a person.
-function refChip(kind, val) {
-  if (kind === "u") { const id = parseInt(val, 10); return el("span", {class: "chip ref", title: "Open unit " + id, onclick: () => openUnit(id)}, "▸ unit " + id); }
+function refChip(kind, val, label) {
+  if (kind === "u") {
+    if (!/^\d+$/.test(val)) return document.createTextNode("[[u:" + val + "]]");
+    const id = Number(val);
+    return el("button", {type: "button", class: "chip ref", title: "Open unit " + id, onclick: e => {
+      e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); openUnit(id, {x: r.left, y: r.bottom});
+    }}, label || "▸ unit " + id);
+  }
   if (kind === "g") return el("span", {class: "chip ref", title: "Show this group", onclick: () => goTag("channel:" + val)}, "👥 " + val);
   return el("span", {class: "chip ref", title: "Show this person", onclick: () => goTag("person:" + val)}, "@ " + val);
 }
-// Minimal, dependency-free Markdown → DOM (built as text nodes/elements, never innerHTML).
-const MD_INLINE = /`([^`]+)`|\*\*([^*]+)\*\*|(?:\*|_)([^*_]+)(?:\*|_)|\[([^\]]+)\]\(((?:https?:\/\/|\/|\?)[^\s)]+)\)|\[\[([ugp]):([^\]]+)\]\]|(https?:\/\/[^\s<>"\u3000-\u303f\uff00-\uffef]+)/g;
-function mdInline(text) {
-  const frag = document.createDocumentFragment();
-  const re = new RegExp(MD_INLINE.source, "g");   // local copy: recursion must not share lastIndex
-  let last = 0, m;
-  while ((m = re.exec(text))) {
-    if (m.index > last) frag.append(text.slice(last, m.index));
-    if (m[1] != null) frag.append(el("code", {}, m[1]));
-    else if (m[2] != null) frag.append(el("b", {}, mdInline(m[2])));
-    else if (m[3] != null) frag.append(el("i", {}, mdInline(m[3])));
-    else if (m[4] != null) frag.append(previewLink(m[5], m[4]));
-    else if (m[6] != null) frag.append(refChip(m[6], m[7]));
-    else frag.append(linkedText(m[8]));
-    last = m.index + m[0].length;
+// Parse Markdown with Marked, then build DOM nodes without interpreting raw HTML.
+const MARKDOWN = new marked.Marked({gfm: true, breaks: true, extensions: [{
+  name: "citation", level: "inline", start: src => src.indexOf("[["),
+  tokenizer(src) {
+    const m = /^\[\[([ugp]):([^\]\n]+)\]\]/.exec(src);
+    if (m) return {type: "citation", raw: m[0], kind: m[1], value: m[2]};
   }
-  if (last < text.length) frag.append(text.slice(last));
+}, {
+  name: "math", level: "block", start: src => src.search(/^ {0,3}(?:\$\$|\\\[)/m),
+  tokenizer: src => mathToken(src, true)
+}, {
+  name: "math", level: "inline", start: src => src.search(/\$|\\[([]/),
+  tokenizer: src => mathToken(src, false)
+}]});
+function mathToken(src, block) {
+  const pattern = block ? /^ {0,3}(?:\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\])(?:[ \t]*\n|[ \t]*$)/
+    : /^(?:\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$(?!\s)((?:\\[^\n]|[^$\n\\])+?)(?<!\s)\$(?!\d))/;
+  const m = pattern.exec(src);
+  if (m) return {type: "math", raw: m[0], text: m.slice(1).find(x => x !== undefined), display: block || m[1] !== undefined || m[2] !== undefined};
+}
+function renderMath(text, display) {
+  const node = el("span", {class: "md-math" + (display ? " display" : "")});
+  try {
+    // Native MathML keeps the snapshot self-contained, without remote font assets.
+    katex.render(text, node, {displayMode: display, output: "mathml", throwOnError: true,
+      trust: false, strict: "ignore", maxExpand: 1000, maxSize: 20});
+  } catch (_) { node.append(el("code", {class: "math-error"}, text)); }
+  return node;
+}
+function mdInline(text) {
+  const parsed = MARKDOWN.lexer(String(text));
+  return markdownNodes(parsed[0]?.tokens || [{type: "text", text: String(text)}]);
+}
+function markdownNodes(tokens) {
+  const frag = document.createDocumentFragment();
+  for (const t of tokens) {
+    const children = () => markdownNodes(t.tokens || []);
+    switch (t.type) {
+      case "space": break;
+      case "citation": frag.append(refChip(t.kind, t.value)); break;
+      case "math": frag.append(renderMath(t.text, t.display)); break;
+      case "code": frag.append(renderCodeFence((t.lang || "").split(/\s/)[0], t.text)); break;
+      case "codespan": frag.append(el("code", {}, t.text)); break;
+      case "strong": frag.append(el("b", {}, children())); break;
+      case "em": frag.append(el("i", {}, children())); break;
+      case "del": frag.append(el("del", {}, children())); break;
+      case "br": frag.append(el("br")); break;
+      case "hr": frag.append(el("hr")); break;
+      case "heading": frag.append(el(t.depth <= 2 ? "h4" : "h5", {}, children())); break;
+      case "paragraph": frag.append(el("p", {}, children())); break;
+      case "blockquote": frag.append(el("blockquote", {}, children())); break;
+      case "link": frag.append(previewLink(t.href, t.text)); break;
+      case "image": frag.append(previewLink(t.href, t.text || t.href)); break;
+      case "list": {
+        const list = el(t.ordered ? "ol" : "ul", t.ordered ? {start: t.start} : {});
+        for (const item of t.items) list.append(el("li", {}, item.task ? el("input", {type: "checkbox", disabled: true, checked: item.checked}) : "", markdownNodes(item.tokens)));
+        frag.append(list); break;
+      }
+      case "table": {
+        const row = (cells, tag) => el("tr", {}, cells.map((c, i) => el(tag, {style: "text-align:" + (t.align[i] || "left")}, markdownNodes(c.tokens))));
+        frag.append(el("div", {class: "md-table-wrap"}, el("table", {class: "md-table"}, el("thead", {}, row(t.header, "th")), el("tbody", {}, t.rows.map(cells => row(cells, "td")))))); break;
+      }
+      default: frag.append(t.tokens ? children() : document.createTextNode(t.text || t.raw || ""));
+    }
+  }
   return frag;
-}
-function splitMdRow(line) {
-  let s = line.trim(); if (s.startsWith("|")) s = s.slice(1); if (s.endsWith("|")) s = s.slice(0, -1);
-  return s.split(/(?<!\\)\|/).map(x => x.trim().replace(/\\\|/g, "|"));
-}
-function isMdTableSep(line) {
-  const cells = splitMdRow(line); return cells.length > 0 && cells.every(c => /^:?-{3,}:?$/.test(c));
 }
 function svgNode(tag, attrs = {}, text = null) {
   const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -1368,25 +1445,7 @@ function renderCodeFence(lang, code) {
   box.append(el("div", {class: "md-html-bar"}, el("span", {}, "HTML preview"), el("span", {class: "status"}, "sandboxed")), frame, source); return box;
 }
 function renderMarkdown(md) {
-  const root = el("div", {class: "md"}), lines = (md || "").split("\n"); let i = 0;
-  const isBullet = s => /^\s*([-*+])\s+/.test(s), isNum = s => /^\s*\d+\.\s+/.test(s);
-  const isBlockStart = (s, pos) => /^```/.test(s) || /^(#{1,6})\s/.test(s) || isBullet(s) || isNum(s) || /^\s*>\s?/.test(s) || /^\s*$/.test(s) || (s.includes("|") && isMdTableSep(lines[pos + 1] || ""));
-  while (i < lines.length) {
-    const line = lines[i];
-    const fence = line.match(/^```\s*([A-Za-z0-9_-]*)\s*$/);
-    if (fence) { const buf = []; i++; while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]); if (i < lines.length) i++; root.append(renderCodeFence(fence[1], buf.join("\n"))); continue; }
-    if (line.includes("|") && i + 1 < lines.length && isMdTableSep(lines[i + 1])) {
-      const head = splitMdRow(line), aligns = splitMdRow(lines[i + 1]); i += 2; const table = el("table", {class: "md-table"}), thead = el("thead"), tr = el("tr");
-      head.forEach((cell, n) => { const th = el("th", {}, mdInline(cell)); if (/^:/.test(aligns[n] || "")) th.style.textAlign = /^:-/.test(aligns[n]) ? "left" : "center"; if (/-:$/.test(aligns[n] || "")) th.style.textAlign = "right"; tr.append(th); }); thead.append(tr); table.append(thead);
-      const tbody = el("tbody"); while (i < lines.length && lines[i].includes("|") && lines[i].trim()) { const row = el("tr"); splitMdRow(lines[i++]).forEach(cell => row.append(el("td", {}, mdInline(cell)))); tbody.append(row); } table.append(tbody); root.append(el("div", {class: "md-table-wrap"}, table)); continue;
-    }
-    if (/^\s*$/.test(line)) { i++; continue; }
-    const h = line.match(/^(#{1,6})\s+(.*)$/); if (h) { root.append(el(h[1].length <= 2 ? "h4" : "h5", {}, mdInline(h[2]))); i++; continue; }
-    if (/^\s*>\s?/.test(line)) { const buf = []; while (i < lines.length && /^\s*>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, "")); const bq = el("blockquote", {}); bq.append(mdInline(buf.join("\n"))); root.append(bq); continue; }
-    if (isBullet(line) || isNum(line)) { const ordered = isNum(line), list = el(ordered ? "ol" : "ul", {}); while (i < lines.length && (ordered ? isNum(lines[i]) : isBullet(lines[i]))) list.append(el("li", {}, mdInline(lines[i++].replace(/^\s*([-*+]|\d+\.)\s+/, "")))); root.append(list); continue; }
-    const buf = [line]; i++; while (i < lines.length && !isBlockStart(lines[i], i)) buf.push(lines[i++]); const p = el("p", {}); buf.join("\n").split("\n").forEach((pl, idx) => { if (idx) p.append(el("br")); p.append(mdInline(pl)); }); root.append(p);
-  }
-  return root;
+  return el("div", {class: "md"}, markdownNodes(MARKDOWN.lexer(String(md || ""))));
 }
 async function copyText(text, btn) {
   let copied = false;
@@ -1800,10 +1859,15 @@ const TABS = {
     const agentTable = el('table', {class: 'kv'},
       field('agent_tasks.enabled', '@infohub tasks from me', 'bool'),
       field('agent_tasks.workspace', 'Agent working directory'),
+      field('agent_tasks.codex_command', 'Codex executable'),
       el('tr', {}, el('td', {}, 'Agent permissions'), el('td', {}, agentPermissions)));
     const agentDirectory = agentTable.querySelector('input[type=text]');
     agentDirectory.placeholder = 'Separate temporary folder per task';
     agentDirectory.style.width = 'min(360px,100%)';
+    const agentCommand = agentTable.querySelector('[id="f_agent_tasks.codex_command"]');
+    agentCommand.placeholder = 'codex';
+    agentCommand.setAttribute('aria-label', 'Codex executable');
+    agentCommand.style.width = 'min(360px,100%)';
     const agentList = el('div');
     const refreshAgentTasks = async () => {
       const tasks = await api('/api/agent-tasks');
@@ -2036,8 +2100,8 @@ const TABS = {
     drawVip();
     return el("div", {class: "grid g2"},
       lane("Settings", null, [el("div", {class: "day"}, "Database backups"), backupTable, backupInfo, backupButton,
-        el("div", {class: "day"}, "Local agent tasks"), agentTable,
-        el('button', {class: 'b', onclick: refreshAgentTasks}, 'Refresh tasks'), agentList,
+        agentSection('settings','Local agent tasks', agentTable,
+          el('button', {class: 'b', onclick: refreshAgentTasks}, 'Refresh tasks'), agentList),
         el("div", {class: "day"}, "Assistant task scheduler"), scheduleForm, scheduleList,
         el("div", {class: "day"}, "General"), settingsTable, el("div", {class: "empty"},
         "Saved to config/settings.local.json. Chat policies live in the database."),
@@ -2095,7 +2159,7 @@ const TABS = {
     }
     return el("div", {class: "grid g2"},
       lane("Overview", null, [overview, el("div", {class: "day"}, "AI"), aiBox,
-        el("div", {class:"day"}, "Codex tasks"), agentTaskPanel(),
+        agentSection('status','Codex tasks',agentTaskPanel()),
         el("div", {class: "day"}, "Needs attention"), ...problems,
         el("div", {class: "day"}, "Units by kind"), units]),
       lane("Run log (newest first)", s.runs.length, log.length ? log : [el("div", {class: "empty"}, "No runs yet.")]));
@@ -2268,6 +2332,7 @@ setInterval(() => { if (!document.hidden && document.activeElement !== $("q") &&
 // (the desktop shell holds one page for the whole session).
 let WEB_BUILD = null;
 async function checkDashboardBuild() {
+  if (VIEWER_MODE) return;
   try {
     const r = await fetch("/api/health", {cache: "no-store"});
     const d = await r.json();

@@ -65,6 +65,7 @@ from . import scheduler as scheduler_mod
 from . import agent_api
 
 WEB = Path(__file__).resolve().parent / "web"
+WEB_SCRIPTS = ("marked.umd.js", "katex.min.js")
 _AI_KICK_LOCK = threading.Lock()
 
 
@@ -154,6 +155,9 @@ def viewer_page(store) -> bytes:
     """Serve one self-contained page; the browser has no API endpoint to call."""
     payload = json.dumps(viewer_payload(store), ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     source = (WEB / "index.html").read_text(encoding="utf-8")
+    for name in WEB_SCRIPTS:
+        script = (WEB / "vendor" / name).read_text(encoding="utf-8").replace("</script", "<\\/script")
+        source = source.replace(f'<script src="./vendor/{name}"></script>', f"<script>{script}</script>")
     source = source.replace("<title>Info Hub</title>", "<title>Info Hub Viewer</title>", 1)
     source = source.replace("<script>", f"<script>window.__INFOHUB_VIEWER__={payload};</script><script>", 1)
     return source.encode("utf-8")
@@ -312,21 +316,22 @@ def _gnode(u, seed: bool) -> dict:
 
 
 def unit_query_params(qs, now=None):
-    """One filter/order contract for List and Graph."""
+    """One filter/order contract for List, Graph and Gantt."""
     days = float(qs["days"]) if qs.get("days") else None
+    now = time.time() if now is None else now
     return {"tags": [t for t in qs.get("tags", "").split(",") if t],
             "kind": [k for k in qs.get("kind", "").split(",") if k] or None,
             "status": qs.get("status") or None, "q": qs.get("q") or None,
-            "since": (time.time() if now is None else now) - days * 86400 if days else None,
+            "since": now - days * 86400 if days else None, "until": now if days else None,
             "roots_only": qs.get("roots") == "1", "order": qs.get("order", "activity"),
             "limit": max(1, min(1000, int(qs.get("limit", 400)))), "mine": qs.get("mine") == "1"}
 
 
 def graph(store, tags=(), kind=None, status=None, q=None, since=None, mine=False, limit=300,
-          order="activity", roots_only=False, include_context=False) -> dict:
+          order="activity", roots_only=False, include_context=False, until=None) -> dict:
     """Strict matching nodes by default; optional one-hop context is explicitly marked."""
     seed = U.query(store, tags, kind=kind, status=status, q=q, since=since, order=order,
-                   roots_only=roots_only, limit=limit, mine=mine)
+                   roots_only=roots_only, limit=limit, mine=mine, until=until)
     nodes = {u["id"]: _gnode(u, seed=True) for u in seed}
     if include_context and nodes:
         ids = list(nodes)
@@ -553,6 +558,8 @@ def serve(cfg, store, poll_fn):
             with lock:
                 if u.path in ("/", "/index.html"):
                     return self._send(200, (WEB / "index.html").read_bytes(), "text/html; charset=utf-8")
+                if u.path in {"/vendor/" + name for name in WEB_SCRIPTS}:
+                    return self._send(200, (WEB / "vendor" / u.path.rsplit("/", 1)[1]).read_bytes(), "text/javascript; charset=utf-8")
                 if u.path == "/api/summary":
                     return self._send(200, summary(store, float(qs.get("hours", 24)), qs.get("q", "")))
                 if u.path == "/api/channel/messages":
@@ -626,7 +633,9 @@ def serve(cfg, store, poll_fn):
                     return self._send(200 if unit else 404, unit or {"error": "not found"})
                 if u.path == "/api/tags":
                     days = float(qs["days"]) if qs.get("days") else None
-                    return self._send(200, U.tag_counts(store, since=time.time() - days * 86400 if days else None,
+                    now = time.time()
+                    return self._send(200, U.tag_counts(store, since=now - days * 86400 if days else None,
+                                                        until=now if days else None,
                                                         prefix=qs.get("prefix")))
                 if u.path == "/api/views":
                     return self._send(200, cfg["apps"]["views"])
