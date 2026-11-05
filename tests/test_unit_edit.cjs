@@ -5,7 +5,7 @@ const {chromium} = require('playwright');
 test('unit menu edits details, preserves drafts and supports compact viewports', async () => {
   const browser = await chromium.launch({channel:'msedge',headless:true});
   try {
-    const page = await browser.newPage({viewport:{width:1280,height:900}});
+    const page = await browser.newPage({locale: 'en-US', viewport:{width:1280,height:900}});
     const errors = []; page.on('pageerror', e => errors.push(e.message));
     let u = {id:7,title:'Discuss the project',summary:'Original details',kind:'todo',status:'open',priority:'P2',
       tags:['project:demo','type:todo','source:demo'],created_at:1700000000,start_at:1700000000,end_at:1700003600};
@@ -14,7 +14,7 @@ test('unit menu edits details, preserves drafts and supports compact viewports',
       const path = new URL(route.request().url()).pathname;
       let data = [];
       if (path === '/api/health') data={ok:true,unit_edit:1};
-      if (path === '/api/today') data = {needs:[u],events:[],unscheduled_events:[],unsorted:[]};
+      if (path === '/api/today') data = {todo:{overdue:[],upcoming:[],undated:[u]},schedule:{now:[],upcoming:[],tbd:[],past:[]},recent:{days:7,units:[],units_total:0,messages:[],messages_total:0}};
       if (path === '/api/unit/7') {
         if (route.request().method() === 'POST') { const b=route.request().postDataJSON(); writes.push(b); u={...u,...b}; data={ok:true}; }
         else data = {...u,parents:[],children:[],messages:[]};

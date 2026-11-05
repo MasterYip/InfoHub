@@ -16,7 +16,7 @@ flowchart BT
     AG --> G
   end
   subgraph L3[Layer 3 · applications]
-    DASH[dashboard: Today · Todos · Calendar · Groups · Explore · saved views]
+    DASH[dashboard: Today · Groups · Explore · saved views]
     REM[reminders]
     API[JSON API + brief for agents]
   end
@@ -42,9 +42,9 @@ This is the first-layer, no-AI flag mechanism (`infohub/sync/triage.py`), run on
   - a **priority rule** matching (`rules` in the config), e.g. `deadlines-meetings`;
   - a **VIP** sender → P1, but only for substantial messages, never trivial acks.
 - **"Actionable"** gate: the `deadlines-meetings` rule only fires when a message states a real **obligation** (截止, 作业, 提交, deadline…) **plus** a date or an instruction aimed at the reader — and is not someone recalling something (`我记得…`), a done-notice (`已提交…`), or a one-liner. The same `NOT_A_TASK` / `ASK` / `OBLIGATION` logic is shared with the Layer-2 rule organizer, so a chat line like `他好久没提交过了` is never flagged.
-- **"For me"**: a unit is *yours* only when its evidence is **directed at you** — it @mentions you, it is your own message, or it is a one-to-one chat. A VIP person's own task stays theirs. The global **For me / Everything** toggle filters every tab by this flag.
+- **"For me"**: a unit is *yours* only when its evidence is **directed at you** — it @mentions you, it is your own message, or it is a one-to-one chat. A VIP person's own task stays theirs. You can correct the detection per unit (right-click → **Not for me** / **Mark as for me**); that choice is stored in `overrides` (`kind='unit_for_me'`) and survives every later re-detection. The **For me / Everything** toggle filters Today and Explore, and is only shown on those tabs.
 
-The **"Flagged, not sorted yet"** lane on Today shows only P0/P1 messages that are actionable or @mention you and that no organizer has turned into a unit yet — a safety net, not a dumping ground. For watched chats, the real context-aware attention items are the AI's topics (Layer 2), surfaced under "For me".
+The **"Flagged messages, not organized yet"** group on Today shows only P0/P1 messages that are actionable or @mention you and that no organizer has turned into a unit yet (under For me: @mentions, direct chats and VIP senders) — a safety net, not a dumping ground. For watched chats, the real context-aware attention items are the AI's topics (Layer 2), surfaced under "For me".
 
 ## Layer 2 — reorganization
 **Info unit** = one main idea. `kind` is one of topic, todo, event, decision, question, announcement, resource, digest or note. A unit has a title (the idea, not a sentence), a summary, status, due/start times and an origin (rule, ai, agent, user, sync). It also has:
@@ -60,7 +60,7 @@ Organizers:
 Providers (`organize/providers.py`): `openai_compatible` (DeepSeek by default, stdlib HTTP, JSON-object output with the schema in the system prompt) or `anthropic` (Claude, JSON-schema structured output, cached system prompt). Keys come from the environment variable named in `ai.api_key_env`. 401/402/404 errors stop the run and leave jobs queued; 429/5xx/network errors back off per job.
 
 ## Layer 3 — applications
-- **Dashboard** tabs: Today (needs you, todos due within 7 days, events), Todos, Calendar (events and deadlines by day), Groups (per-chat digest with its units), Explore (multi-tag AND filter plus the expandable unit tree with evidence), saved views (`apps.views`, e.g. Homework), and Status (per-layer runs, AI queue and spend).
+- **Dashboard** tabs: Today (see [today.md](today.md): To do, Schedule and Recent), Groups (per-chat digest with its units), Explore (multi-tag AND filter plus the expandable unit tree with evidence), saved views (`apps.views`, e.g. Homework), and Status (per-layer runs, AI queue and spend).
 - **Reminders**: Windows toast notifications for todos due within `todo_lead_hours` and events within `event_lead_minutes`. Each unit is reminded once.
 - **Agent interface**: `GET /api/units`, `/api/unit/<id>?depth=2`, `/api/tags`, `/api/brief`, `/api/search`; `POST /api/units` and `/api/unit/<id>`. `python -m infohub brief` writes the same brief as Markdown for agent-team tasks.
 

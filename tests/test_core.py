@@ -633,13 +633,16 @@ class Layer3(unittest.TestCase):
         ev = U.upsert(self.store, "e", kind="event", title="Group meeting", start_at=now + 1800)
         self.store.db.commit()
         d = today(self.store)
-        self.assertEqual([u["id"] for u in d["needs"]], [todo])          # to-do lane is units only
-        self.assertEqual([u["id"] for u in d["events"]], [ev])
+        self.assertEqual([u["id"] for u in d["todo"]["upcoming"]], [todo])   # to-do lane is units only
+        self.assertEqual([u["id"] for u in d["schedule"]["upcoming"]], [ev])
         # a flagged message nobody organized yet stays visible, and can be promoted
-        self.assertEqual([m["text"] for m in d["unsorted"]], ["会议改到明天 DDL 提醒"])
-        U.attach(self.store, todo, [d["unsorted"][0]["id"]])
+        unsorted = d["recent"]["messages"]
+        self.assertEqual([m["text"] for m in unsorted], ["会议改到明天 DDL 提醒"])
+        self.assertEqual(d["recent"]["messages_total"], 1)
+        self.assertEqual(today(self.store, mine=True)["recent"]["messages"], [])   # group chat, not for me
+        U.attach(self.store, todo, [unsorted[0]["id"]])
         self.store.db.commit()
-        self.assertEqual(today(self.store)["unsorted"], [])              # once it has a unit, it drops out
+        self.assertEqual(today(self.store)["recent"]["messages"], [])    # once it has a unit, it drops out
         self.assertEqual(len(search(self.store, "会议")), 1)
         # general search also finds people, chats and tags
         self.store.upsert_channel("lark", "org1", "oc_lab", "Robotics Lab", 1, "watch")
@@ -658,7 +661,7 @@ class Layer3(unittest.TestCase):
         self.assertEqual(summary(self.store, 24)["counts"][0]["messages"], 1)        # Ignore a unit (status dropped) leaves every list; every unit carries an activity time
         self.assertIsNotNone(U.query(self.store, kind="todo")[0]["last_activity_at"])
         U.update(self.store, todo, status="dropped"); self.store.db.commit()
-        self.assertEqual([u["id"] for u in today(self.store)["needs"]], [])
+        self.assertEqual(today(self.store)["todo"]["upcoming"], [])
         self.assertEqual(U.query(self.store, kind="todo"), [])
         self.assertEqual(len(U.query(self.store, kind="todo", status="dropped")), 1)
 

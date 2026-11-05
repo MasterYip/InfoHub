@@ -80,28 +80,45 @@ class Explore(unittest.TestCase):
         self.assertEqual(node["n_messages"], 8)
         self.assertEqual(node["n_direct_messages"], 1)
 
-    def test_unscheduled_events_respect_scope_status_and_scheduling(self):
-        mine = self.unit("Meeting time TBD", kind="event", for_me=True)
+    def ids(self, rows):
+        return [u["id"] for u in rows]
+
+    def today(self, **kwargs):
+        return server.today(self.store, now=self.now, **kwargs)
+
+    def test_schedule_groups_respect_scope_status_and_time(self):
+        tbd = self.unit("Meeting time TBD", kind="event", for_me=True)
         other = self.unit("Another meeting", kind="event")
         self.unit("Finished meeting", kind="event", status="done", for_me=True)
         self.unit("Ignored meeting", kind="event", status="dropped", for_me=True)
-        scheduled = self.unit("Scheduled meeting", kind="event", start_at=self.now + 3600, for_me=True)
-        self.unit("Future meeting", kind="event", start_at=self.now + 30 * 86400, for_me=True)
-        with patch("infohub.apps.server.time.time", return_value=self.now):
-            result = server.today(self.store, mine=True)
-            self.assertEqual([u["id"] for u in result["unscheduled_events"]], [mine])
-            self.assertEqual([u["id"] for u in result["events"]], [scheduled])
-            self.assertEqual({u["id"] for u in server.today(self.store)["unscheduled_events"]}, {mine, other})
-            # The Calendar query uses the same scope and unscheduled predicate.
-            rows = U.query(self.store, kind="event", status="open", mine=True, unscheduled=True, limit=1)
-            self.assertEqual([u["id"] for u in rows], [mine])
-            U.update(self.store, mine, start_at=self.now + 7200)
-            result = server.today(self.store, mine=True)
-            self.assertEqual(result["unscheduled_events"], [])
-            self.assertIn(mine, {u["id"] for u in result["events"]})
+        soon = self.unit("Scheduled meeting", kind="event", start_at=self.now + 3600, for_me=True)
+        later = self.unit("Future meeting", kind="event", start_at=self.now + 30 * 86400, for_me=True)
+        ongoing = self.unit("Long workshop", kind="event", start_at=self.now - 2 * 86400,
+                            end_at=self.now + 86400, for_me=True)
+        past = self.unit("Seminar last week", kind="event", start_at=self.now - 5 * 86400, for_me=True)
+        deadline = self.unit("Grant report", kind="announcement", due_at=self.now + 2 * 86400, for_me=True)
+        U.add_tags(self.store, deadline, ["type:deadline"])
+        homework = self.unit("Problem set 3 posted", kind="note", due_at=self.now + 3 * 86400, for_me=True)
+        homework_tbd = self.unit("Lab report, date to follow", kind="announcement", for_me=True)
+        U.add_tags(self.store, homework, ["type:homework"])
+        U.add_tags(self.store, homework_tbd, ["type:homework"])
+        self.store.db.commit()
+        s = self.today(mine=True)["schedule"]
+        self.assertEqual(self.ids(s["now"]), [ongoing])           # started long ago, not over yet
+        self.assertEqual(self.ids(s["upcoming"]), [soon, deadline, homework, later])
+        self.assertIn(homework_tbd, self.ids(s["tbd"]))           # homework without a date never ages out
+        # far events stay visible, not cut: `upcoming` has no horizon
+        self.assertEqual(self.ids(s["tbd"]), [tbd, homework_tbd])
+        self.assertEqual(self.ids(s["past"]), [past])             # never silently dropped while open
+        self.assertNotIn(deadline, self.ids(self.today(mine=True, days=0, limit=500)["recent"]["units"]))  # no duplicate
+        self.assertEqual(set(self.ids(self.today()["schedule"]["tbd"])), {tbd, other, homework_tbd})
+        U.update(self.store, tbd, start_at=self.now + 7200)
+        s = self.today(mine=True)["schedule"]
+        self.assertEqual(self.ids(s["tbd"]), [homework_tbd])
+        self.assertIn(tbd, self.ids(s["upcoming"]))
 
-    def test_today_keeps_all_open_personal_todos_regardless_of_age(self):
-        old = self.now - 30 * 86400
+    def test_open_todos_and_questions_never_age_out(self):
+        old = self.now - 60 * 86400
         def aged(title, **kwargs):
             uid = self.unit(title, **kwargs)
             self.store.q("UPDATE units SET last_activity_at=?,created_at=? WHERE id=?", (old, old, uid))
@@ -109,22 +126,76 @@ class Explore(unittest.TestCase):
             return uid
 
         undated = {aged(f"Old task {i}", kind="todo", for_me=True) for i in range(105)}
+        question = aged("Old question", kind="question", for_me=True)          # e.g. unit 826
         future = aged("Future task", kind="todo", for_me=True, due_at=self.now + 30 * 86400)
+        week = aged("Due Friday", kind="question", for_me=True, due_at=self.now + 2 * 86400)
         overdue = aged("Overdue task", kind="todo", for_me=True, due_at=self.now - 86400)
         aged("Other person's task", kind="todo")
-        aged("Old question", kind="question", for_me=True)
-        aged("Old decision", kind="decision", for_me=True)
+        aged("Old decision", kind="decision", for_me=True)                       # a record, not a task
         aged("Completed task", kind="todo", for_me=True, status="done")
         aged("Ignored task", kind="todo", for_me=True, status="dropped")
-        with patch("infohub.apps.server.time.time", return_value=self.now):
-            needs = server.today(self.store, mine=True)["needs"]
-            self.assertEqual({u["id"] for u in needs}, undated | {future, overdue})
-            self.assertEqual(len(needs), len(undated) + 2)
-            self.assertEqual([u["id"] for u in needs[:2]], [overdue, future])
-            self.assertTrue(all(u["due_at"] is None for u in needs[2:]))
-            self.assertEqual([u["id"] for u in server.today(self.store)["needs"]], [overdue])
-            U.update(self.store, future, status="done")
-            self.assertNotIn(future, {u["id"] for u in server.today(self.store, mine=True)["needs"]})
+        t = self.today(mine=True)["todo"]
+        self.assertEqual(self.ids(t["overdue"]), [overdue])
+        self.assertEqual(self.ids(t["upcoming"]), [week, future])            # sorted by due date
+        self.assertEqual(set(self.ids(t["undated"])), undated | {question})    # no hidden 100-row cap
+        self.assertEqual(len(self.today()["todo"]["undated"]), len(undated) + 2)
+        U.update(self.store, future, status="done")
+        self.assertEqual(self.ids(self.today(mine=True)["todo"]["upcoming"]), [week])
+
+    def test_recent_window_pages_with_true_totals(self):
+        for i in range(45):
+            self.unit(f"Note {i}", kind="note", for_me=True)
+        old = self.unit("Old note", kind="note", for_me=True)
+        self.store.q("UPDATE units SET last_activity_at=?, created_at=? WHERE id=?",
+                     (self.now - 20 * 86400, self.now - 20 * 86400, old))
+        self.store.db.commit()
+        r = self.today(mine=True, limit=10)["recent"]
+        self.assertEqual(len(r["units"]), 10)
+        self.assertEqual(r["units_total"], 46)                       # 45 recent notes + the topic fixture
+        self.assertNotIn(old, self.ids(self.today(mine=True, limit=500)["recent"]["units"]))
+        r30 = self.today(mine=True, days=30, limit=500)["recent"]
+        self.assertIn(old, self.ids(r30["units"]))
+        self.assertEqual(r30["units_total"], len(r30["units"]))
+        self.assertEqual(self.today(days=5)["recent"]["days"], 7)    # unknown windows fall back
+
+    def test_type_quick_filters_hide_per_lane_and_keep_counts(self):
+        task = self.unit("Plain task", kind="todo", for_me=True)
+        homework = self.unit("Homework task", kind="todo", for_me=True)
+        question = self.unit("Open question", kind="question", for_me=True)
+        notice = self.unit("Report due", kind="announcement", due_at=self.now + 86400, for_me=True)
+        U.add_tags(self.store, homework, ["type:homework"])
+        U.add_tags(self.store, notice, ["type:deadline"])
+        self.store.db.commit()
+        everything = self.today(mine=True)
+        self.assertEqual(everything["types"]["todo"], {"todo": 2, "homework": 1, "question": 1})
+        # Hiding todo keeps the homework todo (it is still homework) and the question.
+        d = self.today(mine=True, hide={"todo": ["todo"]})
+        self.assertEqual({u["id"] for g in d["todo"].values() for u in g}, {homework, question})
+        self.assertEqual(d["types"]["todo"], everything["types"]["todo"])        # chips keep their counts
+        # Only deadline: hide every other type in Schedule.
+        d = self.today(mine=True, hide={"schedule": ["announcement", "event"]})
+        self.assertEqual([u["id"] for g in d["schedule"].values() for u in g], [notice])
+        d = self.today(mine=True, hide={"schedule": ["announcement", "deadline"]})
+        self.assertEqual([u for g in d["schedule"].values() for u in g], [])
+        self.assertNotIn(notice, self.ids(d["recent"]["units"]))                 # filtered out, not moved
+        # Recent filters before paging, so the total stays exact.
+        r = self.today(mine=True, hide={"recent": ["topic"]})["recent"]
+        self.assertEqual(r["units_total"], 0)
+        self.assertNotIn(task, self.ids(r["units"]))
+
+    def test_manual_for_me_pin_survives_recompute(self):
+        theirs = self.unit("Someone else's task", kind="todo")
+        mine = self.unit("Misdetected as mine", kind="todo", for_me=True)
+        U.set_for_me(self.store, theirs, True)
+        U.set_for_me(self.store, mine, False)
+        U.recompute_for_me(self.store, [])
+        self.store.db.commit()
+        self.assertEqual(self.ids(self.today(mine=True)["todo"]["undated"]), [theirs])
+        row = U.query(self.store, q="Misdetected")[0]
+        self.assertEqual((row["for_me"], row["for_me_pinned"]), (0, False))
+        self.assertIn(theirs, self.ids(U.query(self.store, kind="todo", mine=True)))   # Explore agrees
+        U.set_for_me(self.store, theirs, None)
+        self.assertEqual(self.today(mine=True)["todo"]["undated"], [])
 
     def test_aggregate_sorts_happen_before_limit(self):
         self.assertEqual(U.get(self.store, self.standalone)["n_direct_messages"], 4)
@@ -381,6 +452,7 @@ const document={querySelectorAll:()=>lanes};
 const window={scrollY:0,scrollTo(x,y){this.scrollY=y;}};
 const requestAnimationFrame=fn=>fn();
 const drawTabs=()=>{}, drawScope=()=>{}, enhanceGrids=()=>{};
+const _t=(text,vars)=>vars?text.replace(/\{(\w+)\}/g,(m,k)=>vars[k]??m):text, LOCALE=()=>'en-US';
 const el=(tag,attrs,...kids)=>({tag,attrs,kids});
 const lane=(title,...rest)=>({title,rest});
 const pendingViews=[],pendingSearches=[];

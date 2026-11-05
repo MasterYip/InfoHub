@@ -206,9 +206,36 @@ border-radius:14px;padding:28px;width:min(340px,90vw)}h1{font-size:18px;margin:0
 font-size:13px;color:#93a2b6;margin:10px 0 4px}input{width:100%;box-sizing:border-box;background:#1c2430;
 border:1px solid #2a3442;border-radius:8px;color:#e8eef6;padding:9px 10px;font-size:15px}button{margin-top:18px;
 width:100%;background:#2563eb;color:#fff;border:0;border-radius:8px;padding:10px;font-size:15px;cursor:pointer}
-.err{color:#f87171;font-size:13px;margin-top:10px;min-height:1em}</style></head><body>
-<form method="post" action="/login"><h1>Info Hub</h1>
+.err{color:#f87171;font-size:13px;margin-top:10px;min-height:1em}h1{display:flex;justify-content:space-between;align-items:center}
+#lang{width:auto;margin:0;padding:3px 9px;font-size:12px;background:none;border:1px solid #2a3442;color:#93a2b6}</style></head><body>
+<form method="post" action="/login"><h1>Info Hub <button type="button" id="lang"></button></h1>
 <input type="hidden" name="next" value="__NEXT__">
-<label for="u">Account</label><input id="u" name="username" autocomplete="username" required autofocus>
-<label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
-<button type="submit">Log in</button><div class="err">__ERROR__</div></form></body></html>"""
+<label for="u" data-zh="账号">Account</label><input id="u" name="username" autocomplete="username" required autofocus>
+<label for="p" data-zh="密码">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
+<button type="submit" data-zh="登录">Log in</button><div class="err">__ERROR__</div></form>
+<script>
+// Same language choice as the dashboard (localStorage "lang"), defaulting to the browser language.
+(function () {
+  var ZH = {"Wrong account or password.": "账号或密码错误。",
+            "Too many attempts. Try again in 15 minutes.": "尝试次数过多，请 15 分钟后再试。"};
+  var nodes = document.querySelectorAll("[data-zh]"), err = document.querySelector(".err"), raw = err.textContent;
+  for (var i = 0; i < nodes.length; i++) nodes[i].setAttribute("data-en", nodes[i].textContent);
+  function apply(lang) {
+    var zh = lang === "zh";
+    for (var i = 0; i < nodes.length; i++) nodes[i].textContent = nodes[i].getAttribute(zh ? "data-zh" : "data-en");
+    err.textContent = zh && ZH[raw] ? ZH[raw] : raw;
+    document.documentElement.lang = zh ? "zh-CN" : "en";
+    document.title = zh ? "Info Hub · 登录" : "Info Hub · Login";
+    document.getElementById("lang").textContent = zh ? "EN" : "中文";
+  }
+  var lang = null;
+  try { lang = localStorage.getItem("lang"); } catch (e) {}
+  if (lang !== "zh" && lang !== "en") lang = /^zh/i.test(navigator.language || "") ? "zh" : "en";
+  apply(lang);
+  document.getElementById("lang").onclick = function () {
+    lang = lang === "zh" ? "en" : "zh";
+    try { localStorage.setItem("lang", lang); } catch (e) {}
+    apply(lang);
+  };
+})();
+</script></body></html>"""

@@ -28,7 +28,7 @@
   --chip-bg:#f1f3f6;--chip-ink:#5b6474;
   --scroll:#c7cfda;--scroll-hover:#aab3bf;--dash:#d4dae2;--stripe:#f3f5f8;
   --p3:#cbd2db}
-.viewer-mode #scopeToggle,.viewer-mode #q,.viewer-mode #poll,.viewer-mode #status,.viewer-mode header form{display:none!important}
+.viewer-mode #scopeToggle,.viewer-mode #q,.viewer-mode #poll,.viewer-mode #status,.viewer-mode header form,.viewer-mode #navIcons,.viewer-mode .hdr-sep{display:none!important}
 .window-controls,.window-edge{display:none}
 .desktop-icon{display:block;width:24px;height:24px;color:var(--link);margin-right:7px;flex:none}
 #app-brand{display:flex;align-items:center;user-select:none;cursor:default}
@@ -59,7 +59,7 @@
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,"Segoe UI","Microsoft YaHei",sans-serif}
 header{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;padding:10px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:3}
 header b{font-size:16px;margin-right:8px;flex:0 0 auto}
-header>#themeBtn,header>#scopeToggle,header>#q,header>#poll,header>.status,header>form{flex:0 0 auto}
+header>.icon-btn,header>.hdr-group,header>.hdr-sep,header>.seg,header>#scopeToggle,header>#q,header>#poll,header>.status,header>form{flex:0 0 auto}
 #tabs{display:flex;gap:2px;flex:1 1 auto;min-width:40px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
 #tabs::-webkit-scrollbar{display:none}
 .tab{background:none;border:0;color:var(--sub);padding:6px 11px;border-radius:7px;cursor:pointer;font-size:13.5px;flex:0 0 auto;white-space:nowrap}
@@ -69,10 +69,36 @@ input,select,textarea{font:inherit;line-height:1.45;background:var(--input-bg);b
 input{width:220px}select{min-height:34px}textarea{min-height:104px;resize:vertical}
 input:focus,select:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--link) 28%,transparent);outline-offset:1px;border-color:var(--link)}
 input[type=checkbox]{width:16px;height:16px;min-height:16px;padding:0;accent-color:var(--link);vertical-align:middle}
-button.b{background:var(--btn);color:var(--btn-ink);border:0;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer}
+button.b{background:var(--btn);color:var(--btn-ink);border:0;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;white-space:nowrap}
 button.b:hover{background:var(--btn-hover)}
 button.b.ok-btn{background:#1f6f43;color:#dff3e6}
-#themeBtn{background:none;border:1px solid var(--input-border);color:var(--sub);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:13px}
+/* Right-hand header controls, same shape as ARK: 32px outlined icon buttons, EN | 中 segment. */
+.hdr-group{display:flex;gap:4px;align-items:center}
+.hdr-sep{width:1px;height:20px;background:var(--line);margin:0 2px}
+.icon-btn{display:inline-grid;place-items:center;width:32px;height:32px;padding:0;background:none;border:1px solid var(--input-border);border-radius:8px;color:var(--sub);cursor:pointer}
+.icon-btn svg{width:17px;height:17px}
+.icon-btn:hover{color:var(--ink);border-color:var(--link)}
+.icon-btn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.icon-btn:focus-visible,.seg button:focus-visible{outline:2px solid var(--link);outline-offset:1px}
+.seg{display:inline-flex;height:32px;border:1px solid var(--input-border);border-radius:8px;overflow:hidden}
+.seg button{background:none;border:0;color:var(--mute);padding:0 9px;font:600 12px system-ui,"Microsoft YaHei",sans-serif;cursor:pointer}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--btn);color:var(--btn-ink)}
+.today-sec{margin:0 0 6px}
+.today-sec>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--sub);margin:8px 2px 6px;user-select:none}
+.today-sec>summary::-webkit-details-marker{display:none}
+.today-sec>summary::before{content:"▸";color:var(--mute);font-size:10px;width:10px}
+.today-sec[open]>summary::before{content:"▾"}
+.today-sec>summary .n{font-weight:500;color:var(--mute);background:var(--chip-bg);border-radius:99px;padding:0 7px;font-size:11px}
+.today-sec.alert>summary{color:var(--p0)}
+.today-sec .day{margin:8px 2px 4px 14px;font-weight:500;color:var(--mute)}
+.lane-tools{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:-4px 0 6px}
+.lane-tools .chip{padding:1px 9px}
+.type-chips{margin:0 0 8px;gap:3px}
+.type-chips .chip{font-size:11.5px;padding:0 8px}
+.type-chips .chip i.cnt{display:inline;width:auto;height:auto;background:none;margin:0 0 0 2px;color:inherit;opacity:.65}
+.more-row{display:flex;align-items:center;gap:8px;margin:2px 2px 8px;font-size:12px;color:var(--mute)}
+.pin-note{color:#fbbf24}
 .status{font-size:12px;color:var(--mute)}
 main{padding:12px 16px}
 .grid{display:grid;gap:12px;align-items:start}
@@ -167,7 +193,10 @@ main{padding:12px 16px}
 .group-messages .msg{padding:3px 0;border-bottom:1px dashed var(--line)}
 .group-messages .msg:last-child{border-bottom:0}
 @media(max-width:850px){.group-filters{grid-template-columns:1fr 1fr}.group-filters input{grid-column:1 / -1}}
-@media(max-width:700px){header{overflow:hidden}header>#q{width:min(160px,28vw)}header>form{display:none}}
+header>#q{width:clamp(120px,13vw,220px)}
+@media(max-width:1250px){header>#status{display:none}}   /* give the tabs room; the time is informational */
+/* Phones: tabs get their own scrollable row so every header control stays reachable. */
+@media(max-width:700px){header{flex-wrap:wrap;row-gap:6px;padding:8px 10px}#tabs{order:5;flex:1 1 100%}header>#q{flex:1 1 90px;width:auto;min-width:0}header>#status{display:none}header>form{display:none}}
 .tag{display:inline-block;font-size:11px;border:1px solid var(--tag-border);border-radius:4px;padding:0 5px;color:var(--sub);margin:1px 2px 1px 0;cursor:pointer}
 .tag:hover{border-color:var(--tag-hover-border);color:var(--tag-hover-ink)}
 .tag.rm{cursor:pointer;background:var(--chip-bg)}.tag.rm:hover{border-color:#ef4444;color:#ef4444}
@@ -278,16 +307,24 @@ padding:4px 6px;border-radius:6px;font-size:12.5px;border-left:3px solid transpa
   <b id="app-brand"><svg class="desktop-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="currentColor"><path d="M22 7H52V47L42 57H12V17Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><circle cx="32" cy="20.5" r="3.5"/><path d="M24 29.5 35.5 28V42.5Q35.5 45 40 45V48H24V45Q28.5 45 28.5 42.5V33Q28.5 32 24 32Z"/></svg>Info Hub</b>
   <span id="tabs"></span>
   <span class="sp"></span>
-  <button id="themeBtn" title="Toggle light / dark"></button>
   <span id="scopeToggle" class="chips" style="margin:0"></span>
-  <input id="q" placeholder="Search (Enter)">
-  <button class="b" id="poll">Sync now</button>
+  <input id="q" data-i18n-placeholder="Search (Enter)">
+  <button class="b" id="poll" data-i18n="Sync now"></button>
   <span class="status" id="status"></span>
-  <form method="post" action="/logout" style="margin:0"><button class="b" type="submit">Log out</button></form>
-  <div class="window-controls" aria-label="Window controls">
-    <button type="button" data-window-action="minimize" title="Minimize" aria-label="Minimize">&#xe921;</button>
-    <button type="button" data-window-action="maximize" title="Maximize" aria-label="Maximize">&#xe922;</button>
-    <button type="button" data-window-action="close" class="window-close" title="Hide to tray" aria-label="Hide to tray">&#xe8bb;</button>
+  <span class="hdr-sep" aria-hidden="true"></span>
+  <span id="navIcons" class="hdr-group">
+    <button type="button" class="icon-btn" data-tab="chat" data-i18n-title="Chat" data-i18n-aria-label="Chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></button>
+    <button type="button" class="icon-btn" data-tab="status" data-i18n-title="Status" data-i18n-aria-label="Status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg></button>
+    <button type="button" class="icon-btn" data-tab="settings" data-i18n-title="Settings" data-i18n-aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  </span>
+  <span class="hdr-sep" aria-hidden="true"></span>
+  <span id="langSwitch" class="seg" role="group" data-i18n-aria-label="Switch language"><button type="button" data-lang="en">EN</button><button type="button" data-lang="zh">中</button></span>
+  <button id="themeBtn" type="button" class="icon-btn" data-i18n-title="Toggle light / dark" data-i18n-aria-label="Toggle light / dark"></button>
+  <form method="post" action="/logout" style="margin:0"><button class="icon-btn" type="submit" data-i18n-title="Log out" data-i18n-aria-label="Log out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></button></form>
+  <div class="window-controls" data-i18n-aria-label="Window controls">
+    <button type="button" data-window-action="minimize" data-i18n-title="Minimize" data-i18n-aria-label="Minimize">&#xe921;</button>
+    <button type="button" data-window-action="maximize" data-i18n-title="Maximize" data-i18n-aria-label="Maximize">&#xe922;</button>
+    <button type="button" data-window-action="close" class="window-close" data-i18n-title="Hide to tray" data-i18n-aria-label="Hide to tray">&#xe8bb;</button>
   </div>
 </header>
 <main id="main"></main>
@@ -298,6 +335,469 @@ padding:4px 6px;border-radius:6px;font-size:12.5px;border-left:3px solid transpa
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
+// ---- i18n: English strings are the keys; Chinese lives in I18N_ZH. Missing keys fall back to English.
+// _t("{n} msgs", {n: 3}) fills placeholders after translation. Data values (kinds, tags, statuses) are
+// never translated at the source, only when shown.
+const I18N_ZH = {
+  "Search (Enter)": "搜索（回车）",
+  "Sync now": "立即同步",
+  "Log out": "退出登录",
+  "Switch language": "切换语言",
+  "Toggle light / dark": "切换浅色 / 深色",
+  "Window controls": "窗口控制",
+  "Minimize": "最小化",
+  "Maximize": "最大化",
+  "Restore": "还原",
+  "Hide to tray": "隐藏到托盘",
+  "Viewer is read-only.": "只读浏览模式。",
+  "Unit not included in this snapshot.": "此快照未包含该条目。",
+  "Not available in Viewer.": "只读浏览模式不支持此功能。",
+  "For me": "与我有关",
+  "Everything": "全部",
+  "Only what concerns you: @mentions, direct chats, your own messages, your names, homework and deadlines, and anything you marked as for me": "只看与你有关的：@你、私聊、你发的消息、提到你名字的、作业和截止事项，以及你手动标记为“与我有关”的条目",
+  "Every chat you follow": "你关注的所有聊天",
+  "Today": "今日",
+  "Explore": "探索",
+  "Groups": "群聊",
+  "Live": "进行中",
+  "Chat": "助手",
+  "Status": "状态",
+  "Settings": "设置",
+  "To do": "待办",
+  "Overdue": "已逾期",
+  "No due date": "无截止日期",
+  "Nothing to do. 🎉": "没有待办事项 🎉",
+  "Completed in the last 30 days →": "查看最近 30 天已完成 →",
+  "Schedule": "日程",
+  "Happening now": "正在进行",
+  "Time to be decided": "时间待定",
+  "Past, not closed yet": "已过去、尚未关闭",
+  "Nothing scheduled.": "暂无日程。",
+  "Recent": "近期动态",
+  "Activity in": "时间范围",
+  "{n} days": "{n} 天",
+  "All time": "全部时间",
+  "Turn this message into a todo": "把这条消息转为待办",
+  "→ Todo": "→ 待办",
+  "Flagged messages, not organized yet": "待整理的重要消息",
+  "Nothing new in this period.": "这段时间没有新内容。",
+  "Showing {shown} of {total}": "已显示 {shown} / {total}",
+  "Show {n} more": "再显示 {n} 条",
+  "Nothing here.": "这里还没有内容。",
+  "Open": "打开",
+  "Mute chat": "屏蔽此聊天",
+  "✓ Done": "✓ 完成",
+  "Unit actions": "条目操作",
+  "Edit": "编辑",
+  "View details": "查看详情",
+  "Mark done": "标记完成",
+  "Reopen": "重新打开",
+  "Ignore": "忽略",
+  "Not for me": "与我无关",
+  "Mark as for me": "标记为与我有关",
+  "Detect \"for me\" automatically": "恢复自动判断是否与我有关",
+  "Copy link": "复制链接",
+  "Open source": "打开原消息",
+  "Restart Info Hub to enable detailed editing.": "请重启 Info Hub 以启用详细编辑。",
+  "Unit not found": "未找到该条目",
+  "Title": "标题",
+  "Summary": "摘要",
+  "Kind": "类型",
+  "Done": "已完成",
+  "Ignored": "已忽略",
+  "Priority": "优先级",
+  "None": "无",
+  "P0 · Urgent": "P0 · 紧急",
+  "P1 · High": "P1 · 高",
+  "P2 · Normal": "P2 · 普通",
+  "P3 · Low": "P3 · 低",
+  "Start": "开始",
+  "End": "结束",
+  "Due": "截止",
+  "Tags": "标签",
+  "Save": "保存",
+  "Edit unit": "编辑条目",
+  "Cancel": "取消",
+  "End must be on or after start": "结束时间不能早于开始时间",
+  "Change this unit's kind": "更改此条目的类型",
+  "Remove tag": "移除标签",
+  "add tag — e.g. project:x, importance:high": "添加标签，如 project:x、importance:high",
+  "Add": "添加",
+  "kind:": "类型：",
+  "importance:": "重要性：",
+  "no custom tags yet": "还没有自定义标签",
+  "⭐ High": "⭐ 高",
+  "● Medium": "● 中",
+  "○ Low": "○ 低",
+  "Open source message": "打开原消息",
+  "Open source message in {channel}": "在 {channel} 中打开原消息",
+  "Not relevant to me — hide it": "与我无关，隐藏它",
+  "⊘ Ignore": "⊘ 忽略",
+  "Add or remove tags": "添加或移除标签",
+  "🏷 Tag": "🏷 标签",
+  "Expand": "展开",
+  "Collapse": "收起",
+  "in: ": "属于：",
+  "due ": "截止 ",
+  "· {n} subtopics": "· {n} 个子主题",
+  "{n} direct; includes every child branch": "{n} 个直接子项；包括所有分支",
+  "· {n} msgs total": "· 共 {n} 条消息",
+  "{n} directly attached; total includes all subtopic branches": "{n} 条直接关联；总数包括所有子主题分支",
+  "{label} applied": "已应用：{label}",
+  "✓ done": "✓ 已完成",
+  "Physics": "物理",
+  "repulsion": "斥力",
+  "link length": "连线长度",
+  "gravity": "引力",
+  "damping": "阻尼",
+  "reset": "重置",
+  "relayout": "重新布局",
+  "Re-layout from scratch": "从头重新布局",
+  "Node size: total messages, including all subtopic branches": "节点大小：消息总数，包括所有子主题分支",
+  "drag to pan · scroll to zoom · drag a node to move it · click to open": "拖动平移 · 滚轮缩放 · 拖动节点移动 · 点击打开",
+  "{n} matches": "{n} 条匹配",
+  " + {n} context": " + {n} 条上下文",
+  " · {n} links": " · {n} 条连线",
+  "{n} messages total · {direct} direct · {sub} subtopics": "共 {n} 条消息 · {direct} 条直接 · {sub} 个子主题",
+  " · context node": " · 上下文节点",
+  "Drag to move": "拖动以移动",
+  "Unit {id} is not available.": "条目 {id} 不可用。",
+  "Preview link": "预览链接",
+  "Preview {label}": "预览 {label}",
+  "Not queued": "未排队",
+  "Organizing": "整理中",
+  "Queued": "已排队",
+  "Starting": "启动中",
+  "Running": "运行中",
+  "Pausing": "暂停中",
+  "Paused": "已暂停",
+  "Stopping": "停止中",
+  "Deleted": "已删除",
+  "Completed": "已完成",
+  "Needs attention": "需要处理",
+  "Cancelled": "已取消",
+  "Open in Codex": "在 Codex 中打开",
+  "Session status": "会话状态",
+  "Result": "结果",
+  "Resume task": "继续任务",
+  "Start task": "开始任务",
+  "Pause task": "暂停任务",
+  "Delete and stop task": "删除并停止任务",
+  "Codex tasks": "Codex 任务",
+  "Loading Codex tasks…": "正在加载 Codex 任务…",
+  "Not queued: {n}": "未排队：{n}",
+  "Automatic tasks on": "自动任务已开启",
+  "Automatic tasks off": "自动任务已关闭",
+  "Full Access": "完全访问",
+  "No Codex tasks": "没有 Codex 任务",
+  "Could not load Codex tasks: ": "无法加载 Codex 任务：",
+  "Could not open preview window.": "无法打开预览窗口。",
+  "Loading timeline…": "正在加载时间线…",
+  "Timeline zoom": "时间线缩放",
+  "No units with time evidence.": "没有带时间信息的条目。",
+  "Timeline": "时间线",
+  "Zoom": "缩放",
+  "Newest left · separate lanes by kind and overlap": "最新在左 · 按类型和重叠分行",
+  "{n}d window": "{n} 天跨度",
+  "{n}h window": "{n} 小时跨度",
+  "{n} units · {lanes} parallel lanes": "{n} 个条目 · {lanes} 行",
+  "{n} overlapping topics": "{n} 个重叠主题",
+  "Open unit {id}": "打开条目 {id}",
+  "Show this group": "查看此群",
+  "Show this person": "查看此人",
+  "HTML preview": "HTML 预览",
+  "sandboxed": "沙盒",
+  "Mermaid diagram": "Mermaid 图",
+  "✓ copied": "✓ 已复制",
+  "Copy failed": "复制失败",
+  "Search group name or message text": "搜索群名或消息内容",
+  "Last 24 hours": "最近 24 小时",
+  "Last 3 days": "最近 3 天",
+  "Last 7 days": "最近 7 天",
+  "Last 30 days": "最近 30 天",
+  "All history": "全部历史",
+  "All sources": "所有来源",
+  "All chats": "所有聊天",
+  "Direct chats": "私聊",
+  "All policies": "所有策略",
+  "Watch": "关注",
+  "Store": "存储",
+  "Digest": "摘要",
+  "✓ flagged {n} messages": "✓ 已标记 {n} 条消息",
+  "✓ restored {n} message texts": "✓ 已恢复 {n} 条消息文本",
+  "{n} msgs": "{n} 条消息",
+  "· {n} flagged": "· {n} 条重要",
+  "⚑ Flag all": "⚑ 全部标记",
+  "Reload text": "重新加载文本",
+  "👁 Watch": "👁 关注",
+  "Digest only": "仅摘要",
+  "Mute": "屏蔽",
+  "{n} chats · recent window": "{n} 个聊天 · 近期",
+  "{n} chats · all history": "{n} 个聊天 · 全部历史",
+  "Title / summary; spaces = AND": "标题 / 摘要；空格表示同时包含",
+  "Apply": "应用",
+  "Recent activity": "最近活跃",
+  "Oldest activity": "最早活跃",
+  "Due / date": "截止 / 日期",
+  "Newest": "最新创建",
+  "Most messages (all subtopics)": "消息最多（含子主题）",
+  "Most subtopics (all levels)": "子主题最多（所有层级）",
+  "Most direct subtopics": "直接子主题最多",
+  "Title A–Z": "标题 A–Z",
+  "Last 24h": "最近 24 小时",
+  "Last 14 days": "最近 14 天",
+  "Open + done": "未完成 + 已完成",
+  "All statuses": "所有状态",
+  "Show every kind": "显示所有类型",
+  "All kinds": "所有类型",
+  "Includes sources of linked subtopics at every level": "包括各层子主题的来源",
+  "Sort": "排序",
+  "Activity": "活跃时间",
+  "Clear filters": "清除筛选",
+  "Sort & filters": "排序与筛选",
+  "Kinds (All kinds toggles all)": "类型（“所有类型”可全选 / 取消）",
+  "Top-level matches only": "仅显示顶层匹配",
+  "Show linked context (Graph)": "显示关联上下文（图谱）",
+  "Top-level keeps the outermost matches; a parent outside your filters does not hide a match. List and Graph share filters. Context adds faded neighbors only when enabled.": "“仅顶层”保留最外层的匹配项，不在筛选范围内的父项不会隐藏匹配。列表和图谱共用筛选条件。开启“上下文”后会以淡色显示相邻条目。",
+  "Tags — OR within a namespace, AND across": "标签：同类之间为“或”，不同类之间为“且”",
+  "☰ List": "☰ 列表",
+  "⚹ Graph": "⚹ 图谱",
+  "▥ Gantt": "▥ 甘特图",
+  "Info-unit graph": "条目图谱",
+  "Topic timeline": "主题时间线",
+  "Matching units": "匹配的条目",
+  "organizing…": "整理中…",
+  "organized — {n} unit(s)": "整理完成，生成 {n} 个条目",
+  "{n} conversation(s) in progress, not yet organized into topics.": "{n} 个对话正在进行，尚未整理成主题。",
+  "⚡ Organize all now": "⚡ 立即全部整理",
+  "{n} msgs · since {start} · last {end}": "{n} 条消息 · 开始于 {start} · 最后 {end}",
+  "⚡ Organize this now": "⚡ 立即整理此对话",
+  "No conversations in progress — everything is organized.": "没有进行中的对话，全部已整理。",
+  "You": "你",
+  "Assistant": "助手",
+  "{n} change(s)": "{n} 处修改",
+  "Copy reply": "复制回复",
+  "⧉ copy": "⧉ 复制",
+  "Thinking…": "思考中…",
+  "Thinking": "思考过程",
+  "Ask about your hub, or tell me to do something — e.g. “what are my deadlines this week?”, “find todos the hub missed in the robotics group”, “connect the reward-design topic under world models”, “consolidate duplicate topic tags”, “mark unit 42 done”.": "可以问我任何关于 Info Hub 的问题，或让我帮你操作。例如：“这周有哪些截止事项？”、“找出机器人群里漏掉的待办”、“把奖励设计主题挂到世界模型下面”、“合并重复的主题标签”、“把条目 42 标记为完成”。",
+  "Message the assistant… (Enter)": "给助手发消息…（回车发送）",
+  "thinking…": "思考中…",
+  "{n} change(s) applied": "已应用 {n} 处修改",
+  "stream ended": "回复已结束",
+  "Send": "发送",
+  "Clear": "清空",
+  "saved {key}": "已保存 {key}",
+  "Configured": "已配置",
+  "API key": "API 密钥",
+  "restart": "需重启",
+  "Add a name or nickname…": "添加名字或昵称…",
+  "saved my names": "已保存我的名字",
+  " · re-scanned {mentions} messages, {for_me} units for me": " · 重新扫描了 {mentions} 条消息，{for_me} 个条目与我有关",
+  "Remove {name}": "移除 {name}",
+  "No names yet": "还没有名字",
+  "My names (for @mentions)": "我的名字（用于识别 @）",
+  "Add every name or nickname people use to @mention you — this also drives the For me filter.": "添加别人 @ 你时会用到的所有名字和昵称，“与我有关”的判断也依赖它。",
+  "Today shows": "今日页默认显示",
+  "Sync every N minutes": "每 N 分钟同步一次",
+  "AI organizing": "AI 整理",
+  "AI model": "AI 模型",
+  "API base URL": "API 地址",
+  "AI budget per day ($)": "每日 AI 预算（美元）",
+  "AI runs every N minutes": "AI 每 N 分钟运行一次",
+  "AI reads chats with policy": "AI 读取以下策略的聊天",
+  "Rewrite card titles": "改写卡片标题",
+  "Rewrite titles for policy": "改写以下策略的标题",
+  "Reminders": "提醒",
+  "Remind todos N hours ahead": "待办提前 N 小时提醒",
+  "Remind events N minutes ahead": "事件提前 N 分钟提醒",
+  "Max messages per AI call": "每次 AI 调用的最大消息数",
+  "Read only": "只读",
+  "Workspace": "工作区",
+  "@infohub tasks from me": "我发出的 @infohub 任务",
+  "Agent working directory": "Agent 工作目录",
+  "Codex executable": "Codex 可执行文件",
+  "Agent permissions": "Agent 权限",
+  "Separate temporary folder per task": "每个任务使用单独的临时文件夹",
+  "No agent tasks": "没有 Agent 任务",
+  "Automatic database backups": "自动备份数据库",
+  "Back up every N days": "每 N 天备份一次",
+  "Checking backups…": "正在检查备份…",
+  "Could not request a database backup.": "无法发起数据库备份。",
+  "Back up now": "立即备份",
+  "Restart Info Hub to load database backup support.": "请重启 Info Hub 以加载数据库备份功能。",
+  "Backing up…": "备份中…",
+  "Backup queued…": "备份已排队…",
+  "Last verified backup: {at} · {mb} MB": "最近一次已验证的备份：{at} · {mb} MB",
+  "No verified backup yet.": "还没有已验证的备份。",
+  "Next due: {at}": "下次备份：{at}",
+  "First automatic backup is due now.": "首次自动备份即将进行。",
+  "Automatic backups are paused.": "自动备份已暂停。",
+  "Location: ": "位置：",
+  "{n} completed copies kept. Backups are not automatically deleted.": "已保留 {n} 份完整备份，备份不会被自动删除。",
+  "Last backup failed: ": "上次备份失败：",
+  "Could not refresh backup status.": "无法刷新备份状态。",
+  "Schedule name": "计划名称",
+  "Daily times use the hub timezone; intervals start after the previous run finishes.": "每日时间使用 Info Hub 时区；按间隔运行时，从上一次运行结束开始计时。",
+  "Daily": "每天",
+  "Interval": "间隔",
+  "Prompt sent to the assistant…": "发送给助手的提示词…",
+  "Save schedule": "保存计划",
+  "Clear form": "清空表单",
+  "at": "时间",
+  "Every": "每隔",
+  " minutes": " 分钟",
+  "daily at {time}": "每天 {time}",
+  "every {n} min": "每 {n} 分钟",
+  "paused": "已暂停",
+  "never": "从未运行",
+  "last {at}": "上次 {at}",
+  "not run yet": "尚未运行",
+  "next {at}": "下次 {at}",
+  "Update schedule": "更新计划",
+  "Pause": "暂停",
+  "Enable": "启用",
+  "Delete schedule \"{name}\"?": "删除计划“{name}”？",
+  "Delete": "删除",
+  "No custom schedules yet.": "还没有自定义计划。",
+  "Name and prompt are required.": "名称和提示词都必须填写。",
+  "schedule saved": "计划已保存",
+  "Name": "名称",
+  "When": "时间",
+  "Prompt": "提示词",
+  "Enabled": "启用",
+  "filter chats…": "筛选聊天…",
+  "Watch (AI reads)": "关注（AI 读取）",
+  "Store (searchable)": "存储（可搜索）",
+  "Ignore (policy)": "忽略",
+  "saving {n} chats…": "正在保存 {n} 个聊天…",
+  "{n} chats → {policy}": "{n} 个聊天 → {policy}",
+  "All": "全部",
+  "Direct": "私聊",
+  "Active 30d": "30 天内活跃",
+  "Muted": "已屏蔽",
+  "Select all shown": "全选当前显示",
+  "{picked} selected · {shown} shown": "已选 {picked} · 显示 {shown}",
+  "group": "群聊",
+  "direct": "私聊",
+  "muted": "已屏蔽",
+  "{n} msgs/30d": "近 30 天 {n} 条 ·",
+  "{n} total": "共 {n} 条",
+  "Apply the rules in config (policy_defaults) to every chat you have not set by hand.": "把配置中的规则（policy_defaults）应用到所有未手动设置过的聊天。",
+  "Defaults already match: nothing to change.": "已与默认规则一致，无需修改。",
+  "{n} chats would change: ": "将修改 {n} 个聊天：",
+  "Applied to {n} chats.": "已应用到 {n} 个聊天。",
+  "Apply to {n} chats": "应用到 {n} 个聊天",
+  "Preview defaults": "预览默认规则",
+  "watching {name}": "已关注 {name}",
+  "stopped watching": "已取消关注",
+  "add VIP: type a name…": "添加 VIP：输入名字…",
+  "already VIP": "已是 VIP",
+  "★ Make VIP": "★ 设为 VIP",
+  "★ {name} is now VIP": "★ {name} 已设为 VIP",
+  "Stop Watch": "取消关注",
+  "VIP people: their topics show up under “For me”. Does not claim their own tasks as yours.": "VIP 联系人：他们的主题会出现在“与我有关”中，但他们自己的任务不会算作你的任务。",
+  "Remove": "移除",
+  "removed VIP": "已移除 VIP",
+  "No VIP people yet.": "还没有 VIP 联系人。",
+  "Watched people": "关注的人",
+  "No watched people yet.": "还没有关注的人。",
+  "Database backups": "数据库备份",
+  "Local agent tasks": "本地 Agent 任务",
+  "Refresh tasks": "刷新任务",
+  "Assistant task scheduler": "助手定时任务",
+  "General": "通用",
+  "Saved to config/settings.local.json. Chat policies live in the database.": "保存在 config/settings.local.json 中；聊天策略保存在数据库中。",
+  "VIP people": "VIP 联系人",
+  "Chat defaults": "聊天默认规则",
+  "Chats": "聊天",
+  "Sources healthy": "数据源状态",
+  "{ok} ok · {waiting} waiting · {error} failing": "{ok} 正常 · {waiting} 等待 · {error} 失败",
+  "Messages": "消息",
+  "{total} total · {day} in 24h": "共 {total} 条 · 24 小时内 {day} 条",
+  "Info units": "条目",
+  "Open conversations": "进行中的对话",
+  "Last 24h by source": "24 小时内按来源",
+  "AI organizer": "AI 整理",
+  "on · {provider} · {model}": "开启 · {provider} · {model}",
+  "off": "关闭",
+  "Spent today": "今日花费",
+  "${spent} of ${budget}": "${spent} / ${budget}",
+  "Queue": "队列",
+  "empty": "空",
+  "${cost} · {calls} calls · {tokens} tok": "${cost} · {calls} 次调用 · {tokens} tokens",
+  "Every source is healthy.": "所有数据源都正常。",
+  "Overview": "概览",
+  "AI": "AI",
+  "Units by kind": "按类型统计",
+  "Run log (newest first)": "运行日志（最新在前）",
+  "No runs yet.": "还没有运行记录。",
+  "updated {time}": "更新于 {time}",
+  "syncing…": "同步中…",
+  "sync complete — current view kept": "同步完成，当前视图已保留",
+  "Matches for “{q}”": "“{q}”的搜索结果",
+  "People": "人",
+  "{title} ({n})": "{title}（{n}）",
+  "Units": "条目",
+  "No matching units.": "没有匹配的条目。",
+  "No matching messages.": "没有匹配的消息。",
+  "No people, chats or tags matched.": "没有匹配的人、聊天或标签。",
+  "Info Hub was updated.": "Info Hub 已更新。",
+  "Reload": "重新加载",
+  "Dismiss": "关闭",
+  "Drag to resize columns": "拖动以调整列宽",
+  "Info Hub Viewer": "Info Hub 浏览器",
+  "Default until you pick For me / Everything at the top of Today on this device.": "在本设备上，于今日页顶部选择“与我有关 / 全部”之前，默认使用此设置。",
+  "Homework": "作业",
+  "Deadlines": "截止事项",
+  "Homeworks": "作业",
+  "Deadline": "截止事项",
+  "Exams": "考试",
+  "Meetings": "会议",
+  "Papers": "论文",
+  "Projects": "项目",
+  "Filter by type": "按类别筛选",
+  "Hide every type": "全部隐藏",
+  "Show every type": "全部显示",
+  "Nothing matches the selected types.": "没有符合所选类别的条目。",
+  "Within 7 days": "7 天内",
+  "Future": "7 天以后"
+}; // end I18N_ZH
+let LANG = (() => {
+  const saved = localStorage.getItem("lang");
+  return saved === "zh" || saved === "en" ? saved : (/^zh/i.test(navigator.language || "") ? "zh" : "en");
+})();
+function _t(text, vars) {
+  let out = LANG === "zh" && Object.prototype.hasOwnProperty.call(I18N_ZH, text) ? I18N_ZH[text] : text;
+  if (vars) out = out.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+  return out;
+}
+const LOCALE = () => LANG === "zh" ? "zh-CN" : "en-US";
+const KIND_ZH = {topic: "主题", todo: "待办", event: "事件", decision: "决定", question: "问题",
+  announcement: "公告", resource: "资料", digest: "摘要", note: "笔记",
+  // type tags that are not kinds
+  deadline: "截止", homework: "作业", meeting: "会议", paper: "论文", calendar: "日历", "agent-task": "Agent 任务"};
+const kindName = k => LANG === "zh" ? (KIND_ZH[k] || k) : k;
+// Saved views (apps.views) are named in config; `name_zh` overrides, else the built-in table.
+const viewName = v => LANG === "zh" ? (v.name_zh || _t(v.name)) : v.name;
+// Chat policies and queue states are stored as lowercase words; only their display is translated.
+const WORD_ZH = {watch: "关注", store: "存储", digest: "摘要", ignore: "忽略", done: "已完成", pending: "待处理",
+  running: "运行中", error: "出错", failed: "失败"};
+const wordName = w => LANG === "zh" ? (WORD_ZH[w] || w) : w;
+function applyStaticText(root = document) {
+  root.querySelectorAll("[data-i18n]").forEach(n => { n.textContent = _t(n.dataset.i18n); });
+  for (const attr of ["placeholder", "title", "aria-label"]) {
+    root.querySelectorAll(`[data-i18n-${attr}]`).forEach(n => n.setAttribute(attr, _t(n.getAttribute(`data-i18n-${attr}`))));
+  }
+}
+function setLang(lang) {
+  LANG = lang; localStorage.setItem("lang", lang);
+  document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+  applyStaticText();
+  document.querySelectorAll("#langSwitch [data-lang]").forEach(b => {
+    b.classList.toggle("on", b.dataset.lang === lang); b.setAttribute("aria-pressed", String(b.dataset.lang === lang)); });
+  applyTheme(document.documentElement.getAttribute("data-theme") || "dark");
+}
 let CHAT = [];   // conversation history for the assistant
 let CHAT_BUSY = false; // keep an in-progress stream DOM stable during background refreshes
 let CHAT_DRAFT = "";   // survives dashboard refreshes while the user is composing
@@ -315,27 +815,27 @@ const VIEWER_DATA = window.__INFOHUB_VIEWER__ || null;
 const GROUPS_STATE = {query: "", hours: 72, source: "all", kind: "all", policy: "all",
   expanded: new Set(), messages: new Map()};
 const VIEWER_MODE = !!VIEWER_DATA;
-const fmt = t => t ? new Date(t * 1000).toLocaleString([], {month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"}) : "";
-const dayKey = t => new Date(t * 1000).toLocaleDateString([], {weekday: "short", month: "numeric", day: "numeric"});
+const fmt = ts => ts ? new Date(ts * 1000).toLocaleString(LOCALE(), {month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"}) : "";
+const dayKey = ts => new Date(ts * 1000).toLocaleDateString(LOCALE(), {weekday: "short", month: "numeric", day: "numeric"});
 const safeLink = u => /^(https?:|lark:|feishu:)/i.test(u || "") ? u : null;
 const SRC_LABEL = {lark: "LK", linkedin: "in", x: "X", instagram: "IG", whatsapp: "WA", slack: "SL", telegram: "TG"};
 const SRC = s => { const k = (s || "").split(":")[0]; return SRC_LABEL[k] || k.slice(0, 2).toUpperCase(); };
 function viewerApi(path, body) {
-  if (body) return Promise.resolve({error: "Viewer is read-only."});
+  if (body) return Promise.resolve({error: _t("Viewer is read-only.")});
   const url = new URL(path, location.href), p = url.pathname, q = url.searchParams;
   if (p === "/api/views") return Promise.resolve(VIEWER_DATA.views || []);
   if (p === "/api/tags") return Promise.resolve(VIEWER_DATA.tags || []);
   const unitId = p.match(/^\/api\/unit\/(\d+)$/)?.[1];
   if (unitId) {
     const u = VIEWER_DATA.units.find(item => item.id === Number(unitId));
-    if (!u) return Promise.resolve({error: "Unit not included in this snapshot."});
+    if (!u) return Promise.resolve({error: _t("Unit not included in this snapshot.")});
     const byId = new Map(VIEWER_DATA.units.map(item => [item.id, item]));
     return Promise.resolve({...u,
       parents: u.parents || [],
       children: (u.children_ids || []).map(id => byId.get(id)).filter(Boolean),
       messages: (u.message_ids || []).map(id => VIEWER_DATA.messages[id]).filter(Boolean)});
   }
-  if (p !== "/api/units" && p !== "/api/graph") return Promise.resolve({error: "Not available in Viewer."});
+  if (p !== "/api/units" && p !== "/api/graph") return Promise.resolve({error: _t("Not available in Viewer.")});
   const tags = (q.get("tags") || "").split(",").filter(Boolean), kinds = (q.get("kind") || "").split(",").filter(Boolean);
   const status = q.get("status") || "", needle = (q.get("q") || "").trim().toLocaleLowerCase(), days = Number(q.get("days") || 0);
   const groups = {};
@@ -369,7 +869,10 @@ async function api(path, body) {
   if (r.status === 401) { location.href = "/login?next=" + encodeURIComponent(location.pathname); throw new Error("login required"); }
   return (r.headers.get("content-type") || "").includes("json") ? r.json() : r.text();
 }
-let TAB = "today", SEL = new Set(), VIEWS = [], SCOPE = localStorage.getItem("scope") || "mine";
+// SCOPE is the user's explicit For me / Everything choice; until they pick one, the server's
+// configured default (Settings -> apps.today_scope) decides and is mirrored in SERVER_SCOPE.
+let TAB = "today", SEL = new Set(), VIEWS = [], SCOPE = localStorage.getItem("scope") || "", SERVER_SCOPE = "mine";
+const scopeNow = () => SCOPE || SERVER_SCOPE;
 let EXPLORE_SORT = localStorage.getItem("exploreSort") || "activity";
 let EXPLORE_VIEW = localStorage.getItem("exploreView") || "list";   // "list" | "graph"
 const GRAPH_POS = {};   // node id -> {x,y,vx,vy}: positions persist across refreshes so the graph doesn't jump
@@ -414,19 +917,20 @@ function exploreQuery() {
   const q = new URLSearchParams({tags: [...SEL].join(","), kind: kindValue,
     q: String(EXPLORE_FILTERS.query || "").trim(), days: String(EXPLORE_FILTERS.days || 0),
     status: EXPLORE_FILTERS.status || "", roots: EXPLORE_FILTERS.roots ? "1" : "0",
-    mine: SCOPE === "mine" ? "1" : "0", order: EXPLORE_SORT, limit: "400"});
+    mine: scopeNow() === "mine" ? "1" : "0", order: EXPLORE_SORT, limit: "400"});
   return q.toString();
 }
-const mineQ = () => SCOPE === "mine" ? "&mine=1" : "";
-function applyTheme(t) {
-  document.documentElement.setAttribute("data-theme", t);
-  localStorage.setItem("theme", t);
+const THEME_ICON = {moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>'};
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("theme", theme);
   const favicon = document.querySelector('#app-brand svg').cloneNode(true);
   favicon.removeAttribute('class');
-  favicon.style.color = t === 'light' ? '#2563eb' : '#8ab4ff';
+  favicon.style.color = theme === 'light' ? '#2563eb' : '#8ab4ff';
   document.getElementById('app-favicon').href = 'data:image/svg+xml,' + encodeURIComponent(new XMLSerializer().serializeToString(favicon));
-  const b = document.getElementById("themeBtn"); if (b) b.textContent = t === "light" ? "\u263E Dark" : "\u2600 Light";
-  window.pywebview?.api?.set_theme?.(t).catch(() => {});
+  const b = document.getElementById("themeBtn"); if (b) b.innerHTML = theme === "light" ? THEME_ICON.moon : THEME_ICON.sun;
+  window.pywebview?.api?.set_theme?.(theme).catch(() => {});
 }
 addEventListener("pywebviewready", () => {
   document.documentElement.setAttribute("data-desktop", "true");
@@ -446,8 +950,8 @@ async function desktopWindowAction(action) {
   document.documentElement.toggleAttribute('data-maximized', result.maximized);
   const button = document.querySelector('[data-window-action="maximize"]');
   button.textContent = result.maximized ? '\ue923' : '\ue922';
-  button.title = result.maximized ? 'Restore' : 'Maximize';
-  button.setAttribute('aria-label', button.title);
+  button.dataset.i18nTitle = button.dataset.i18nAriaLabel = result.maximized ? _t('Restore') : _t('Maximize');
+  applyStaticText(button.parentNode);
 }
 document.querySelector('.window-controls').onclick = e => {
   const action = e.target.closest('[data-window-action]')?.dataset.windowAction;
@@ -460,28 +964,34 @@ document.querySelector('header').addEventListener('mousedown', e => {
   }
 });
 applyTheme(localStorage.getItem("theme") || "dark");
+setLang(LANG);
+$("langSwitch").onclick = e => { const lang = e.target.closest("[data-lang]")?.dataset.lang;
+  if (lang && lang !== LANG) { setLang(lang); render(); } };
+$("navIcons").onclick = e => { const tab = e.target.closest("[data-tab]")?.dataset.tab; if (tab) { TAB = tab; render(false); } };
 document.getElementById("themeBtn").onclick = () =>
   applyTheme(document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light");
+// The scope toggle only appears where it actually filters something.
 function drawScope() {
-  if (VIEWER_MODE) { $("scopeToggle").replaceChildren(); $("scopeToggle").style.display = "none"; return; }
+  if (VIEWER_MODE || !["today", "explore"].includes(TAB)) { $("scopeToggle").replaceChildren(); $("scopeToggle").style.display = "none"; return; }
   $("scopeToggle").style.display = "";
-  const pick = (v, label) => el("span", {class: "chip" + (SCOPE === v ? " on" : ""),
+  const pick = (v, label, title) => el("span", {class: "chip" + (scopeNow() === v ? " on" : ""), title,
     onclick: () => { SCOPE = v; localStorage.setItem("scope", v); render(); }}, label);
-  $("scopeToggle").replaceChildren(pick("mine", "For me"), pick("all", "Everything"));
+  $("scopeToggle").replaceChildren(pick("mine", _t("For me"), _t("Only what concerns you: @mentions, direct chats, your own messages, your names, homework and deadlines, and anything you marked as for me")),
+    pick("all", _t("Everything"), _t("Every chat you follow")));
 }
 
 function lane(title, count, nodes, empty) {
   return el("section", {class: "lane"}, el("h2", {}, title, el("span", {}, count ?? "")),
-    nodes.length ? nodes : el("div", {class: "empty"}, empty || "Nothing here."));
+    nodes.length ? nodes : el("div", {class: "empty"}, empty || _t("Nothing here.")));
 }
 function srcBadge(source, account) { return el("span", {class: "src " + (source || "").split(":")[0]}, SRC(source) + (account ? ":" + account : "")); }
 function teach(kind, source, value, label) {
   return el("button", {class: "b", onclick: async e => {
     e.target.disabled = true;
     await api("/api/teach", {kind, source, value, label});
-    $("status").textContent = "✓ " + label.replace(/^[★→]\s*/, "") + " applied";
+    $("status").textContent = "✓ " + _t("{label} applied", {label: label.replace(/^[★→👁]\s*/u, "")});
     const visible = kind === "mute" || kind === "watch" || kind === "digest";   // these move the card
-    if (visible) { render(); } else { e.target.textContent = "✓ done"; e.target.classList.add("ok-btn"); }
+    if (visible) { render(); } else { e.target.textContent = _t("✓ done"); e.target.classList.add("ok-btn"); }
   }}, label);
 }
 function msgCard(m, opts = {}) {
@@ -491,14 +1001,14 @@ function msgCard(m, opts = {}) {
     el("div", {class: "text"}, linkedText(m.text || "")),
     el("div", {class: "acts"},
       opts.extra || null,
-      el("button", {class: "b", onclick: async e => { e.target.disabled = true; await api("/api/done", {id: m.id}); render(); }}, "✓ Done"),
-      link && el("a", {href: link, target: "_blank", rel: "noopener"}, el("button", {class: "b"}, "Open")),
+      el("button", {class: "b", onclick: async e => { e.target.disabled = true; await api("/api/done", {id: m.id}); render(); }}, _t("✓ Done")),
+      link && el("a", {href: link, target: "_blank", rel: "noopener"}, el("button", {class: "b"}, _t("Open"))),
       opts.teach !== false && m.sender && teach("vip", m.source, m.sender, "★ VIP " + (m.sender_name || "")),
-      opts.teach !== false && teach("mute", m.source, m.channel, "Mute chat")));
+      opts.teach !== false && teach("mute", m.source, m.channel, _t("Mute chat"))));
 }
 function whenLabel(u) {
   const t = u.due_at || u.start_at; if (!t) return null;
-  return el("span", {class: "when" + (t < now() && u.kind === "todo" ? " overdue" : "")}, (u.kind === "todo" ? "due " : "") + fmt(t));
+  return el("span", {class: "when" + (t < now() && u.kind === "todo" ? " overdue" : "")}, (u.kind === "todo" ? _t("due ") : "") + fmt(t));
 }
 function timeLabel(u) {                      // every unit shows when it is from
   const t = u.first_activity_at || u.created_at;
@@ -519,7 +1029,7 @@ async function saveUnit(id, changes) {
 function showUnitMenu(e, u) {
   if (VIEWER_MODE || e.target.closest?.('input,textarea,[contenteditable=true]')) return;
   e.preventDefault(); e.stopPropagation(); closeUnitMenu();
-  const menu = el('div', {class:'unit-menu', role:'menu', 'aria-label':'Unit actions'});
+  const menu = el('div', {class:'unit-menu', role:'menu', 'aria-label':_t('Unit actions')});
   unitMenu = menu;
   const error = el('div', {class:'unit-error', role:'alert'});
   const command = (name, fn) => menu.append(el('button', {type:'button', role:'menuitem', onclick:async ev => {
@@ -527,13 +1037,16 @@ function showUnitMenu(e, u) {
     try { await fn(); closeUnitMenu(); }
     catch (ex) { error.textContent = ex.message; button.disabled = false; }
   }}, name));
-  command('Edit', () => editUnit(u.id));
-  command('View details', () => openUnit(u.id, {x:e.clientX, y:e.clientY}));
-  command(u.status === 'open' ? 'Mark done' : 'Reopen', () => saveUnit(u.id, {status:u.status === 'open' ? 'done' : 'open'}));
-  if (u.status !== 'dropped') command('Ignore', () => saveUnit(u.id, {status:'dropped'}));
-  command('Copy link', () => { const url = new URL(location.href); url.search = ''; url.searchParams.set('unit', u.id); return navigator.clipboard.writeText(url.href); });
+  command(_t('Edit'), () => editUnit(u.id));
+  command(_t('View details'), () => openUnit(u.id, {x:e.clientX, y:e.clientY}));
+  command(_t(u.status === 'open' ? _t('Mark done') : _t('Reopen')), () => saveUnit(u.id, {status:u.status === 'open' ? 'done' : 'open'}));
+  if (u.status !== 'dropped') command(_t('Ignore'), () => saveUnit(u.id, {status:'dropped'}));
+  // Correct the automatic "for me" detection; the choice survives every later re-detection.
+  command(_t(u.for_me ? _t('Not for me') : _t('Mark as for me')), () => saveUnit(u.id, {for_me: !u.for_me}));
+  if (u.for_me_pinned != null) command(_t('Detect "for me" automatically'), () => saveUnit(u.id, {for_me: null}));
+  command(_t('Copy link'), () => { const url = new URL(location.href); url.search = ''; url.searchParams.set('unit', u.id); return navigator.clipboard.writeText(url.href); });
   const link = safeLink(u.open_link);
-  if (link) command('Open source', () => { window.open(link, '_blank', 'noopener,noreferrer'); });
+  if (link) command(_t('Open source'), () => { window.open(link, '_blank', 'noopener,noreferrer'); });
   menu.append(error); document.body.append(menu);
   const bounds = menu.getBoundingClientRect();
   menu.style.left = Math.max(8, Math.min(e.clientX, innerWidth - bounds.width - 8)) + 'px';
@@ -555,28 +1068,28 @@ async function editUnit(id) {
   if (VIEWER_MODE) return;
   if (document.querySelector('.unit-dialog')) { document.querySelector('.unit-dialog').focus(); return; }
   const health = await api('/api/health');
-  if (health?.unit_edit !== 1) throw new Error('Restart Info Hub to enable detailed editing.');
+  if (health?.unit_edit !== 1) throw new Error(_t('Restart Info Hub to enable detailed editing.'));
   const u = await api(`/api/unit/${id}?depth=0`);
-  if (!u || u.error) throw new Error(u?.error || 'Unit not found');
+  if (!u || u.error) throw new Error(u?.error || _t('Unit not found'));
   closeUnitCards();
   const dialog = el('dialog', {class:'unit-dialog', 'aria-labelledby':'unit-edit-title'});
   const form = el('form'), fields = el('div', {class:'unit-fields'}), inputs = {};
   const field = (key, title, node, wide=false) => { inputs[key] = node; node.setAttribute('aria-label',title); fields.append(el('label', {class:wide ? 'wide' : ''}, title, node)); return node; };
   const pick = (values, value) => { const select = el('select'); for (const [key,name] of values) select.append(el('option', {value:key}, name)); select.value = value ?? ''; return select; };
-  field('title','Title',el('input', {value:u.title, required:true, maxlength:1000}),true);
-  const summary = field('summary','Summary',el('textarea'),true); summary.value = u.summary || '';
-  field('kind','Kind',pick(Object.keys(KIND_COLOR).map(k => [k,k]),u.kind));
-  field('status','Status',pick([['open','Open'],['done','Done'],['dropped','Ignored']],u.status));
-  field('priority','Priority',pick([['','None'],['P0','P0 · Urgent'],['P1','P1 · High'],['P2','P2 · Normal'],['P3','P3 · Low']],u.priority));
+  field('title',_t('Title'),el('input', {value:u.title, required:true, maxlength:1000}),true);
+  const summary = field('summary',_t('Summary'),el('textarea'),true); summary.value = u.summary || '';
+  field('kind',_t('Kind'),pick(Object.keys(KIND_COLOR).map(k => [k,kindName(k)]),u.kind));
+  field('status',_t('Status'),pick([['open',_t('Open')],['done',_t('Done')],['dropped',_t('Ignored')]],u.status));
+  field('priority',_t('Priority'),pick([['',_t('None')],['P0',_t('P0 · Urgent')],['P1',_t('P1 · High')],['P2',_t('P2 · Normal')],['P3',_t('P3 · Low')]],u.priority));
   const localDate = value => { if (value == null) return ''; const d = new Date(value*1000); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,19); };
-  for (const [key,title] of [['start_at','Start'],['end_at','End'],['due_at','Due']]) field(key,title,el('input', {type:'datetime-local', step:1, value:localDate(u[key])}));
+  for (const [key,title] of [['start_at',_t('Start')],['end_at',_t('End')],['due_at',_t('Due')]]) field(key,title,el('input', {type:'datetime-local', step:1, value:localDate(u[key])}));
   const editableTags = (u.tags || []).filter(t => !t.startsWith('source:') && !t.startsWith('type:'));
-  const tags = field('tags','Tags',el('textarea', {rows:2, style:'min-height:60px'}),true); tags.value = editableTags.join('\n');
+  const tags = field('tags',_t('Tags'),el('textarea', {rows:2, style:'min-height:60px'}),true); tags.value = editableTags.join('\n');
   const original = Object.fromEntries(Object.entries(inputs).map(([key,node]) => [key,node.value]));
   const error = el('div', {class:'unit-error', role:'alert'});
-  const save = el('button', {class:'b', type:'submit'}, 'Save');
-  form.append(el('h2', {id:'unit-edit-title'}, 'Edit unit'),fields,error,el('footer', {},
-    el('button', {class:'b', type:'button', onclick:() => dialog.close()}, 'Cancel'),save));
+  const save = el('button', {class:'b', type:'submit'}, _t('Save'));
+  form.append(el('h2', {id:'unit-edit-title'}, _t('Edit unit')),fields,error,el('footer', {},
+    el('button', {class:'b', type:'button', onclick:() => dialog.close()}, _t('Cancel')),save));
   form.onsubmit = async ev => {
     ev.preventDefault(); error.textContent = ''; save.disabled = true;
     try {
@@ -587,7 +1100,7 @@ async function editUnit(id) {
       }
       if ('start_at' in body || 'end_at' in body) {
         const start = 'start_at' in body ? body.start_at : u.start_at, end = 'end_at' in body ? body.end_at : u.end_at;
-        if (start != null && end != null && end < start) throw new Error('End must be on or after start');
+        if (start != null && end != null && end < start) throw new Error(_t('End must be on or after start'));
       }
       if (tags.value !== original.tags) {
         const next = [...new Set(tags.value.split(/[\n,，]+/).map(t => t.trim()).filter(Boolean))];
@@ -605,9 +1118,9 @@ function unitCard(u, depth = 0) {
   u.tags = u.tags || [];
   const tagRow = el("div", {});
   const box = el("div", {class: "it " + (u.priority || "") + (u.status !== "open" ? " done" : "")},
-    el("div", {class: "meta"}, el("span", {class: "src"}, u.kind), whenLabel(u), timeLabel(u),
-       u.n_descendants ? el("span", {title: `${u.n_children || 0} direct; includes every child branch`}, `· ${u.n_descendants} subtopics`) : "",
-       u.n_messages ? el("span", {title: `${u.n_direct_messages || 0} directly attached; total includes all subtopic branches`}, `· ${u.n_messages} msgs total`) : ""),
+    el("div", {class: "meta"}, el("span", {class: "src"}, kindName(u.kind)), whenLabel(u), timeLabel(u),
+       u.n_descendants ? el("span", {title: _t("{n} direct; includes every child branch", {n: u.n_children || 0})}, _t("· {n} subtopics", {n: u.n_descendants})) : "",
+       u.n_messages ? el("span", {title: _t("{n} directly attached; total includes all subtopic branches", {n: u.n_direct_messages || 0})}, _t("· {n} msgs total", {n: u.n_messages})) : ""),
     el("div", {class: "title md"}, mdInline(u.title || "")),
     u.summary && el("div", {class: "sum"}, renderMarkdown(u.summary)),
     tagRow);
@@ -632,21 +1145,21 @@ function unitCard(u, depth = 0) {
   };
   const setKind = async k => { if (k === u.kind) return; await post({kind: k}); render(); };   // moves it into the right tab (e.g. Todos)
   function paintEditor() {
-    const kindSel = el("select", {class: "graph-sel", title: "Change this unit's kind"});
-    for (const k of Object.keys(KIND_COLOR)) { const o = el("option", {value: k}, k); if (k === u.kind) o.selected = true; kindSel.append(o); }
+    const kindSel = el("select", {class: "graph-sel", title: _t("Change this unit's kind")});
+    for (const k of Object.keys(KIND_COLOR)) { const o = el("option", {value: k}, kindName(k)); if (k === u.kind) o.selected = true; kindSel.append(o); }
     kindSel.onchange = () => setKind(kindSel.value);
     const removable = u.tags.filter(t => !t.startsWith("source:") && t !== "type:" + u.kind);
-    const chips = removable.map(t => el("span", {class: "tag rm", title: "Remove tag", onclick: () => removeTag(t)}, t, " ✕"));
-    const inp = el("input", {placeholder: "add tag — e.g. project:x, importance:high", list: "tagsuggest",
+    const chips = removable.map(t => el("span", {class: "tag rm", title: _t("Remove tag"), onclick: () => removeTag(t)}, t, " ✕"));
+    const inp = el("input", {placeholder: _t("add tag — e.g. project:x, importance:high"), list: "tagsuggest",
       style: "flex:1;min-width:150px;padding:3px 7px;font-size:12px"});
     inp.onkeydown = e => { if (e.key === "Enter") { addTag(inp.value); inp.value = ""; } };
     editor.replaceChildren(
-      el("div", {class: "chips", style: "margin-bottom:5px"}, el("span", {class: "status"}, "kind:"), kindSel),
-      el("div", {class: "chips", style: "margin-bottom:5px"}, ...(chips.length ? chips : [el("span", {class: "status"}, "no custom tags yet")])),
-      el("div", {class: "chips"}, el("span", {class: "status"}, "importance:"),
-        ...IMPORTANCE.map(([v, label]) => el("span", {class: "chip" + (u.tags.includes("importance:" + v) ? " on" : ""), onclick: () => setImportance(v)}, label))),
+      el("div", {class: "chips", style: "margin-bottom:5px"}, el("span", {class: "status"}, _t("kind:")), kindSel),
+      el("div", {class: "chips", style: "margin-bottom:5px"}, ...(chips.length ? chips : [el("span", {class: "status"}, _t("no custom tags yet"))])),
+      el("div", {class: "chips"}, el("span", {class: "status"}, _t("importance:")),
+        ...IMPORTANCE.map(([v, label]) => el("span", {class: "chip" + (u.tags.includes("importance:" + v) ? " on" : ""), onclick: () => setImportance(v)}, _t(label)))),
       el("div", {style: "display:flex;gap:5px;margin-top:6px"}, inp,
-        el("button", {class: "b", onclick: () => { addTag(inp.value); inp.value = ""; }}, "Add")));
+        el("button", {class: "b", onclick: () => { addTag(inp.value); inp.value = ""; }}, _t("Add"))));
   }
   paintTags();
   if (VIEWER_MODE) return box;
@@ -657,26 +1170,26 @@ function unitCard(u, depth = 0) {
     box.append(agent);
   }
   const acts = el("div", {class: "acts"});
-  acts.append(el('button', {class:'b', onclick:() => editUnit(u.id).catch(ex => { $('status').textContent = ex.message; })}, 'Edit'));
+  acts.append(el('button', {class:'b', onclick:() => editUnit(u.id).catch(ex => { $('status').textContent = ex.message; })}, _t('Edit')));
   const link = safeLink(u.open_link);
   if (link) acts.append(el("a", {class: "b", href: link, target: "_blank", rel: "noopener noreferrer",
-    title: "Open source message" + (u.open_channel ? " in " + u.open_channel : "")}, "Open"));
+    title: u.open_channel ? _t("Open source message in {channel}", {channel: u.open_channel}) : _t("Open source message")}, _t("Open")));
   if (u.status === "open" && u.kind !== "digest") {
-    acts.append(el("button", {class: "b", onclick: async e => { e.target.disabled = true; await api(`/api/unit/${u.id}`, {status: "done"}); render(); }}, "✓ Done"));
-    acts.append(el("button", {class: "b", title: "Not relevant to me — hide it", onclick: async e => { e.target.disabled = true; await api(`/api/unit/${u.id}`, {status: "dropped"}); render(); }}, "⊘ Ignore"));
+    acts.append(el("button", {class: "b", onclick: async e => { e.target.disabled = true; await api(`/api/unit/${u.id}`, {status: "done"}); render(); }}, _t("✓ Done")));
+    acts.append(el("button", {class: "b", title: _t("Not relevant to me — hide it"), onclick: async e => { e.target.disabled = true; await api(`/api/unit/${u.id}`, {status: "dropped"}); render(); }}, _t("⊘ Ignore")));
   }
-  acts.append(el("button", {class: "b", title: "Add or remove tags", onclick: () => { if (editor.hidden) { paintEditor(); editor.hidden = false; } else editor.hidden = true; }}, "🏷 Tag"));
+  acts.append(el("button", {class: "b", title: _t("Add or remove tags"), onclick: () => { if (editor.hidden) { paintEditor(); editor.hidden = false; } else editor.hidden = true; }}, _t("🏷 Tag")));
   const more = el("div", {class: "kids"}); more.hidden = true;
   acts.append(el("button", {class: "b", onclick: async () => {
     if (!more.hidden) { more.hidden = true; return; }
     const full = await api(`/api/unit/${u.id}?depth=1`);
     more.replaceChildren(
       ...(full.agent_task ? [agentTaskStatus(full.agent_task)] : []),
-      ...(full.parents || []).map(p => el("div", {class: "msg"}, el("i", {}, "in: "), refChip("u", String(p.id), p.title))),
+      ...(full.parents || []).map(p => el("div", {class: "msg"}, el("i", {}, _t("in: ")), refChip("u", String(p.id), p.title))),
       ...(full.children || []).map(c => unitCard(c, depth + 1)),
       ...(full.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, `${fmt(m.sent_at)} ${m.sender_name || ""}: `), linkedText(m.text || ""))));
     more.hidden = false;
-  }}, "Expand"));
+  }}, _t("Expand")));
   box.append(acts, editor, more);
   return box;
 }
@@ -805,21 +1318,21 @@ function buildGraph(panel, baseQ) {
     return el("label", {class: "gs"}, label, inp, value);
   };
   controls.append(
-    el("div", {class: "graph-row"}, el("b", {}, "Physics"),
-      slider("repulsion", "repulsion"),
-      slider("link length", "distance"),
-      slider("gravity", "gravity"),
-      slider("damping", "damping"),
-      el("button", {class: "b", onclick: () => { Object.assign(GRAPH_CFG, GRAPH_DEF); for (const k in GRAPH_DEF) sliders[k](); saveGraphCfg(); alpha = 1; }}, "reset"),
-      el("button", {class: "b", title: "Re-layout from scratch", onclick: () => { for (const k in GRAPH_POS) delete GRAPH_POS[k]; layoutKey = ""; load(); }}, "relayout")));
-  controls.append(el("div", {class: "status", style: "padding-bottom:4px"}, "Node size: total messages, including all subtopic branches"));
+    el("div", {class: "graph-row"}, el("b", {}, _t("Physics")),
+      slider(_t("repulsion"), "repulsion"),
+      slider(_t("link length"), "distance"),
+      slider(_t("gravity"), "gravity"),
+      slider(_t("damping"), "damping"),
+      el("button", {class: "b", onclick: () => { Object.assign(GRAPH_CFG, GRAPH_DEF); for (const k in GRAPH_DEF) sliders[k](); saveGraphCfg(); alpha = 1; }}, _t("reset")),
+      el("button", {class: "b", title: _t("Re-layout from scratch"), onclick: () => { for (const k in GRAPH_POS) delete GRAPH_POS[k]; layoutKey = ""; load(); }}, _t("relayout"))));
+  controls.append(el("div", {class: "status", style: "padding-bottom:4px"}, _t("Node size: total messages, including all subtopic branches")));
   panel.append(controls);
 
   const host = el("div", {class: "graph-host"});
   const cv = el("canvas"); host.append(cv);
   host.append(el("div", {class: "graph-legend"}, ...Object.keys(KIND_COLOR).map(k =>
-    el("span", {}, el("i", {style: `background:${kColor(k)}`}), k))));
-  host.append(el("div", {class: "graph-hint"}, "drag to pan · scroll to zoom · drag a node to move it · click to open"));
+    el("span", {}, el("i", {style: `background:${kColor(k)}`}), kindName(k)))));
+  host.append(el("div", {class: "graph-hint"}, _t("drag to pan · scroll to zoom · drag a node to move it · click to open")));
   host.append(el("div", {class: "graph-count"}));
   panel.append(host);
   const ctx = cv.getContext("2d");
@@ -845,7 +1358,7 @@ function buildGraph(panel, baseQ) {
       d.edges.map(e => [e.source, e.target]).sort((a,b) => a[0]-b[0] || a[1]-b[1])]);
     const present = new Set(d.nodes.map(n => n.id));
     const cnt = host.querySelector(".graph-count");
-    if (cnt) cnt.textContent = `${d.matched_count ?? d.nodes.length} matches${d.context_count ? ` + ${d.context_count} context` : ""} · ${d.edges.length} links`;
+    if (cnt) cnt.textContent = _t("{n} matches", {n: d.matched_count ?? d.nodes.length}) + (d.context_count ? _t(" + {n} context", {n: d.context_count}) : "") + _t(" · {n} links", {n: d.edges.length});
     const maxMessages = Math.max(1, ...d.nodes.map(n => n.n_messages || 0));
     nodes = d.nodes.map(n => {
       const p = GRAPH_POS[n.id] || (GRAPH_POS[n.id] = {x: W / 2 + (Math.random() - 0.5) * Math.max(400, W * 0.7), y: H / 2 + (Math.random() - 0.5) * Math.max(300, H * 0.7), vx: 0, vy: 0});
@@ -939,7 +1452,7 @@ function buildGraph(panel, baseQ) {
       const h = pick(w);
       if (h !== hover) {
         hover = h; cv.style.cursor = h ? "pointer" : "grab";
-        cv.title = h ? `${h.title || ""}\n${h.n_messages || 0} messages total · ${h.n_direct_messages || 0} direct · ${h.n_descendants || 0} subtopics${h.seed ? "" : " · context node"}` : "";
+        cv.title = h ? `${h.title || ""}\n` + _t("{n} messages total · {direct} direct · {sub} subtopics", {n: h.n_messages || 0, direct: h.n_direct_messages || 0, sub: h.n_descendants || 0}) + (h.seed ? "" : _t(" · context node")) : "";
       }
     }
   };
@@ -1002,9 +1515,9 @@ async function openUnit(id, anchor = {x: MOUSE.x, y: MOUSE.y}) {
   if (version !== unitCardVersion) return;
   const card = el("div", {class: "float-card"});
   card.tabIndex = -1;
-  const grip = el("span", {class: "fc-grip", title: "Drag to move"}, "⠿");
+  const grip = el("span", {class: "fc-grip", title: _t("Drag to move")}, "⠿");
   card.append(el("div", {class: "fc-bar"}, grip, el("button", {class: "b float-close", onclick: closeUnitCards}, "✕")),
-    full && !full.error ? unitCard(full) : el("div", {class: "status", role: "status"}, "Unit " + id + " is not available."));
+    full && !full.error ? unitCard(full) : el("div", {class: "status", role: "status"}, _t("Unit {id} is not available.", {id})));
   document.body.append(card);
   fitUnitCard(card, anchor.x + 14, anchor.y - 12);
   card.focus({preventScroll: true});
@@ -1038,7 +1551,7 @@ function previewLink(value, label = value) {
   };
   if (!internal && url.origin === location.origin) return link;
   const wrap = el("span", {class: "preview-link"}, link,
-    el("button", {class: "link-preview-trigger", type: "button", title: "Preview link", "aria-label": "Preview " + label,
+    el("button", {class: "link-preview-trigger", type: "button", title: _t("Preview link"), "aria-label": _t("Preview {label}", {label}),
       onclick: () => show()}, "↗"));
   wrap.onmouseenter = () => {
     // Keep links inside an existing card usable without replacing that card on hover.
@@ -1067,15 +1580,15 @@ const AGENT_STATES = {not_queued:'Not queued', waiting:'Organizing', pending:'Qu
   completed:'Completed', needs_attention:'Needs attention', cancelled:'Cancelled'};
 function agentTaskStatus(task, compact = false) {
   const tone = task.status === 'completed' ? 's-ok' : task.status === 'needs_attention' ? 's-err' : 's-wait';
-  const row = el('div', {class: 'msg'}, el('span', {class: 'src ' + tone}, 'Codex · ' + (AGENT_STATES[task.status] || task.status)));
+  const row = el('div', {class: 'msg'}, el('span', {class: 'src ' + tone}, 'Codex · ' + _t(AGENT_STATES[task.status] || task.status)));
   if (/^[0-9a-f-]{36}$/i.test(task.thread_id || '')) {
-    row.append(el('a', {class:'agent-link', href: 'codex://threads/' + task.thread_id, style: 'margin-left:8px'}, 'Open in Codex'));
+    row.append(el('a', {class:'agent-link', href: 'codex://threads/' + task.thread_id, style: 'margin-left:8px'}, _t('Open in Codex')));
   }
-  if (compact) row.append(el('a', {class:'agent-link', href:'/?tab=status', style:'margin-left:8px'}, 'Session status'));
+  if (compact) row.append(el('a', {class:'agent-link', href:'/?tab=status', style:'margin-left:8px'}, _t('Session status')));
   if (task.error) row.append(el('div', {class: 'status'}, task.error));
   if (!compact && task.updated_at) row.append(el('span', {class:'ago', style:'margin-left:8px'}, fmt(task.updated_at)));
   if (!compact && task.result) {
-    row.append(el('details', {}, el('summary', {}, 'Result'), el('div', {style:'white-space:pre-wrap'}, linkedText(task.result))));
+    row.append(el('details', {}, el('summary', {}, _t('Result')), el('div', {style:'white-space:pre-wrap'}, linkedText(task.result))));
   }
   return row;
 }
@@ -1097,24 +1610,24 @@ function agentQueueRow(task, enabled) {
       finally { delete row.dataset.busy; previous.forEach(([b,disabled]) => b.disabled=disabled); }
     }}, label);
   const canStart = ['not_queued','paused','needs_attention','cancelled'].includes(task.status);
-  if (canStart) controls.append(action('start','▶',task.thread_id ? 'Resume task' : 'Start task',!enabled));
+  if (canStart) controls.append(action('start','▶',task.thread_id ? _t('Resume task') : _t('Start task'),!enabled));
   if (['not_queued','waiting','pending','starting','running'].includes(task.status)) {
-    controls.append(action('pause','Ⅱ','Pause task'));
+    controls.append(action('pause','Ⅱ',_t('Pause task')));
   }
   if (/^[0-9a-f-]{36}$/i.test(task.thread_id || '')) {
     controls.append(el('a', {class:'agent-link',href:'codex://threads/' + task.thread_id,
-      title:'Open in Codex','aria-label':'Open in Codex'}, '↗'));
+      title:_t('Open in Codex'),'aria-label':_t('Open in Codex')}, '↗'));
   }
-  controls.append(action('delete','×','Delete and stop task',task.status==='deleting'));
+  controls.append(action('delete','×',_t('Delete and stop task'),task.status==='deleting'));
   const tone = task.status==='completed' ? 's-ok' : task.status==='needs_attention' ? 's-err' : 's-wait';
   row.append(el('div', {class:'agent-row-head'},
     task.unit_id ? el('a', {class:'agent-row-title',href:'/?unit='+task.unit_id,title:task.prompt},task.prompt)
       : el('span',{class:'agent-row-title',title:task.prompt},task.prompt), controls),
     el('div', {class:'agent-row-meta'},
-      el('span', {class:'src '+tone}, 'Codex · ' + (AGENT_STATES[task.status] || task.status)),
+      el('span', {class:'src '+tone}, 'Codex · ' + _t(AGENT_STATES[task.status] || task.status)),
       task.error ? el('span', {class:'status'},task.error) : null,
       task.updated_at ? el('time', {}, fmt(task.updated_at)) : null), error);
-  if (task.result) row.append(el('details', {}, el('summary', {}, 'Result'),
+  if (task.result) row.append(el('details', {}, el('summary', {}, _t('Result')),
     el('div', {style:'white-space:pre-wrap;overflow-wrap:anywhere'},linkedText(task.result))));
   return row;
 }
@@ -1126,7 +1639,7 @@ function agentSection(key, title, ...content) {
   return section;
 }
 function agentTaskPanel() {
-  const panel = el('div', {'data-agent-panel':'', role:'region', 'aria-label':'Codex tasks'}, 'Loading Codex tasks…');
+  const panel = el('div', {'data-agent-panel':'', role:'region', 'aria-label':_t('Codex tasks')}, _t('Loading Codex tasks…'));
   setTimeout(refreshAgentWidgets, 0);
   return panel;
 }
@@ -1155,24 +1668,24 @@ async function refreshAgentWidgets() {
       if (panel.dataset.signature === signature) continue;
       const expanded = new Set([...panel.querySelectorAll('[data-task-key]')]
         .filter(n => n.querySelector('details[open]')).map(n => n.dataset.taskKey));
-      const counts = Object.entries(d.counts || {}).map(([k,v]) => `${AGENT_STATES[k] || k}: ${v}`);
-      if (d.requests?.length) counts.push(`Not queued: ${d.requests.length}`);
+      const counts = Object.entries(d.counts || {}).map(([k,v]) => `${_t(AGENT_STATES[k] || k)}: ${v}`);
+      if (d.requests?.length) counts.push(_t('Not queued: {n}', {n: d.requests.length}));
       const entries = tasks.map(task => {
         const row = agentQueueRow(task, d.enabled);
         if (expanded.has(String(task.message_id)) && row.querySelector('details')) row.querySelector('details').open = true;
         return row;
       });
       panel.replaceChildren(el('div', {class:'agent-toolbar'},
-        el('span', {class:'src ' + (d.enabled ? 's-ok' : 's-wait')}, d.enabled ? 'Automatic tasks on' : 'Automatic tasks off'),
-        el('span', {class:'status'}, d.sandbox === 'danger-full-access' ? 'Full Access' : d.sandbox),
-        el('a', {class:'agent-link', href:'/?tab=settings'}, 'Settings')),
+        el('span', {class:'src ' + (d.enabled ? 's-ok' : 's-wait')}, d.enabled ? _t('Automatic tasks on') : _t('Automatic tasks off')),
+        el('span', {class:'status'}, _t({'danger-full-access': _t('Full Access'), 'read-only': _t('Read only'), 'workspace-write': _t('Workspace')}[d.sandbox] || d.sandbox)),
+        el('a', {class:'agent-link', href:'/?tab=settings'}, _t('Settings'))),
         el('div', {class:'status'}, counts.join(' · ')),
-        entries.length ? el('div', {class:'agent-queue'}, ...entries) : el('div', {class:'empty'}, 'No Codex tasks'));
+        entries.length ? el('div', {class:'agent-queue'}, ...entries) : el('div', {class:'empty'}, _t('No Codex tasks')));
       panel.dataset.signature = signature;
     }
   } catch (error) {
     for (const panel of panels) {
-      if (!panel.dataset.signature) panel.textContent = 'Could not load Codex tasks: ' + error.message;
+      if (!panel.dataset.signature) panel.textContent = _t('Could not load Codex tasks: ') + error.message;
     }
   } finally { AGENT_REFRESH_BUSY = false; }
 }
@@ -1185,8 +1698,8 @@ async function openWebsite(url, hover = null) {
   if (window.pywebview?.api?.open_preview) {
     try {
       const result = await window.pywebview.api.open_preview(url.href, hover);
-      if (!result?.ok) $("status").textContent = "Could not open preview window.";
-    } catch (_) { $("status").textContent = "Could not open preview window."; }
+      if (!result?.ok) $("status").textContent = _t("Could not open preview window.");
+    } catch (_) { $("status").textContent = _t("Could not open preview window."); }
     return;
   }
   window.open(url.href, "_blank", "popup=yes,width=1000,height=760,resizable=yes,scrollbars=yes,noopener,noreferrer");
@@ -1197,7 +1710,7 @@ async function buildGantt(panel, baseQ) {
   panel.addEventListener("pointerdown", closeUnitCards, true);
   panel.addEventListener("wheel", closeUnitCards, {capture: true, passive: true});
   panel.addEventListener("input", closeUnitCards);
-  const host = el("div", {class: "gantt-host"}, el("div", {class: "status"}, "Loading timeline…"));
+  const host = el("div", {class: "gantt-host"}, el("div", {class: "status"}, _t("Loading timeline…")));
   panel.append(host);
   const units = await api(`/api/units?${baseQ}`);
   if (!host.isConnected) return;
@@ -1218,7 +1731,7 @@ async function buildGantt(panel, baseQ) {
   const controls = el("div", {class: "graph-row", style: "margin-bottom:10px"});
   const zoomValue = el("span", {class: "status"}, Math.round(zoom * 100) + "%");
   const zoomInput = el("input", {type: "range", min: 50, max: 300, step: 10, value: Math.round(zoom * 100),
-    title: "Timeline zoom", "aria-label": "Timeline zoom"});
+    title: _t("Timeline zoom"), "aria-label": _t("Timeline zoom")});
   const chart = el("div", {class: "gantt-chart"});
   const scroll = el("div", {class: "gantt-scroll"});
   const draw = () => {
@@ -1226,7 +1739,7 @@ async function buildGantt(panel, baseQ) {
     zoomValue.textContent = Math.round(zoom * 100) + "%";
     localStorage.setItem("ganttZoom", String(zoom));
     chart.replaceChildren();
-    if (!items.length) { chart.append(el("div", {class: "gantt-empty"}, "No units with time evidence.")); return; }
+    if (!items.length) { chart.append(el("div", {class: "gantt-empty"}, _t("No units with time evidence."))); return; }
     let minT = Math.min(...items.map(x => x.start)), maxT = Math.max(...items.map(x => x.end));
     if (maxT - minT < 3600) {
       const center = (minT + maxT) / 2;
@@ -1260,7 +1773,7 @@ async function buildGantt(panel, baseQ) {
       return short ? d.toLocaleString([], {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"})
         : d.toLocaleDateString([], {month: "short", day: "numeric"});
     };
-    const windowLabel = windowSpan >= 86400 ? `${Math.round(windowSpan / 86400)}d window` : `${Math.max(1, Math.round(windowSpan / 3600))}h window`;
+    const windowLabel = windowSpan >= 86400 ? _t("{n}d window", {n: Math.round(windowSpan / 86400)}) : _t("{n}h window", {n: Math.max(1, Math.round(windowSpan / 3600))});
     zoomValue.textContent = windowLabel;
     const step = windowSpan <= 2 * 3600 ? 3600 : windowSpan <= 12 * 3600 ? 2 * 3600 : windowSpan <= 48 * 3600 ? 6 * 3600 : 86400;
     let lastDate = "";
@@ -1273,12 +1786,12 @@ async function buildGantt(panel, baseQ) {
     }
     scale.append(dateScale, hourScale);
     const axis = el("div", {class: "gantt-axis"}); axis.style.gridTemplateColumns = grid;
-    axis.append(el("div", {class: "gantt-axis-label"}, `${items.length} unit${items.length === 1 ? "" : "s"} · ${rows.length} parallel lane${rows.length === 1 ? "" : "s"}`), scale);
+    axis.append(el("div", {class: "gantt-axis-label"}, _t("{n} units · {lanes} parallel lanes", {n: items.length, lanes: rows.length})), scale);
     chart.append(axis);
     for (const row of rows) {
       const line = el("div", {class: "gantt-line"}); line.style.gridTemplateColumns = grid;
       const label = el("div", {class: "gantt-row-label", title: row.items.map(x => x.u.title).join(" · ")},
-        `${row.kind} · ` + (row.items.length === 1 ? row.items[0].u.title : `${row.items.length} overlapping topics`));
+        `${kindName(row.kind)} · ` + (row.items.length === 1 ? row.items[0].u.title : _t("{n} overlapping topics", {n: row.items.length})));
       const track = el("div", {class: "gantt-track"});
       for (const item of row.items) {
         // The newest time is on the left by default, like a latest-first activity view.
@@ -1302,8 +1815,8 @@ async function buildGantt(panel, baseQ) {
     zoomInput.value = String(Math.max(50, Math.min(300, Number(zoomInput.value) + (e.deltaY < 0 ? 10 : -10))));
     draw();
   };
-  controls.append(el("b", {}, "Timeline"), el("span", {class: "status"}, "Zoom"), zoomInput, zoomValue,
-    el("span", {class: "status"}, "Newest left · separate lanes by kind and overlap"));
+  controls.append(el("b", {}, _t("Timeline")), el("span", {class: "status"}, _t("Zoom")), zoomInput, zoomValue,
+    el("span", {class: "status"}, _t("Newest left · separate lanes by kind and overlap")));
   scroll.append(chart); host.replaceChildren(controls, scroll); draw();
 }
 // Assistant replies cite things: [[u:<id>]] a unit, [[g:<chat name>]] a group, [[p:<name>]] a person.
@@ -1311,15 +1824,26 @@ function refChip(kind, val, label) {
   if (kind === "u") {
     if (!/^\d+$/.test(val)) return document.createTextNode("[[u:" + val + "]]");
     const id = Number(val);
-    return el("button", {type: "button", class: "chip ref", title: "Open unit " + id, onclick: e => {
+    return el("button", {type: "button", class: "chip ref", title: _t("Open unit {id}", {id}), onclick: e => {
       e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); openUnit(id, {x: r.left, y: r.bottom});
     }}, label || "▸ unit " + id);
   }
-  if (kind === "g") return el("span", {class: "chip ref", title: "Show this group", onclick: () => goTag("channel:" + val)}, "👥 " + val);
-  return el("span", {class: "chip ref", title: "Show this person", onclick: () => goTag("person:" + val)}, "@ " + val);
+  if (kind === "g") return el("span", {class: "chip ref", title: _t("Show this group"), onclick: () => goTag("channel:" + val)}, "👥 " + val);
+  return el("span", {class: "chip ref", title: _t("Show this person"), onclick: () => goTag("person:" + val)}, "@ " + val);
 }
 // Parse Markdown with Marked, then build DOM nodes without interpreting raw HTML.
-const MARKDOWN = new marked.Marked({gfm: true, breaks: true, extensions: [{
+const MARKDOWN = new marked.Marked({gfm: true, breaks: true, tokenizer: {
+  url(src) {
+    const token = marked.Tokenizer.prototype.url.call(this, src);
+    if (!token || !/^(?:https?:\/\/|www\.)/i.test(token.raw)) return token;
+    // Bare URLs end at Chinese punctuation; explicit Markdown links keep their destination.
+    const end = token.raw.search(/[\u3000-\u303f\uff00-\uffef\u2018-\u201f]/);
+    if (end < 0) return token;
+    const raw = token.raw.slice(0, end);
+    return {...token, raw, text: raw, href: /^www\./i.test(raw) ? 'http://' + raw : raw,
+      tokens: [{type: 'text', raw, text: raw}]};
+  }
+}, extensions: [{
   name: "citation", level: "inline", start: src => src.indexOf("[["),
   tokenizer(src) {
     const m = /^\[\[([ugp]):([^\]\n]+)\]\]/.exec(src);
@@ -1425,7 +1949,7 @@ function renderMermaid(code) {
   for (const [lev, bucket] of Object.entries(buckets)) { maxCross = Math.max(maxCross, bucket.length); bucket.forEach((id, idx) => positions.set(id, horizontal ? {x: +lev * gapX + 90, y: idx * gapY + 42} : {x: idx * gapX + 90, y: +lev * gapY + 42})); }
   const width = horizontal ? (Math.max(...Object.keys(buckets).map(Number)) + 1) * gapX : maxCross * gapX;
   const height = horizontal ? maxCross * gapY : (Math.max(...Object.keys(buckets).map(Number)) + 1) * gapY;
-  const svg = svgNode("svg", {viewBox: `0 0 ${Math.max(width, 320)} ${Math.max(height, 100)}`, role: "img", "aria-label": "Mermaid diagram"});
+  const svg = svgNode("svg", {viewBox: `0 0 ${Math.max(width, 320)} ${Math.max(height, 100)}`, role: "img", "aria-label": _t("Mermaid diagram")});
   const defs = svgNode("defs"), marker = svgNode("marker", {id: "md-arrow", markerWidth: 8, markerHeight: 8, refX: 7, refY: 3, orient: "auto", markerUnits: "strokeWidth"});
   marker.append(svgNode("path", {d: "M0,0 L0,6 L7,3 z", fill: "currentColor"})); defs.append(marker); svg.append(defs);
   for (const e of edges) { const a = positions.get(e.from), b = positions.get(e.to); svg.append(svgNode("line", {x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: "currentColor", "stroke-opacity": ".55", "marker-end": "url(#md-arrow)"})); if (e.label) svg.append(svgNode("text", {x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 5, "text-anchor": "middle", fill: "currentColor", "font-size": "11"}, e.label)); }
@@ -1440,9 +1964,9 @@ function renderCodeFence(lang, code) {
   const normalized = (lang || "").toLowerCase(), pre = el("pre", {});
   pre.append(el("button", {class: "b code-copy", onclick: e => copyText(code, e.target)}, "copy"), el("code", {}, code));
   if (!["html", "htm", "svg"].includes(normalized)) return normalized === "mermaid" ? renderMermaid(code) : pre;
-  const box = el("div", {class: "md-html"}), frame = el("iframe", {title: "HTML preview", sandbox: ""}); frame.srcdoc = code;
+  const box = el("div", {class: "md-html"}), frame = el("iframe", {title: _t("HTML preview"), sandbox: ""}); frame.srcdoc = code;
   const source = el("details", {}, el("summary", {class: "status"}, "source"), pre);
-  box.append(el("div", {class: "md-html-bar"}, el("span", {}, "HTML preview"), el("span", {class: "status"}, "sandboxed")), frame, source); return box;
+  box.append(el("div", {class: "md-html-bar"}, el("span", {}, _t("HTML preview")), el("span", {class: "status"}, _t("sandboxed"))), frame, source); return box;
 }
 function renderMarkdown(md) {
   return el("div", {class: "md"}, markdownNodes(MARKDOWN.lexer(String(md || ""))));
@@ -1450,41 +1974,121 @@ function renderMarkdown(md) {
 async function copyText(text, btn) {
   let copied = false;
   try { await navigator.clipboard.writeText(text); copied = true; } catch (_) {}
-  if (btn) { const t = btn.textContent; btn.textContent = copied ? "✓ copied" : "Copy failed"; setTimeout(() => { btn.textContent = t; }, 1200); }
+  if (btn) { const t = btn.textContent; btn.textContent = copied ? _t("✓ copied") : _t("Copy failed"); setTimeout(() => { btn.textContent = t; }, 1200); }
   return copied;
 }
 
+// ---- Today: the one home page. One scope switch; unfinished things never age out; only the
+// reading lane has a time window. Every group shows its full count, nothing is cut silently.
+const RECENT_WINDOWS = [7, 30, 0];
+let RECENT_DAYS = Number(localStorage.getItem("recentDays") ?? 7);
+if (!RECENT_WINDOWS.includes(RECENT_DAYS)) RECENT_DAYS = 7;
+const TODAY_PAGE = {units: 30, messages: 30}, PAGE_STEP = 30;
+const TODAY_OPEN = readPreference("todaySections.v2", {});   // v2: group keys changed with the full-range groups
+// Types switched OFF per lane. Storing the hidden ones means a type that appears later starts visible.
+const TODAY_HIDE = Object.assign({todo: [], schedule: [], recent: []}, readPreference("todayHide", {}));
+const saveTodayHide = () => localStorage.setItem("todayHide", JSON.stringify(TODAY_HIDE));
+function typeChips(laneKey, counts) {
+  const types = Object.keys(counts || {}).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b));
+  if (!types.length) return null;
+  const off = new Set(TODAY_HIDE[laneKey]), allOn = types.every(k => !off.has(k));
+  const update = next => { TODAY_HIDE[laneKey] = [...next]; saveTodayHide(); if (laneKey === "recent") TODAY_PAGE.units = PAGE_STEP; render(); };
+  return el("div", {class: "lane-tools type-chips", role: "group", "aria-label": _t("Filter by type")},
+    el("button", {type: "button", class: "chip kind-chip" + (allOn ? " on" : ""), "aria-pressed": String(allOn),
+      title: _t(allOn ? "Hide every type" : "Show every type"),
+      onclick: () => update(allOn ? new Set([...off, ...types]) : new Set([...off].filter(k => !types.includes(k))))}, _t("All")),
+    ...types.map(k => el("button", {type: "button", class: "chip kind-chip" + (off.has(k) ? "" : " on"), "aria-pressed": String(!off.has(k)),
+      onclick: () => { off.has(k) ? off.delete(k) : off.add(k); update(off); }},
+      el("i", {style: `background:${kColor(k)}`}), kindName(k), " ", el("i", {class: "cnt"}, counts[k]))));
+}
+const filteredEmpty = laneKey => TODAY_HIDE[laneKey].length ? el("div", {class: "empty"}, _t("Nothing matches the selected types.")) : null;
+function todaySection(key, title, count, nodes, {open = true, alert = false} = {}) {
+  if (!count) return null;
+  const box = el("details", {class: "today-sec" + (alert ? " alert" : ""), open: TODAY_OPEN[key] ?? open},
+    el("summary", {}, title, el("span", {class: "n"}, count)), ...nodes);
+  box.ontoggle = () => { TODAY_OPEN[key] = box.open; localStorage.setItem("todaySections.v2", JSON.stringify(TODAY_OPEN)); };
+  return box;
+}
+// Split a date-sorted list into local calendar ranges that together cover every future date.
+const RANGES = [["week", "Within 7 days", 7], ["future", "Future", Infinity]];
+function byRange(list, when) {
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+  const out = RANGES.map(([key, label]) => ({key, label, items: []}));
+  for (const u of list) {
+    const day = new Date(when(u) * 1000); day.setHours(0, 0, 0, 0);
+    const offset = Math.round((day - midnight) / 86400000);        // whole local days from today
+    out[RANGES.findIndex(([, , upTo]) => offset < upTo)].items.push(u);
+  }
+  return out.filter(r => r.items.length);
+}
+function todayCard(u) {
+  const card = unitCard(u);
+  if (scopeNow() === "all" && u.for_me) card.classList.add("mine");   // in Everything, still spot yours
+  return card;
+}
+function moreRow(shown, total, onMore) {
+  if (total <= shown) return null;
+  return el("div", {class: "more-row"}, _t("Showing {shown} of {total}", {shown, total}),
+    el("button", {class: "b", onclick: e => { e.target.disabled = true; onMore(); }}, _t("Show {n} more", {n: Math.min(PAGE_STEP, total - shown)})));
+}
+// Done items live in Explore; these buttons open it pre-filtered (last 30 days of activity).
+function showCompleted(kinds) {
+  Object.assign(EXPLORE_FILTERS, {query: "", kinds, kindsMode: "custom", days: 30, status: "done", roots: false, context: false});
+  SEL.clear(); saveExploreFilters(); EXPLORE_VIEW = "list"; localStorage.setItem("exploreView", "list"); EXPLORE_SORT = "activity";
+  TAB = "explore"; return render(false);
+}
 const TABS = {
   async today() {
-    const d = await api("/api/today?scope=" + (SCOPE || "mine"));
-    const unscheduled = d.unscheduled_events || [];
-    const dated = d.needs.filter(u => u.due_at), undated = d.needs.filter(u => !u.due_at);
-    const promote = m => el("button", {class: "b", onclick: async e => {
+    const q = new URLSearchParams({days: RECENT_DAYS, limit: TODAY_PAGE.units, msg_limit: TODAY_PAGE.messages});
+    if (SCOPE) q.set("scope", SCOPE);
+    for (const key of ["todo", "schedule", "recent"]) if (TODAY_HIDE[key].length) q.set("hide_" + key, TODAY_HIDE[key].join(","));
+    const d = await api("/api/today?" + q);
+    if (!SCOPE && d.scope && d.scope !== SERVER_SCOPE) { SERVER_SCOPE = d.scope; drawScope(); }
+    const T = d.todo, S = d.schedule, R = d.recent, TY = d.types || {};
+    const cards = list => list.map(todayCard);
+    const total = obj => Object.values(obj).reduce((n, list) => n + list.length, 0);
+
+    const todoLane = lane(_t("To do"), total(T), [typeChips("todo", TY.todo),
+      todaySection("todo:overdue", _t("Overdue"), T.overdue.length, cards(T.overdue), {alert: true}),
+      ...byRange(T.upcoming, u => u.due_at || u.start_at).map(r =>
+        todaySection("todo:" + r.key, _t(r.label), r.items.length, cards(r.items))),
+      todaySection("todo:undated", _t("No due date"), T.undated.length, cards(T.undated)),
+      total(T) ? null : filteredEmpty("todo"),
+    ].filter(Boolean), _t("Nothing to do. 🎉"));
+    const completed = kinds => el("div", {class: "more-row"},
+      el("button", {class: "b", onclick: () => showCompleted(kinds)}, _t("Completed in the last 30 days →")));
+    todoLane.append(completed(["todo", "question"]));
+
+    const dated = list => { const out = [], seen = new Set();
+      for (const u of list) { const day = dayKey(u.kind === "event" ? u.start_at : (u.due_at || u.start_at));
+        if (!seen.has(day)) { seen.add(day); out.push(el("div", {class: "day"}, day)); } out.push(todayCard(u)); }
+      return out; };
+    const scheduleLane = lane(_t("Schedule"), total(S), [typeChips("schedule", TY.schedule),
+      todaySection("sch:now", _t("Happening now"), S.now.length, cards(S.now), {alert: true}),
+      ...byRange(S.upcoming, u => u.kind === "event" ? u.start_at : (u.due_at || u.start_at)).map(r =>
+        todaySection("sch:" + r.key, _t(r.label), r.items.length, dated(r.items))),
+      todaySection("sch:tbd", _t("Time to be decided"), S.tbd.length, cards(S.tbd)),
+      todaySection("sch:past", _t("Past, not closed yet"), S.past.length, cards(S.past), {open: false}),
+      total(S) ? null : filteredEmpty("schedule"),
+    ].filter(Boolean), _t("Nothing scheduled."));
+    scheduleLane.append(completed(["event"]));
+
+    const windows = el("div", {class: "lane-tools"}, el("span", {class: "status"}, _t("Activity in")),
+      ...RECENT_WINDOWS.map(days => el("button", {type: "button", class: "chip" + (RECENT_DAYS === days ? " on" : ""), onclick: () => {
+        RECENT_DAYS = days; localStorage.setItem("recentDays", String(days)); TODAY_PAGE.units = TODAY_PAGE.messages = PAGE_STEP; render();
+      }}, days ? _t("{n} days", {n: days}) : _t("All time"))));
+    const promote = m => el("button", {class: "b", title: _t("Turn this message into a todo"), onclick: async e => {
       e.target.disabled = true; await api("/api/units", {from_message: m.id, kind: "todo"}); render();
-    }}, "→ Todo");
-    return el("div", {}, el("div", {class: "grid g3"},
-      lane("To do", d.needs.length, [...dated.map(u => unitCard(u)),
-        ...(undated.length ? [el("div", {class: "day"}, "No date"), ...undated.map(u => unitCard(u))] : [])],
-        "Nothing to do. 🎉"),
-      lane("Events", d.events.length + unscheduled.length, [
-        ...(d.events.length ? [el("div", {class: "day"}, "Next 7 days"), ...byDay(d.events, "start_at")] : []),
-        ...(unscheduled.length ? [el("div", {class: "day"}, "Time TBD"), ...unscheduled.map(u => unitCard(u))] : [])]),
-      lane("Flagged, not sorted yet", d.unsorted.length,
-        d.unsorted.map(m => msgCard(m, {extra: promote(m)})), "Everything has been organized.")));
-  },
-  async todos() {
-    const open = await api("/api/units?kind=todo&status=open&order=due&limit=300" + mineQ());
-    const done = await api("/api/units?kind=todo&status=done&limit=50" + mineQ());
-    return el("div", {class: "grid g2"}, lane("Open todos", open.length, open.map(u => unitCard(u))),
-                                         lane("Recently done", done.length, done.map(u => unitCard(u))));
-  },
-  async calendar() {
-    const ev = (await api("/api/units?kind=event&order=due&limit=300" + mineQ())).filter(u => (u.start_at || 0) >= now() - 86400);
-    const unscheduled = await api("/api/units?kind=event&status=open&unscheduled=1&limit=300" + mineQ());
-    return el("div", {class: "grid g2"}, lane("Events", ev.length + unscheduled.length, [
-      ...(ev.length ? [el("div", {class: "day"}, "Upcoming"), ...byDay(ev, "start_at")] : []),
-      ...(unscheduled.length ? [el("div", {class: "day"}, "Time TBD"), ...unscheduled.map(u => unitCard(u))] : [])]),
-      lane("Deadlines", null, byDay(await api("/api/units?tags=type:deadline&status=open&order=due&limit=200"), "due_at")));
+    }}, _t("→ Todo"));
+    const recentLane = lane(_t("Recent"), R.messages_total + R.units_total, [windows, typeChips("recent", TY.recent),
+      todaySection("rec:messages", _t("Flagged messages, not organized yet"), R.messages_total, [
+        ...R.messages.map(m => msgCard(m, {extra: promote(m)})),
+        moreRow(R.messages.length, R.messages_total, () => { TODAY_PAGE.messages += PAGE_STEP; render(); })]),
+      ...cards(R.units),       // one list, newest first: the lane itself is the grouping
+      moreRow(R.units.length, R.units_total, () => { TODAY_PAGE.units += PAGE_STEP; render(); }),
+      !R.messages_total && !R.units_total ? (filteredEmpty("recent") || el("div", {class: "empty"}, _t("Nothing new in this period."))) : null,
+    ].filter(Boolean));
+    return el("div", {}, el("div", {class: "grid g3"}, todoLane, scheduleLane, recentLane));
   },
   async groups() {
     const params = new URLSearchParams({hours: String(GROUPS_STATE.hours), q: GROUPS_STATE.query});
@@ -1504,16 +2108,16 @@ const TABS = {
       }
       return node;
     };
-    const query = el("input", {value: GROUPS_STATE.query, placeholder: "Search group name or message text"});
+    const query = el("input", {value: GROUPS_STATE.query, placeholder: _t("Search group name or message text")});
     query.onkeydown = e => { if (e.key === "Enter") { GROUPS_STATE.query = query.value.trim(); render(); } };
     const filters = el("div", {class: "group-filters"}, query,
-      control([[24, "Last 24 hours"], [72, "Last 3 days"], [168, "Last 7 days"], [720, "Last 30 days"], [0, "All history"]],
+      control([[24, _t("Last 24 hours")], [72, _t("Last 3 days")], [168, _t("Last 7 days")], [720, _t("Last 30 days")], [0, _t("All history")]],
               GROUPS_STATE.hours, v => { GROUPS_STATE.hours = +v; }),
-      control([["all", "All sources"], ...sources.map(s => [s, SRC_LABEL[s] || s])],
+      control([["all", _t("All sources")], ...sources.map(s => [s, SRC_LABEL[s] || s])],
               GROUPS_STATE.source, v => { GROUPS_STATE.source = v; }),
-      control([["all", "All chats"], ["groups", "Groups"], ["direct", "Direct chats"]],
+      control([["all", _t("All chats")], ["groups", _t("Groups")], ["direct", _t("Direct chats")]],
               GROUPS_STATE.kind, v => { GROUPS_STATE.kind = v; }),
-      control([["all", "All policies"], ["watch", "Watch"], ["store", "Store"], ["digest", "Digest"]],
+      control([["all", _t("All policies")], ["watch", _t("Watch")], ["store", _t("Store")], ["digest", _t("Digest")]],
               GROUPS_STATE.policy, v => { GROUPS_STATE.policy = v; }));
     const groupKey = c => c.source + "|" + (c.account || "") + "|" + c.channel;
     const expand = async c => {
@@ -1527,12 +2131,12 @@ const TABS = {
     };
     const flag = async c => {
       const r = await api("/api/channels/flag", {source: c.source, account: c.account || "", channel: c.channel, hours: 0});
-      $("status").textContent = "✓ flagged " + r.flagged + " messages";
+      $("status").textContent = _t("✓ flagged {n} messages", {n: r.flagged});
       render();
     };
     const repair = async c => {
       const r = await api("/api/channels/refresh", {source: c.source, channel: c.channel, hours: 720});
-      $("status").textContent = "✓ restored " + r.updated + " message texts";
+      $("status").textContent = _t("✓ restored {n} message texts", {n: r.updated});
       render();
     };
     const card = c => {
@@ -1541,18 +2145,18 @@ const TABS = {
         el("div", {class: "msg"}, el("i", {}, (m.sender_name || "?") + " · " + fmt(m.sent_at) + ": "), m.text || "[" + (m.kind || "message") + "]")) : [];
       return el("div", {class: "it group-card " + (c.policy === "watch" ? "P2" : "")},
         el("div", {class: "meta"}, srcBadge(c.source, c.account), el("b", {}, c.channel_name || c.channel),
-          el("span", {class: "tag"}, c.policy), c.n + " msgs", c.important ? "· " + c.important + " flagged" : ""),
-        ...(c.units || []).map(u => el("div", {class: "msg"}, el("i", {}, "[" + u.kind + "] "), u.title)),
+          el("span", {class: "tag"}, wordName(c.policy)), _t("{n} msgs", {n: c.n}), c.important ? _t("· {n} flagged", {n: c.important}) : ""),
+        ...(c.units || []).map(u => el("div", {class: "msg"}, el("i", {}, "[" + kindName(u.kind) + "] "), u.title)),
         ...(c.highlights || []).map(h => el("div", {class: "msg"}, el("i", {}, (h.sender_name || "") + ": "), h.text || "")),
         expanded && data ? el("div", {class: "group-messages"}, ...messages) : null,
         el("div", {class: "acts"},
-          el("button", {class: "b", onclick: () => flag(c)}, "⚑ Flag all"),
-          el("button", {class: "b", onclick: () => expand(c)}, expanded ? "Collapse" : "Expand"),
-          c.policy !== "watch" && teach("watch", c.source, c.channel, "👁 Watch"),
-          c.policy !== "digest" && teach("digest", c.source, c.channel, "Digest only"),
-          teach("mute", c.source, c.channel, "Mute")));
+          el("button", {class: "b", onclick: () => flag(c)}, _t("⚑ Flag all")),
+          el("button", {class: "b", onclick: () => expand(c)}, expanded ? _t("Collapse") : _t("Expand")),
+          c.policy !== "watch" && teach("watch", c.source, c.channel, _t("👁 Watch")),
+          c.policy !== "digest" && teach("digest", c.source, c.channel, _t("Digest only")),
+          teach("mute", c.source, c.channel, _t("Mute"))));
     };
-    return el("div", {}, filters, el("div", {class: "status"}, filtered.length + " chats · " + (GROUPS_STATE.hours ? "recent window" : "all history")),
+    return el("div", {}, filters, el("div", {class: "status"}, _t(GROUPS_STATE.hours ? "{n} chats · recent window" : "{n} chats · all history", {n: filtered.length})),
       el("div", {class: "grid g3"}, ...[0, 1, 2].map(col => el("div", {}, ...filtered.filter((_, i) => i % 3 === col).map(card)))));
   },
   async explore() {
@@ -1569,18 +2173,18 @@ const TABS = {
       return control;
     };
     const keyword = el("input", {id: "explore-keywords", value: EXPLORE_FILTERS.query || "",
-      placeholder: "Title / summary; spaces = AND", style: "width:100%"});
+      placeholder: _t("Title / summary; spaces = AND"), style: "width:100%"});
     const searchForm = el("form", {style: "display:flex;gap:6px;margin-bottom:10px", onsubmit: e => {
       e.preventDefault(); EXPLORE_FILTERS.query = keyword.value.trim(); apply();
-    }}, keyword, el("button", {class: "b", type: "submit"}, "Apply"));
-    const sort = select("explore-sort", [["activity", "Recent activity"], ["oldest", "Oldest activity"],
-      ["due", "Due / date"], ["created", "Newest"], ["messages", "Most messages (all subtopics)"],
-      ["descendants", "Most subtopics (all levels)"], ["children", "Most direct subtopics"], ["title", "Title A–Z"]],
+    }}, keyword, el("button", {class: "b", type: "submit"}, _t("Apply")));
+    const sort = select("explore-sort", [["activity", _t("Recent activity")], ["oldest", _t("Oldest activity")],
+      ["due", _t("Due / date")], ["created", _t("Newest")], ["messages", _t("Most messages (all subtopics)")],
+      ["descendants", _t("Most subtopics (all levels)")], ["children", _t("Most direct subtopics")], ["title", _t("Title A–Z")]],
       EXPLORE_SORT, value => { EXPLORE_SORT = value; localStorage.setItem("exploreSort", value); apply(); });
-    const days = select("explore-days", [[0, "All time"], [1, "Last 24h"], [3, "Last 3 days"], [7, "Last 7 days"],
-      [14, "Last 14 days"], [30, "Last 30 days"]], EXPLORE_FILTERS.days, value => { EXPLORE_FILTERS.days = +value; apply(); });
-    const status = select("explore-status", [["", "Open + done"], ["open", "Open"], ["done", "Done"],
-      ["dropped", "Ignored"], ["all", "All statuses"]], EXPLORE_FILTERS.status, value => { EXPLORE_FILTERS.status = value; apply(); });
+    const days = select("explore-days", [[0, _t("All time")], [1, _t("Last 24h")], [3, _t("Last 3 days")], [7, _t("Last 7 days")],
+      [14, _t("Last 14 days")], [30, _t("Last 30 days")]], EXPLORE_FILTERS.days, value => { EXPLORE_FILTERS.days = +value; apply(); });
+    const status = select("explore-status", [["", _t("Open + done")], ["open", _t("Open")], ["done", _t("Done")],
+      ["dropped", _t("Ignored")], ["all", _t("All statuses")]], EXPLORE_FILTERS.status, value => { EXPLORE_FILTERS.status = value; apply(); });
     const checkbox = (id, label, key) => {
       const input = el("input", {id, type: "checkbox", style: "width:auto"}); input.checked = !!EXPLORE_FILTERS[key];
       input.onchange = () => { EXPLORE_FILTERS[key] = input.checked; apply(); };
@@ -1588,48 +2192,48 @@ const TABS = {
     };
     const allKinds = Object.keys(KIND_COLOR), allKindsOn = EXPLORE_FILTERS.kindsMode === "all";
     const kinds = el("div", {id: "explore-kinds", class: "chips"},
-      el("button", {type: "button", class: "chip kind-chip" + (allKindsOn ? " on" : ""), title: "Show every kind",
-        onclick: () => { EXPLORE_FILTERS.kindsMode = allKindsOn ? "custom" : "all"; EXPLORE_FILTERS.kinds = []; apply(); }}, "All kinds"),
+      el("button", {type: "button", class: "chip kind-chip" + (allKindsOn ? " on" : ""), title: _t("Show every kind"),
+        onclick: () => { EXPLORE_FILTERS.kindsMode = allKindsOn ? "custom" : "all"; EXPLORE_FILTERS.kinds = []; apply(); }}, _t("All kinds")),
       ...allKinds.map(k => el("button", {type: "button", class: "chip kind-chip" + (allKindsOn || EXPLORE_FILTERS.kinds.includes(k) ? " on" : ""),
         onclick: () => { if (EXPLORE_FILTERS.kindsMode === "all") { EXPLORE_FILTERS.kindsMode = "custom"; EXPLORE_FILTERS.kinds = allKinds.filter(x => x !== k); } else { const selected = [...EXPLORE_FILTERS.kinds]; const index = selected.indexOf(k); index < 0 ? selected.push(k) : selected.splice(index, 1); EXPLORE_FILTERS.kinds = selected; if (selected.length === allKinds.length) { EXPLORE_FILTERS.kindsMode = "all"; EXPLORE_FILTERS.kinds = []; } } apply(); }},
-        el("i", {style: `background:${kColor(k)}`}), k)));
+        el("i", {style: `background:${kColor(k)}`}), kindName(k))));
     const selectedTags = el("div", {class: "chips"}, ...[...SEL].map(tag => el("button", {type: "button", class: "chip on",
       onclick: () => { SEL.delete(tag); apply(); }}, tag + " ×")));
     const chips = Object.entries(groups).map(([ns, list]) => el("div", {class: "chips"}, el("span", {class: "status",
-      title: ns === "source" ? "Includes sources of linked subtopics at every level" : ""}, ns + ":"),
+      title: ns === "source" ? _t("Includes sources of linked subtopics at every level") : ""}, ns + ":"),
       ...list.slice(0, 40).map(t => el("span", {class: "chip" + (SEL.has(t.tag) ? " on" : ""), onclick: () => {
         SEL.has(t.tag) ? SEL.delete(t.tag) : SEL.add(t.tag); apply();
       }}, t.tag.slice(ns.length + 1), " ", el("i", {}, t.n)))));
     const row = (label, control) => el("tr", {}, el("td", {}, label), el("td", {}, control));
-    const table = el("table", {class: "kv", style: "width:100%;margin-bottom:8px"}, row("Sort", sort), row("Activity", days), row("Status", status));
+    const table = el("table", {class: "kv", style: "width:100%;margin-bottom:8px"}, row(_t("Sort"), sort), row(_t("Activity"), days), row(_t("Status"), status));
     const clear = el("button", {id: "explore-reset", class: "b", onclick: () => {
       Object.assign(EXPLORE_FILTERS, {query: "", kinds: [], kindsMode: "all", days: 0, status: "", roots: false, context: false});
       SEL.clear(); apply();
-    }}, "Clear filters");
-    const tagLane = lane("Sort & filters", null, [searchForm, table, el("div", {class: "day"}, "Kinds (All kinds toggles all)"), kinds,
-      checkbox("explore-roots", "Top-level matches only", "roots"),
-      checkbox("explore-context", "Show linked context (Graph)", "context"),
-      el("div", {class: "empty"}, "Top-level keeps the outermost matches; a parent outside your filters does not hide a match. List and Graph share filters. Context adds faded neighbors only when enabled."), clear,
-      el("div", {class: "day"}, "Tags — OR within a namespace, AND across"), selectedTags, ...chips]);
+    }}, _t("Clear filters"));
+    const tagLane = lane(_t("Sort & filters"), null, [searchForm, table, el("div", {class: "day"}, _t("Kinds (All kinds toggles all)")), kinds,
+      checkbox("explore-roots", _t("Top-level matches only"), "roots"),
+      checkbox("explore-context", _t("Show linked context (Graph)"), "context"),
+      el("div", {class: "empty"}, _t("Top-level keeps the outermost matches; a parent outside your filters does not hide a match. List and Graph share filters. Context adds faded neighbors only when enabled.")), clear,
+      el("div", {class: "day"}, _t("Tags — OR within a namespace, AND across")), selectedTags, ...chips]);
     const modePick = (value, label) => el("button", {class: "chip" + (EXPLORE_VIEW === value ? " on" : ""),
       onclick: () => { EXPLORE_VIEW = value; localStorage.setItem("exploreView", value); apply(); }}, label);
-    const modeToggle = el("span", {style: "display:flex;gap:4px"}, modePick("list", "☰ List"), modePick("graph", "⚹ Graph"), modePick("gantt", "▥ Gantt"));
+    const modeToggle = el("span", {style: "display:flex;gap:4px"}, modePick("list", _t("☰ List")), modePick("graph", _t("⚹ Graph")), modePick("gantt", _t("▥ Gantt")));
     const filterQ = exploreQuery();
     if (EXPLORE_VIEW === "graph") {
       const panel = el("section", {class: "lane", style: "padding:0;overflow:hidden;position:relative;display:flex;flex-direction:column;height:calc(100vh - 92px)"});
-      panel.append(el("h2", {style: "padding:10px 14px 0"}, "Info-unit graph", modeToggle));
+      panel.append(el("h2", {style: "padding:10px 14px 0"}, _t("Info-unit graph"), modeToggle));
       buildGraph(panel, filterQ);
       return el("div", {class: "grid g2"}, tagLane, panel);
     }
     if (EXPLORE_VIEW === "gantt") {
       const panel = el("section", {class: "lane", style: "padding:0;overflow:hidden;position:relative;display:flex;flex-direction:column;height:calc(100vh - 92px)"});
-      panel.append(el("h2", {style: "padding:10px 14px 0"}, "Topic timeline", modeToggle));
+      panel.append(el("h2", {style: "padding:10px 14px 0"}, _t("Topic timeline"), modeToggle));
       buildGantt(panel, filterQ);
       return el("div", {class: "grid g2"}, tagLane, panel);
     }
     const units = await api(`/api/units?${filterQ}`);
     const mineCard = u => { const card = unitCard(u); if (u.for_me) card.classList.add("mine"); return card; };
-    const ulane = lane("Matching units", units.length, units.map(mineCard));
+    const ulane = lane(_t("Matching units"), units.length, units.map(mineCard));
     ulane.querySelector("h2 span:last-child").replaceWith(el("span", {style: "display:flex;gap:8px;align-items:center"}, modeToggle, el("span", {}, units.length)));
     return el("div", {class: "grid g2"}, tagLane, ulane);
   },
@@ -1637,22 +2241,22 @@ const TABS = {
   async live() {
     const d = await api("/api/live");
     const organizeNow = async (channel, btn) => {
-      btn.disabled = true; btn.textContent = "organizing…"; $("status").textContent = "organizing…";
+      btn.disabled = true; btn.textContent = _t("organizing…"); $("status").textContent = _t("organizing…");
       const r = await api("/api/organize-now", channel ? {channel} : {});
       const made = (r.ai && (r.ai.created || 0)) + (r.rules && r.rules.units || 0);
-      $("status").textContent = `organized — ${made} unit(s)`;
+      $("status").textContent = _t("organized — {n} unit(s)", {n: made});
       render();
     };
     const head = el("div", {class: "chips"}, el("span", {class: "status"},
-      `${d.segments.length} conversation(s) in progress, not yet organized into topics.`),
-      el("button", {class: "b", onclick: e => organizeNow(null, e.target)}, "⚡ Organize all now"));
+      _t("{n} conversation(s) in progress, not yet organized into topics.", {n: d.segments.length})),
+      el("button", {class: "b", onclick: e => organizeNow(null, e.target)}, _t("⚡ Organize all now")));
     const cards = d.segments.map(sg => el("div", {class: "it P2"},
       el("div", {class: "meta"}, srcBadge(sg.source, sg.account), el("b", {}, sg.channel_name || sg.channel),
-        `${sg.n} msgs`, "· since " + fmt(sg.start_at), "· last " + fmt(sg.end_at)),
+        _t("{n} msgs · since {start} · last {end}", {n: sg.n, start: fmt(sg.start_at), end: fmt(sg.end_at)})),
       ...(sg.messages || []).map(m => el("div", {class: "msg"}, el("i", {}, (m.sender_name || "") + ": "), linkedText(m.text || ""))),
-      el("div", {class: "acts"}, el("button", {class: "b", onclick: e => organizeNow(sg.channel, e.target)}, "⚡ Organize this now"))));
+      el("div", {class: "acts"}, el("button", {class: "b", onclick: e => organizeNow(sg.channel, e.target)}, _t("⚡ Organize this now")))));
     return el("div", {}, head, el("div", {class: "grid", style: "grid-template-columns:repeat(auto-fill,minmax(360px,1fr))"},
-      ...(cards.length ? cards : [el("div", {class: "empty"}, "No conversations in progress — everything is organized.")])));
+      ...(cards.length ? cards : [el("div", {class: "empty"}, _t("No conversations in progress — everything is organized."))])));
   },
 
   async chat() {
@@ -1661,11 +2265,11 @@ const TABS = {
     log.onscroll = () => { scrollPinned = log.scrollHeight - log.scrollTop - log.clientHeight < 60; };
     const draw = () => {
       const cards = CHAT.map(m => {
-        const meta = el("div", {class: "meta"}, el("b", {}, m.role === "user" ? "You" : "Assistant"),
-          m.changes && m.changes.length ? el("span", {class: "tag"}, m.changes.length + " change(s)") : null,
+        const meta = el("div", {class: "meta"}, el("b", {}, m.role === "user" ? _t("You") : _t("Assistant")),
+          m.changes && m.changes.length ? el("span", {class: "tag"}, _t("{n} change(s)", {n: m.changes.length})) : null,
           m.cost ? el("span", {class: "ago"}, "$" + m.cost) : null);
         if (m.role === "assistant" && m.content && !m.streaming)
-          meta.append(el("button", {class: "b msg-copy", title: "Copy reply", onclick: e => copyText(m.content, e.target)}, "⧉ copy"));
+          meta.append(el("button", {class: "b msg-copy", title: _t("Copy reply"), onclick: e => copyText(m.content, e.target)}, _t("⧉ copy")));
         const bodyEl = m.role === "assistant"
           ? (m.content ? renderMarkdown(m.content) : el("span", {class: "status"}, m.streaming ? "…" : ""))
           : el("div", {class: "chat-text"}, linkedText(m.content || ""));
@@ -1674,7 +2278,7 @@ const TABS = {
         let reasoning = null;
         if (m.role === "assistant" && m.reasoning) {
           const open = m.reasoningOpen === true || (m.reasoningOpen === undefined && m.streaming && !m.content);
-          const summary = el("summary", {}, m.streaming && !m.content ? "Thinking…" : "Thinking");
+          const summary = el("summary", {}, m.streaming && !m.content ? _t("Thinking…") : _t("Thinking"));
           reasoning = el("details", {class: "md-reasoning", open}, summary,
             el("div", {class: "reasoning-text", "data-follow": m.streaming ? "1" : "0"}, m.reasoning));
           summary.onclick = () => requestAnimationFrame(() => { m.reasoningOpen = reasoning.open; });
@@ -1682,8 +2286,7 @@ const TABS = {
         return el("div", {class: "it " + (m.role === "user" ? "P2" : "")}, meta, toolStatus, reasoning, bodyEl);
       });
       if (!CHAT.length) cards.push(el("div", {class: "empty"},
-        "Ask about your hub, or tell me to do something — e.g. “what are my deadlines this week?”, "
-        + "“find todos the hub missed in the robotics group”, “connect the reward-design topic under world models”, “consolidate duplicate topic tags”, “mark unit 42 done”."));
+        _t("Ask about your hub, or tell me to do something — e.g. “what are my deadlines this week?”, “find todos the hub missed in the robotics group”, “connect the reward-design topic under world models”, “consolidate duplicate topic tags”, “mark unit 42 done”.")));
       log.replaceChildren(...cards);
       log.querySelectorAll('.reasoning-text[data-follow="1"]').forEach(box => { box.scrollTop = box.scrollHeight; });
       if (scrollPinned) log.scrollTop = log.scrollHeight;
@@ -1695,7 +2298,7 @@ const TABS = {
       drawQueued = true;
       requestAnimationFrame(() => { drawQueued = false; draw(); });
     };
-    const input = el("input", {id: "chat-input", value: CHAT_DRAFT, placeholder: "Message the assistant… (Enter)", style: "flex:1"});
+    const input = el("input", {id: "chat-input", value: CHAT_DRAFT, placeholder: _t("Message the assistant… (Enter)"), style: "flex:1"});
     input.oninput = () => { CHAT_DRAFT = input.value; };
     const send = async () => {
       const text = input.value.trim(); if (!text) return;
@@ -1703,7 +2306,7 @@ const TABS = {
       const payload = CHAT.map(m => ({role: m.role, content: m.content}));
       const asst = {role: "assistant", content: "", reasoning: "", changes: [], cost: 0, status: "", streaming: true};
       CHAT.push(asst); scrollPinned = true; draw(); CHAT_BUSY = true;
-      input.disabled = true; $("status").textContent = "thinking…";
+      input.disabled = true; $("status").textContent = _t("thinking…");
       let streamStarted = false, streamDone = false, streamError = null;
       const handleSseRecord = record => {
         const line = record.split("\n").find(l => l.startsWith("data:")); if (!line) return;
@@ -1742,15 +2345,15 @@ const TABS = {
         }
       } finally {
         asst.streaming = false; CHAT_BUSY = false;
-        $("status").textContent = (asst.changes && asst.changes.length) ? asst.changes.length + " change(s) applied" : (streamError ? "stream ended" : "");
+        $("status").textContent = (asst.changes && asst.changes.length) ? _t("{n} change(s) applied", {n: asst.changes.length}) : (streamError ? _t("stream ended") : "");
         input.disabled = false; draw(); input.focus();
       }
     };
     input.onkeydown = e => { if (e.key === "Enter") send(); };
     draw();
     const bar = el("div", {style: "display:flex;gap:6px;margin-top:8px"}, input,
-      el("button", {class: "b", onclick: send, style: "padding:6px 14px"}, "Send"),
-      el("button", {class: "b", onclick: () => { CHAT = []; CHAT_DRAFT = ""; input.value = ""; draw(); }}, "Clear"));
+      el("button", {class: "b", onclick: send, style: "padding:6px 14px"}, _t("Send")),
+      el("button", {class: "b", onclick: () => { CHAT = []; CHAT_DRAFT = ""; input.value = ""; draw(); }}, _t("Clear")));
     return el("div", {}, log, bar);
   },
 
@@ -1763,7 +2366,7 @@ const TABS = {
       const result = await api("/api/settings", {[key]: value});
       if (result.error) { $("status").textContent = result.error; return false; }
       if (key !== "ai.api_key") cfg.values[key] = result.saved?.[key] ?? value;
-      $("status").textContent = "saved " + key;
+      $("status").textContent = _t("saved {key}", {key});
       if (key.startsWith("hub.backup.") && refreshBackups) await refreshBackups();
       return result;
     };
@@ -1774,7 +2377,7 @@ const TABS = {
       if (type === "bool") inp.checked = !!v; else inp.value = Array.isArray(v) ? v.join(", ") : (v ?? "");
       if (type === "password") {
         inp.autocomplete = "new-password";
-        inp.placeholder = cfg.api_key_configured ? "Configured" : "API key";
+        inp.placeholder = cfg.api_key_configured ? _t("Configured") : _t("API key");
       }
       if (key === "ai.base_url" || key === "ai.model") inp.style.width = "min(360px, 100%)";
       if (key === "hub.backup.interval_days") { inp.min = "1"; inp.max = "3650"; inp.step = "1"; }
@@ -1787,31 +2390,31 @@ const TABS = {
         if (!await save(key, out)) {
           if (type === "bool") inp.checked = !!cfg.values[key]; else inp.value = cfg.values[key];
         } else if (type === "password") {
-          inp.value = ""; inp.placeholder = "Configured"; cfg.api_key_configured = true;
+          inp.value = ""; inp.placeholder = _t("Configured"); cfg.api_key_configured = true;
         }
       };
       return el("tr", {}, el("td", {}, label), el("td", {}, inp),
-        el("td", {}, cfg.restart_needed_for.includes(key) ? el("span", {class: "tag"}, "restart") : ""));
+        el("td", {}, cfg.restart_needed_for.includes(key) ? el("span", {class: "tag"}, _t("restart")) : ""));
     };
     const namesField = () => {
       const chips = el("div", {class: "chips", style: "margin-bottom:6px"});
-      const input = el("input", {id: "f_me.names", placeholder: "Add a name or nickname…", style: "width:190px"});
-      const add = el("button", {class: "b"}, "Add");
+      const input = el("input", {id: "f_me.names", placeholder: _t("Add a name or nickname…"), style: "width:190px"});
+      const add = el("button", {class: "b"}, _t("Add"));
       const current = () => Array.isArray(cfg.values["me.names"]) ? cfg.values["me.names"] : [];
       const showSaved = result => {
         const rescanned = result && result.rescan;
-        $("status").textContent = "saved my names" +
-          (rescanned ? ` · re-scanned ${rescanned.mentions} messages, ${rescanned.for_me} units for me` : "");
+        $("status").textContent = _t("saved my names") +
+          (rescanned ? _t(" · re-scanned {mentions} messages, {for_me} units for me", rescanned) : "");
       };
       const renderNames = () => {
         const names = current();
         chips.replaceChildren(...(names.length ? names.map(name => el("span", {class: "chip"}, name,
-          el("button", {class: "b", title: "Remove " + name, style: "margin-left:5px;padding:0 5px",
+          el("button", {class: "b", title: _t("Remove {name}", {name}), style: "margin-left:5px;padding:0 5px",
             onclick: async () => {
               const result = await save("me.names", current().filter(x => x !== name));
               if (result) { renderNames(); showSaved(result); }
             }}, "×")))
-          : [el("span", {class: "status"}, "No names yet")]));
+          : [el("span", {class: "status"}, _t("No names yet"))]));
       };
       const addNames = async () => {
         const incoming = input.value.split(/[,，;；\n]/).map(x => x.trim()).filter(Boolean);
@@ -1826,47 +2429,59 @@ const TABS = {
       add.onclick = addNames;
       renderNames();
       return el("tr", {},
-        el("td", {}, "My names (for @mentions)"),
+        el("td", {}, _t("My names (for @mentions)")),
         el("td", {}, chips, el("div", {style: "display:flex;gap:6px"}, input, add),
           el("div", {class: "status", style: "margin-top:4px"},
-            "Add every name or nickname people use to @mention you — this also drives the For me filter.")),
+            _t("Add every name or nickname people use to @mention you — this also drives the For me filter."))),
         el("td", {}, ""));
+    };
+    // Default scope for devices that have not picked For me / Everything in the header yet.
+    const scopeField = () => {
+      const sel = el("select", {id: "f_apps.today_scope"},
+        el("option", {value: "mine"}, _t("For me")), el("option", {value: "all"}, _t("Everything")));
+      sel.value = cfg.values["apps.today_scope"] === "all" ? "all" : "mine";
+      sel.onchange = async () => {
+        if (!await save("apps.today_scope", sel.value)) { sel.value = cfg.values["apps.today_scope"] === "all" ? "all" : "mine"; return; }
+        SERVER_SCOPE = sel.value;
+      };
+      return el("tr", {}, el("td", {}, _t("Today shows")), el("td", {}, sel,
+        el("div", {class: "status", style: "margin-top:4px"}, _t("Default until you pick For me / Everything at the top of Today on this device."))), el("td", {}, ""));
     };
     const settingsTable = el("table", {class: "kv"},
       namesField(),
-      field("apps.today_scope", "Today shows"),
-      field("hub.poll_minutes", "Sync every N minutes", "number"),
-      field("ai.enabled", "AI organizing", "bool"),
-      field("ai.model", "AI model"),
-      field("ai.base_url", "API base URL", "url"),
-      field("ai.api_key", "API key", "password"),
-      field("ai.daily_budget_usd", "AI budget per day ($)", "number"),
-      field("ai.interval_minutes", "AI runs every N minutes", "number"),
-      field("ai.policies", "AI reads chats with policy"),
-      field("organize.polish", "Rewrite card titles", "bool"),
-      field("ai.polish_policies", "Rewrite titles for policy"),
-      field("apps.reminders.enabled", "Reminders", "bool"),
-      field("apps.reminders.todo_lead_hours", "Remind todos N hours ahead", "number"),
-      field("apps.reminders.event_lead_minutes", "Remind events N minutes ahead", "number"),
-      field("segment_max_messages", "Max messages per AI call", "number"));
+      scopeField(),
+      field("hub.poll_minutes", _t("Sync every N minutes"), "number"),
+      field("ai.enabled", _t("AI organizing"), "bool"),
+      field("ai.model", _t("AI model")),
+      field("ai.base_url", _t("API base URL"), "url"),
+      field("ai.api_key", _t("API key"), "password"),
+      field("ai.daily_budget_usd", _t("AI budget per day ($)"), "number"),
+      field("ai.interval_minutes", _t("AI runs every N minutes"), "number"),
+      field("ai.policies", _t("AI reads chats with policy")),
+      field("organize.polish", _t("Rewrite card titles"), "bool"),
+      field("ai.polish_policies", _t("Rewrite titles for policy")),
+      field("apps.reminders.enabled", _t("Reminders"), "bool"),
+      field("apps.reminders.todo_lead_hours", _t("Remind todos N hours ahead"), "number"),
+      field("apps.reminders.event_lead_minutes", _t("Remind events N minutes ahead"), "number"),
+      field("segment_max_messages", _t("Max messages per AI call"), "number"));
     const agentPermissions = el('select', {id: 'agent-permissions'},
-      ...[['read-only','Read only'],['workspace-write','Workspace'],['danger-full-access','Full Access']]
+      ...[['read-only',_t('Read only')],['workspace-write',_t('Workspace')],['danger-full-access',_t('Full Access')]]
         .map(([value,label]) => el('option', {value}, label)));
     agentPermissions.value = cfg.values['agent_tasks.sandbox'] || 'workspace-write';
     agentPermissions.onchange = async () => {
       if (!await save('agent_tasks.sandbox', agentPermissions.value)) agentPermissions.value = cfg.values['agent_tasks.sandbox'];
     };
     const agentTable = el('table', {class: 'kv'},
-      field('agent_tasks.enabled', '@infohub tasks from me', 'bool'),
-      field('agent_tasks.workspace', 'Agent working directory'),
-      field('agent_tasks.codex_command', 'Codex executable'),
-      el('tr', {}, el('td', {}, 'Agent permissions'), el('td', {}, agentPermissions)));
+      field('agent_tasks.enabled', _t('@infohub tasks from me'), 'bool'),
+      field('agent_tasks.workspace', _t('Agent working directory')),
+      field('agent_tasks.codex_command', _t('Codex executable')),
+      el('tr', {}, el('td', {}, _t('Agent permissions')), el('td', {}, agentPermissions)));
     const agentDirectory = agentTable.querySelector('input[type=text]');
-    agentDirectory.placeholder = 'Separate temporary folder per task';
+    agentDirectory.placeholder = _t('Separate temporary folder per task');
     agentDirectory.style.width = 'min(360px,100%)';
     const agentCommand = agentTable.querySelector('[id="f_agent_tasks.codex_command"]');
     agentCommand.placeholder = 'codex';
-    agentCommand.setAttribute('aria-label', 'Codex executable');
+    agentCommand.setAttribute('aria-label', _t('Codex executable'));
     agentCommand.style.width = 'min(360px,100%)';
     const agentList = el('div');
     const refreshAgentTasks = async () => {
@@ -1874,13 +2489,13 @@ const TABS = {
       agentList.replaceChildren(...(Array.isArray(tasks) && tasks.length
         ? tasks.map(task => el('div', {class: 'it'},
           el('a', {href: '/?unit=' + task.unit_id}, task.prompt.slice(0,100)), agentTaskStatus(task)))
-        : [el('div', {class: 'status'}, 'No agent tasks')]));
+        : [el('div', {class: 'status'}, _t('No agent tasks'))]));
     };
     await refreshAgentTasks();
     const backupTable = el("table", {class: "kv"},
-      field("hub.backup.enabled", "Automatic database backups", "bool"),
-      field("hub.backup.interval_days", "Back up every N days", "number"));
-    const backupInfo = el("div", {id: "backup-info", class: "empty"}, "Checking backups…");
+      field("hub.backup.enabled", _t("Automatic database backups"), "bool"),
+      field("hub.backup.interval_days", _t("Back up every N days"), "number"));
+    const backupInfo = el("div", {id: "backup-info", class: "empty"}, _t("Checking backups…"));
     const backupButton = el("button", {id: "backup-now", class: "b", onclick: async () => {
       backupButton.disabled = true;
       try {
@@ -1888,89 +2503,89 @@ const TABS = {
         if (result.error) { $("status").textContent = result.error; return; }
         await refreshBackups();
       } catch (_) {
-        $("status").textContent = "Could not request a database backup.";
-        backupButton.textContent = "Back up now";
-      } finally { if (backupButton.textContent === "Back up now") backupButton.disabled = false; }
-    }}, "Back up now");
+        $("status").textContent = _t("Could not request a database backup.");
+        backupButton.textContent = _t("Back up now");
+      } finally { if (backupButton.textContent === _t("Back up now")) backupButton.disabled = false; }
+    }}, _t("Back up now"));
     refreshBackups = async () => {
       const b = await api("/api/backups");
       if (!b || typeof b !== "object" || b.error) {
-        backupInfo.textContent = b?.error || "Restart Info Hub to load database backup support."; return;
+        backupInfo.textContent = b?.error || _t("Restart Info Hub to load database backup support."); return;
       }
       const latest = b.last_backup;
       backupButton.disabled = b.running || b.queued;
-      backupButton.textContent = b.running ? "Backing up…" : b.queued ? "Backup queued…" : "Back up now";
+      backupButton.textContent = b.running ? _t("Backing up…") : b.queued ? _t("Backup queued…") : _t("Back up now");
       backupInfo.replaceChildren(
-        el("div", {}, latest ? `Last verified backup: ${fmt(latest.completed_at)} · ${(latest.bytes / 1048576).toFixed(1)} MB` : "No verified backup yet."),
-        el("div", {}, b.enabled ? (b.next_due_at ? `Next due: ${fmt(b.next_due_at)}` : "First automatic backup is due now.") : "Automatic backups are paused."),
-        el("div", {style: "overflow-wrap:anywhere"}, "Location: " + b.directory),
-        el("div", {}, `${b.copies} completed copies kept. Backups are not automatically deleted.`),
-        b.last_error ? el("div", {class: "it P0"}, "Last backup failed: " + b.last_error) : null);
+        el("div", {}, latest ? _t("Last verified backup: {at} · {mb} MB", {at: fmt(latest.completed_at), mb: (latest.bytes / 1048576).toFixed(1)}) : _t("No verified backup yet.")),
+        el("div", {}, b.enabled ? (b.next_due_at ? _t("Next due: {at}", {at: fmt(b.next_due_at)}) : _t("First automatic backup is due now.")) : _t("Automatic backups are paused.")),
+        el("div", {style: "overflow-wrap:anywhere"}, _t("Location: ") + b.directory),
+        el("div", {}, _t("{n} completed copies kept. Backups are not automatically deleted.", {n: b.copies})),
+        b.last_error ? el("div", {class: "it P0"}, _t("Last backup failed: ") + b.last_error) : "");
     };
     await refreshBackups();
     const backupTimer = setInterval(() => {
       if (!backupInfo.isConnected) { clearInterval(backupTimer); return; }
-      refreshBackups().catch(() => { backupInfo.textContent = "Could not refresh backup status."; });
+      refreshBackups().catch(() => { backupInfo.textContent = _t("Could not refresh backup status."); });
     }, 5000);
     // ---- user-authored assistant schedules ----
     const scheduleList = el("div", {});
-    const scheduleName = el("input", {placeholder: "Schedule name", style: "width:100%"});
-    const scheduleMode = el("select", {style: "width:100%", title:"Daily times use the hub timezone; intervals start after the previous run finishes."},
-      el("option", {value: "daily"}, "Daily"),
-      el("option", {value: "interval"}, "Interval"));
+    const scheduleName = el("input", {placeholder: _t("Schedule name"), style: "width:100%"});
+    const scheduleMode = el("select", {style: "width:100%", title:_t("Daily times use the hub timezone; intervals start after the previous run finishes.")},
+      el("option", {value: "daily"}, _t("Daily")),
+      el("option", {value: "interval"}, _t("Interval")));
     const scheduleTime = el("input", {type: "time", value: "09:00", style: "width:100%"});
     const scheduleInterval = el("input", {type: "number", min: "1", max: "10080", step: "1", value: "60", style: "width:100%"});
-    const schedulePrompt = el("textarea", {placeholder: "Prompt sent to the assistant…", rows: "3", style: "width:100%;resize:vertical"});
+    const schedulePrompt = el("textarea", {placeholder: _t("Prompt sent to the assistant…"), rows: "3", style: "width:100%;resize:vertical"});
     const scheduleEnabled = el("input", {type: "checkbox", checked: true, style: "width:auto"});
     const scheduleId = el("input", {type: "hidden"});
     const scheduleTiming = el("span", {}, scheduleTime);
-    const scheduleSave = el("button", {class: "b"}, "Save schedule");
-    const scheduleCancel = el("button", {class: "b"}, "Clear form");
-    const modeLabel = el("span", {class: "status"}, "at");
+    const scheduleSave = el("button", {class: "b"}, _t("Save schedule"));
+    const scheduleCancel = el("button", {class: "b"}, _t("Clear form"));
+    const modeLabel = el("span", {class: "status"}, _t("at"));
     const refreshScheduleForm = () => {
       const daily = scheduleMode.value === "daily";
-      modeLabel.textContent = daily ? "at" : "Every";
+      modeLabel.textContent = daily ? _t("at") : _t("Every");
       scheduleTiming.replaceChildren(daily ? scheduleTime : scheduleInterval);
-      if (!daily) scheduleTiming.append(el("span", {class: "status"}, " minutes"));
+      if (!daily) scheduleTiming.append(el("span", {class: "status"}, _t(" minutes")));
     };
     scheduleMode.onchange = refreshScheduleForm;
     const resetScheduleForm = () => {
       scheduleId.value = ""; scheduleName.value = ""; scheduleMode.value = "daily";
       scheduleTime.value = "09:00"; scheduleInterval.value = "60"; schedulePrompt.value = ""; scheduleEnabled.checked = true;
-      scheduleSave.textContent = "Save schedule"; refreshScheduleForm();
+      scheduleSave.textContent = _t("Save schedule"); refreshScheduleForm();
     };
     scheduleCancel.onclick = resetScheduleForm;
     const drawSchedules = () => {
       scheduleList.replaceChildren(...(Array.isArray(schedules) ? schedules : []).map(s => {
-        const timing = s.mode === "daily" ? "daily at " + s.daily_time : "every " + s.interval_minutes + " min";
-        const state = s.enabled ? timing : "paused";
-        const last = s.last_run ? "last " + fmt(s.last_run) : "not run yet";
+        const timing = s.mode === "daily" ? _t("daily at {time}", {time: s.daily_time}) : _t("every {n} min", {n: s.interval_minutes});
+        const state = s.enabled ? timing : _t("paused");
+        const last = s.last_run ? _t("last {at}", {at: fmt(s.last_run)}) : _t("not run yet");
         const error = s.last_error ? el("div", {class: "status", style: "color:#f59e0b;overflow-wrap:anywhere"}, s.last_error) : null;
         return el("div", {class: "it"},
-          el("div", {class: "meta"}, el("b", {}, s.name), el("span", {class: "tag"}, state), s.last_status || "never", last),
+          el("div", {class: "meta"}, el("b", {}, s.name), el("span", {class: "tag"}, state), s.last_status || _t("never"), last),
           el("div", {class: "msg", style: "white-space:pre-wrap;overflow-wrap:anywhere"}, s.prompt),
-          s.next_run ? el("div", {class: "status"}, "next " + fmt(s.next_run)) : null, error,
+          s.next_run ? el("div", {class: "status"}, _t("next {at}", {at: fmt(s.next_run)})) : null, error,
           el("div", {class: "acts"},
             el("button", {class: "b", onclick: () => {
               scheduleId.value = s.id; scheduleName.value = s.name; scheduleMode.value = s.mode;
               scheduleTime.value = s.daily_time || "09:00"; scheduleInterval.value = s.interval_minutes || 60;
-              schedulePrompt.value = s.prompt; scheduleEnabled.checked = !!s.enabled; scheduleSave.textContent = "Update schedule"; refreshScheduleForm(); scheduleName.focus();
-            }}, "Edit"),
+              schedulePrompt.value = s.prompt; scheduleEnabled.checked = !!s.enabled; scheduleSave.textContent = _t("Update schedule"); refreshScheduleForm(); scheduleName.focus();
+            }}, _t("Edit")),
             el("button", {class: "b", onclick: async e => {
               e.target.disabled = true;
               const result = await api("/api/schedules", {id: s.id, name: s.name, mode: s.mode, daily_time: s.daily_time,
                 interval_minutes: s.interval_minutes, prompt: s.prompt, enabled: !s.enabled});
               if (result.error) $("status").textContent = result.error; else { schedules = await api("/api/schedules"); drawSchedules(); }
-            }}, s.enabled ? "Pause" : "Enable"),
+            }}, s.enabled ? _t("Pause") : _t("Enable")),
             el("button", {class: "b", onclick: async e => {
-              if (!confirm("Delete schedule \"" + s.name + "\"?")) return;
+              if (!confirm(_t("Delete schedule \"{name}\"?", {name: s.name}))) return;
               e.target.disabled = true; await api("/api/schedules", {delete: s.id}); schedules = await api("/api/schedules"); drawSchedules();
-            }}, "Delete")));
+            }}, _t("Delete"))));
       }));
-      if (!schedules.length) scheduleList.append(el("div", {class: "empty"}, "No custom schedules yet."));
+      if (!schedules.length) scheduleList.append(el("div", {class: "empty"}, _t("No custom schedules yet.")));
     };
     scheduleSave.onclick = async () => {
-      if (!scheduleName.value.trim() || !schedulePrompt.value.trim()) { $("status").textContent = "Name and prompt are required."; return; }
+      if (!scheduleName.value.trim() || !schedulePrompt.value.trim()) { $("status").textContent = _t("Name and prompt are required."); return; }
       const body = {name: scheduleName.value.trim(), mode: scheduleMode.value, daily_time: scheduleTime.value,
         interval_minutes: Number(scheduleInterval.value), prompt: schedulePrompt.value.trim(), enabled: scheduleEnabled.checked};
       if (scheduleId.value) body.id = Number(scheduleId.value);
@@ -1978,26 +2593,26 @@ const TABS = {
       const result = await api("/api/schedules", body);
       scheduleSave.disabled = false;
       if (result.error) { $("status").textContent = result.error; return; }
-      schedules = await api("/api/schedules"); drawSchedules(); resetScheduleForm(); $("status").textContent = "schedule saved";
+      schedules = await api("/api/schedules"); drawSchedules(); resetScheduleForm(); $("status").textContent = _t("schedule saved");
     };
     const scheduleForm = el("div", {class: "it schedule-form"}, scheduleId,
       el("div", {class: "schedule-grid"},
-        el("label", {class: "schedule-field"}, el("span", {class: "schedule-label"}, "Name"), scheduleName),
+        el("label", {class: "schedule-field"}, el("span", {class: "schedule-label"}, _t("Name")), scheduleName),
         el("div", {class: "schedule-field"},
-          el("span", {class: "schedule-label"}, "When"),
+          el("span", {class: "schedule-label"}, _t("When")),
           el("div", {class: "schedule-when"}, scheduleMode,
             el("div", {class: "schedule-timing"}, modeLabel, scheduleTiming))),
-        el("label", {class: "schedule-field schedule-field-wide"}, el("span", {class: "schedule-label"}, "Prompt"), schedulePrompt)),
+        el("label", {class: "schedule-field schedule-field-wide"}, el("span", {class: "schedule-label"}, _t("Prompt")), schedulePrompt)),
       el("div", {class: "schedule-actions"},
-        el("label", {class:"schedule-toggle"}, scheduleEnabled, "Enabled"), scheduleSave, scheduleCancel));
+        el("label", {class:"schedule-toggle"}, scheduleEnabled, _t("Enabled")), scheduleSave, scheduleCancel));
     refreshScheduleForm(); drawSchedules();
     // ---- chats: filters, multi-select, batch apply, rule defaults ----
     const picked = new Set(), key = c => c.source + "|" + c.channel;
-    const q = el("input", {placeholder: "filter chats…", style: "width:100%"});
+    const q = el("input", {placeholder: _t("filter chats…"), style: "width:100%"});
     const list = el("div", {});
     const count = el("span", {class: "status"});
     let filter = "all";
-    const POLICIES = [["watch", "Watch (AI reads)"], ["store", "Store (searchable)"], ["digest", "Digest only"], ["ignore", "Ignore"]];
+    const POLICIES = [["watch", _t("Watch (AI reads)"), "Watch"], ["store", _t("Store (searchable)"), "Store"], ["digest", _t("Digest only"), "Digest"], ["ignore", "Ignore (policy)", _t("Ignore")]];
     const shown = () => {
       const needle = q.value.trim().toLowerCase();
       return chans.filter(c => (!needle || (c.channel_name || "").toLowerCase().includes(needle))
@@ -2006,52 +2621,52 @@ const TABS = {
     };
     const setPolicy = async (chats, want) => {
       if (!chats.length) return;
-      $("status").textContent = "saving " + chats.length + " chats…";
+      $("status").textContent = _t("saving {n} chats…", {n: chats.length});
       await api("/api/channels/batch", {policy: want, chats: chats.map(c => ({source: c.source, channel: c.channel, channel_name: c.channel_name}))});
       chats.forEach(c => c.policy = want);
       picked.clear(); draw();
-      $("status").textContent = chats.length + " chats → " + want;
+      $("status").textContent = _t("{n} chats → {policy}", {n: chats.length, policy: want});
     };
-    const filters = el("div", {class: "chips"}, ...[["all", "All"], ["groups", "Groups"], ["direct", "Direct"],
-        ["active", "Active 30d"], ["muted", "Muted"], ["watch", "Watch"], ["store", "Store"], ["digest", "Digest"], ["ignore", "Ignore"]]
+    const filters = el("div", {class: "chips"}, ...[["all", _t("All")], ["groups", _t("Groups")], ["direct", _t("Direct")],
+        ["active", _t("Active 30d")], ["muted", _t("Muted")], ["watch", _t("Watch")], ["store", _t("Store")], ["digest", _t("Digest")], ["ignore", _t("Ignore")]]
       .map(([v, t]) => el("span", {class: "chip" + (filter === v ? " on" : ""), onclick: () => { filter = v; draw(); }}, t)));
     const bar = el("div", {class: "chips"},
-      el("span", {class: "chip", onclick: () => { shown().forEach(c => picked.add(key(c))); draw(); }}, "Select all shown"),
-      el("span", {class: "chip", onclick: () => { picked.clear(); draw(); }}, "Clear"), count,
-      ...POLICIES.map(([v, t]) => el("button", {class: "b",
-        onclick: () => setPolicy(shown().filter(c => picked.has(key(c))), v)}, "→ " + t.split(" ")[0])));
+      el("span", {class: "chip", onclick: () => { shown().forEach(c => picked.add(key(c))); draw(); }}, _t("Select all shown")),
+      el("span", {class: "chip", onclick: () => { picked.clear(); draw(); }}, _t("Clear")), count,
+      ...POLICIES.map(([v, , short]) => el("button", {class: "b",
+        onclick: () => setPolicy(shown().filter(c => picked.has(key(c))), v)}, "→ " + _t(short))));
     const draw = () => {
       const rows = shown();
-      count.textContent = `${picked.size} selected · ${rows.length} shown`;
+      count.textContent = _t("{picked} selected · {shown} shown", {picked: picked.size, shown: rows.length});
       filters.querySelectorAll(".chip").forEach((n, i) => n.classList.toggle("on",
         ["all", "groups", "direct", "active", "muted", "watch", "store", "digest", "ignore"][i] === filter));
       list.replaceChildren(...rows.slice(0, 400).map(c => {
         const box = el("input", {type: "checkbox", style: "width:auto;margin-right:8px"});
         box.checked = picked.has(key(c));
-        box.onchange = () => { box.checked ? picked.add(key(c)) : picked.delete(key(c)); count.textContent = `${picked.size} selected · ${rows.length} shown`; };
+        box.onchange = () => { box.checked ? picked.add(key(c)) : picked.delete(key(c)); count.textContent = _t("{picked} selected · {shown} shown", {picked: picked.size, shown: rows.length}); };
         const sel = el("select", {style: "background:#1c2430;color:#e8eef6;border:1px solid #2a3442;border-radius:6px;padding:2px 6px"});
-        for (const [v, t] of POLICIES) { const o = el("option", {value: v}, t); if (c.policy === v) o.selected = true; sel.append(o); }
+        for (const [v, label] of POLICIES) { const o = el("option", {value: v}, _t(label)); if (c.policy === v) o.selected = true; sel.append(o); }
         sel.onchange = () => setPolicy([c], sel.value);
         return el("div", {class: "it"}, el("div", {class: "meta"}, box, srcBadge(c.source, c.account),
-          el("b", {}, c.channel_name || c.channel), c.is_group ? "group" : "direct",
-          c.muted ? el("span", {class: "tag"}, "muted") : null,
-          `${c.recent} msgs/30d`, `${c.total} total`), sel);
+          el("b", {}, c.channel_name || c.channel), _t(c.is_group ? "group" : "direct"),
+          c.muted ? el("span", {class: "tag"}, _t("muted")) : null,
+          _t("{n} msgs/30d", {n: c.recent}), _t("{n} total", {n: c.total})), sel);
       }));
     };
     q.oninput = draw; draw();
-    const defaultsBox = el("div", {class: "empty"}, "Apply the rules in config (policy_defaults) to every chat you have not set by hand.");
+    const defaultsBox = el("div", {class: "empty"}, _t("Apply the rules in config (policy_defaults) to every chat you have not set by hand."));
     const defaultsBtn = el("button", {class: "b", onclick: async () => {
       const p = await api("/api/channels/defaults");
-      if (!p.changes) { defaultsBox.textContent = "Defaults already match: nothing to change."; return; }
-      defaultsBox.replaceChildren(el("div", {}, `${p.changes} chats would change: `
+      if (!p.changes) { defaultsBox.textContent = _t("Defaults already match: nothing to change."); return; }
+      defaultsBox.replaceChildren(el("div", {}, _t("{n} chats would change: ", {n: p.changes})
         + Object.entries(p.summary).map(([k, v]) => `${k} ×${v}`).join(", ")),
         ...p.sample.map(x => el("div", {class: "msg"}, `${x.channel_name || ""} — ${x.from} → ${x.to} (${x.recent} msgs/30d)`)),
         el("button", {class: "b", onclick: async () => {
           const r = await api("/api/channels/defaults", {apply: true});
-          defaultsBox.textContent = `Applied to ${r.changes} chats.`;
+          defaultsBox.textContent = _t("Applied to {n} chats.", {n: r.changes});
           chans = await api("/api/channels?days=30"); draw();
-        }}, `Apply to ${p.changes} chats`));
-    }}, "Preview defaults");
+        }}, _t("Apply to {n} chats", {n: p.changes})));
+    }}, _t("Preview defaults"));
     // ---- VIP people ----
     const vipBox = el("div", {});
     const drawVip = async () => {
@@ -2061,53 +2676,53 @@ const TABS = {
       const toggleWatch = async (person, enabled) => {
         await api("/api/teach", {kind: "watch_person", source: person.source, value: person.sender,
           label: person.sender_name || person.label, ...(enabled ? {} : {undo: true})});
-        drawVip(); $("status").textContent = enabled ? "watching " + (person.sender_name || person.sender) : "stopped watching";
+        drawVip(); $("status").textContent = enabled ? _t("watching {name}", {name: person.sender_name || person.sender}) : _t("stopped watching");
       };
-      const search = el("input", {placeholder: "add VIP: type a name…", style: "width:100%"});
+      const search = el("input", {placeholder: _t("add VIP: type a name…"), style: "width:100%"});
       const results = el("div", {});
       search.oninput = async () => {
         const nq = search.value.trim();
         if (!nq) { results.replaceChildren(); return; }
         const r = await api("/api/people?q=" + encodeURIComponent(nq) + "&limit=12");
         results.replaceChildren(...r.people.map(pp => el("div", {class: "it"},
-          el("div", {class: "meta"}, srcBadge(pp.source), el("b", {}, pp.sender_name), `${pp.n} msgs`,
-            pp.vip ? el("span", {class: "tag"}, "already VIP") : null),
+          el("div", {class: "meta"}, srcBadge(pp.source), el("b", {}, pp.sender_name), _t("{n} msgs", {n: pp.n}),
+            pp.vip ? el("span", {class: "tag"}, _t("already VIP")) : null),
           el("div", {class: "acts"},
             pp.vip ? null : el("button", {class: "b", onclick: async e => {
               e.target.disabled = true;
               await api("/api/teach", {kind: "vip", source: pp.source, value: pp.sender, label: pp.sender_name});
               search.value = ""; results.replaceChildren(); drawVip();
-              $("status").textContent = "★ " + pp.sender_name + " is now VIP";
-            }}, "★ Make VIP"),
-            el("button", {class: "b", onclick: () => toggleWatch(pp, !pp.watch)}, pp.watch ? "Stop Watch" : "Watch")))));
+              $("status").textContent = _t("★ {name} is now VIP", {name: pp.sender_name});
+            }}, _t("★ Make VIP")),
+            el("button", {class: "b", onclick: () => toggleWatch(pp, !pp.watch)}, pp.watch ? _t("Stop Watch") : _t("Watch"))))));
       };
       vipBox.replaceChildren(
-        el("div", {class: "empty"}, "VIP people: their topics show up under “For me”. Does not claim their own tasks as yours."),
+        el("div", {class: "empty"}, _t("VIP people: their topics show up under “For me”. Does not claim their own tasks as yours.")),
         ...vips.map(v => el("div", {class: "it"}, el("div", {class: "meta"}, srcBadge(v.source),
           el("b", {}, v.sender_name || v.label || v.sender), "VIP"),
           el("button", {class: "b", onclick: async () => {
             await api("/api/teach", {kind: "vip", source: v.source, value: v.sender, undo: true});
-            drawVip(); $("status").textContent = "removed VIP";
-          }}, "Remove"))),
-        (vips.length ? null : el("div", {class: "empty"}, "No VIP people yet.")),
-        el("div", {class: "day"}, "Watched people"),
+            drawVip(); $("status").textContent = _t("removed VIP");
+          }}, _t("Remove")))),
+        (vips.length ? null : el("div", {class: "empty"}, _t("No VIP people yet."))),
+        el("div", {class: "day"}, _t("Watched people")),
         ...watchers.map(v => el("div", {class: "it"}, el("div", {class: "meta"}, srcBadge(v.source),
-          el("b", {}, v.label || v.sender), "Watch"),
-          el("button", {class: "b", onclick: () => toggleWatch(v, false)}, "Stop Watch"))),
-        (watchers.length ? null : el("div", {class: "empty"}, "No watched people yet.")),
+          el("b", {}, v.label || v.sender), _t("Watch")),
+          el("button", {class: "b", onclick: () => toggleWatch(v, false)}, _t("Stop Watch")))),
+        (watchers.length ? null : el("div", {class: "empty"}, _t("No watched people yet."))),
         search, results);
     };
     drawVip();
     return el("div", {class: "grid g2"},
-      lane("Settings", null, [el("div", {class: "day"}, "Database backups"), backupTable, backupInfo, backupButton,
-        agentSection('settings','Local agent tasks', agentTable,
-          el('button', {class: 'b', onclick: refreshAgentTasks}, 'Refresh tasks'), agentList),
-        el("div", {class: "day"}, "Assistant task scheduler"), scheduleForm, scheduleList,
-        el("div", {class: "day"}, "General"), settingsTable, el("div", {class: "empty"},
-        "Saved to config/settings.local.json. Chat policies live in the database."),
-        el("div", {class: "day"}, "VIP people"), vipBox,
-        el("div", {class: "day"}, "Chat defaults"), defaultsBtn, defaultsBox]),
-      lane("Chats", chans.length, [q, filters, bar, list]));
+      lane(_t("Settings"), null, [el("div", {class: "day"}, _t("Database backups")), backupTable, backupInfo, backupButton,
+        agentSection('settings',_t('Local agent tasks'), agentTable,
+          el('button', {class: 'b', onclick: refreshAgentTasks}, _t('Refresh tasks')), agentList),
+        el("div", {class: "day"}, _t("Assistant task scheduler")), scheduleForm, scheduleList,
+        el("div", {class: "day"}, _t("General")), settingsTable, el("div", {class: "empty"},
+        _t("Saved to config/settings.local.json. Chat policies live in the database.")),
+        el("div", {class: "day"}, _t("VIP people")), vipBox,
+        el("div", {class: "day"}, _t("Chat defaults")), defaultsBtn, defaultsBox]),
+      lane(_t("Chats"), chans.length, [q, filters, bar, list]));
   },
 
   async status() {
@@ -2117,27 +2732,27 @@ const TABS = {
     const t = s.totals, ai = s.ai;
 
     const overview = el("table", {class: "kv"},
-      kv("Sources healthy", `${s.health.ok} ok · ${s.health.waiting} waiting · ${s.health.error} failing`),
-      kv("Messages", `${t.messages} total · ${t.messages_24h} in 24h`),
-      kv("Info units", String(t.units)),
-      kv("Open conversations", String(t.segments_open)),
-      kv("Chats", Object.entries(t.channels).map(([k, v]) => `${v} ${k}`).join(" · ")),
-      kv("Last 24h by source", Object.entries(t.sources).map(([k, v]) => `${SRC(k)}${k.includes(":") ? k.slice(k.indexOf(":")) : ""} ${v}`).join(" · ") || "—"));
+      kv(_t("Sources healthy"), _t("{ok} ok · {waiting} waiting · {error} failing", s.health)),
+      kv(_t("Messages"), _t("{total} total · {day} in 24h", {total: t.messages, day: t.messages_24h})),
+      kv(_t("Info units"), String(t.units)),
+      kv(_t("Open conversations"), String(t.segments_open)),
+      kv(_t("Chats"), Object.entries(t.channels).map(([k, v]) => `${v} ${wordName(k)}`).join(" · ")),
+      kv(_t("Last 24h by source"), Object.entries(t.sources).map(([k, v]) => `${SRC(k)}${k.includes(":") ? k.slice(k.indexOf(":")) : ""} ${v}`).join(" · ") || "—"));
 
     const aiBox = el("table", {class: "kv"},
-      kv("AI organizer", ai.enabled ? `on · ${ai.provider} · ${ai.model}` : "off"),
-      kv("Spent today", `$${ai.spent_today_usd} of $${ai.budget_usd}`),
-      kv("Queue", Object.entries(s.jobs).map(([k, v]) => `${v} ${k}`).join(" · ") || "empty"),
-      ...ai.usage.slice(0, 5).map(u => kv(u.day, `$${u.cost_usd} · ${u.requests} calls · ${u.input_tokens}+${u.output_tokens} tok`)));
+      kv(_t("AI organizer"), ai.enabled ? _t("on · {provider} · {model}", ai) : _t("off")),
+      kv(_t("Spent today"), _t("${spent} of ${budget}", {spent: ai.spent_today_usd, budget: ai.budget_usd})),
+      kv(_t("Queue"), Object.entries(s.jobs).map(([k, v]) => `${v} ${wordName(k)}`).join(" · ") || _t("empty")),
+      ...ai.usage.slice(0, 5).map(u => kv(u.day, _t("${cost} · {calls} calls · {tokens} tok", {cost: u.cost_usd, calls: u.requests, tokens: `${u.input_tokens}+${u.output_tokens}`}))));
 
     const problems = s.failing.length
       ? s.failing.map(r => el("div", {class: "it " + (r.status === "error" ? "P0" : "P1")},
           el("div", {class: "meta"}, dot(r.status), el("b", {}, `${r.layer} · ${r.source}`), fmt(r.finished_at)),
           el("div", {class: "sum"}, r.error || "")))
-      : [el("div", {class: "empty"}, "Every source is healthy.")];
+      : [el("div", {class: "empty"}, _t("Every source is healthy."))];
 
     const units = el("table", {class: "kv"}, ...Object.entries(s.units)
-      .sort((a, b) => b[1] - a[1]).map(([k, v]) => kv(k, String(v))));
+      .sort((a, b) => b[1] - a[1]).map(([k, v]) => kv(kindName(k), String(v))));
 
     // time-ordered run log, newest first, grouped by day
     const log = [];
@@ -2158,23 +2773,27 @@ const TABS = {
         el("span", {class: "secs"}, r.seconds != null ? r.seconds + "s" : "")));
     }
     return el("div", {class: "grid g2"},
-      lane("Overview", null, [overview, el("div", {class: "day"}, "AI"), aiBox,
-        agentSection('status','Codex tasks',agentTaskPanel()),
-        el("div", {class: "day"}, "Needs attention"), ...problems,
-        el("div", {class: "day"}, "Units by kind"), units]),
-      lane("Run log (newest first)", s.runs.length, log.length ? log : [el("div", {class: "empty"}, "No runs yet.")]));
+      lane(_t("Overview"), null, [overview, el("div", {class: "day"}, "AI"), aiBox,
+        agentSection('status',_t('Codex tasks'),agentTaskPanel()),
+        el("div", {class: "day"}, _t("Needs attention")), ...problems,
+        el("div", {class: "day"}, _t("Units by kind")), units]),
+      lane(_t("Run log (newest first)"), s.runs.length, log.length ? log : [el("div", {class: "empty"}, _t("No runs yet."))]));
   },
 };
 async function viewTab(v) {
   // a saved view is an explicit filter you defined, so it ignores the global For-me toggle
   // unless the view itself sets `mine: true`.
   const units = await api(`/api/units?tags=${encodeURIComponent((v.tags || []).join(","))}&kind=${v.kind || ""}&status=${v.status || ""}&order=${v.order || "activity"}&limit=300` + (v.mine ? "&mine=1" : ""));
-  return el("div", {class: "grid g2"}, lane(v.name, units.length, units.map(u => unitCard(u))));
+  return el("div", {class: "grid g2"}, lane(viewName(v), units.length, units.map(u => unitCard(u))));
 }
 function drawTabs() {
-  const names = VIEWER_MODE ? [["explore", "Explore"]] : [["today", "Today"], ["live", "Live"], ["todos", "Todos"], ["calendar", "Calendar"], ["groups", "Groups"], ["explore", "Explore"],
-                 ...VIEWS.map((v, i) => ["view" + i, v.name]), ["chat", "Chat"], ["status", "Status"], ["settings", "Settings"]];
+  // Todos and Calendar live inside Today now (To do + Schedule lanes); old links still land there.
+  const names = VIEWER_MODE ? [["explore", _t("Explore")]] : [["today", _t("Today")], ["explore", _t("Explore")], ["groups", _t("Groups")], ["live", _t("Live")],
+                 ...VIEWS.map((v, i) => ["view" + i, viewName(v)])];   // Assistant, Status, Settings: icons on the right
   $("tabs").replaceChildren(...names.map(([k, n]) => el("button", {class: "tab" + (TAB === k ? " on" : ""), onclick: () => { TAB = k; render(false); }}, n)));
+  document.querySelectorAll("#navIcons [data-tab]").forEach(b => {
+    b.classList.toggle("on", b.dataset.tab === TAB);
+    if (b.dataset.tab === TAB) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
 }
 // Lanes are keyed by tab + position, not by their heading: headings change
 // (e.g. "Top-level units" -> "Matching units") while the lane stays the same.
@@ -2211,7 +2830,7 @@ function enhanceGrids(root) {
       g.style.gridTemplateColumns = p.join(" ");
     };
     for (let i = 1; i < n; i++) {
-      const rz = el("div", {class: "col-resizer", title: "Drag to resize columns"});
+      const rz = el("div", {class: "col-resizer", title: _t("Drag to resize columns")});
       g.insertBefore(rz, cols[i]);
       rz.onmousedown = e => {
         e.preventDefault(); rz.classList.add("dragging"); document.body.style.cursor = "col-resize";
@@ -2259,11 +2878,11 @@ async function render(keepScroll = true) {
   if (tab === "chat") requestAnimationFrame(() => {
     const lane = $("main").querySelector(".lane"); if (lane) lane.scrollTop = lane.scrollHeight;
   });
-  $("status").textContent = "updated " + new Date().toLocaleTimeString();
+  $("status").textContent = _t("updated {time}", {time: new Date().toLocaleTimeString(LOCALE())});
 }
 $("poll").onclick = async e => {
-  e.target.disabled = true; $("status").textContent = "syncing…";
-  try { await api("/api/poll", {}); $("status").textContent = "sync complete — current view kept"; }
+  e.target.disabled = true; $("status").textContent = _t("syncing…");
+  try { await api("/api/poll", {}); $("status").textContent = _t("sync complete — current view kept"); }
   finally { e.target.disabled = false; }
 };
 // the tab bar scrolls horizontally with a plain mouse wheel (scrollbar itself is hidden)
@@ -2280,20 +2899,20 @@ $("q").onkeydown = async e => {
   const d = await api("/api/search?q=" + encodeURIComponent(q));
   if (version !== renderVersion || tab !== TAB) return;
   const facet = (title, items, make) => items.length
-    ? el("div", {}, el("div", {class: "day"}, `${title} (${items.length})`), el("div", {class: "chips"}, ...items.map(make)))
+    ? el("div", {}, el("div", {class: "day"}, _t("{title} ({n})", {title, n: items.length})), el("div", {class: "chips"}, ...items.map(make)))
     : null;
   const left = el("div", {},
-    facet("People", d.people, p => el("span", {class: "chip", title: `${p.n} msgs`,
+    facet(_t("People"), d.people, p => el("span", {class: "chip", title: `${p.n} msgs`,
       onclick: () => goTag("person:" + p.sender_name)}, srcBadge(p.source), " ", p.sender_name, " ", el("i", {}, p.n))),
-    facet("Chats", d.channels, c => el("span", {class: "chip", title: `${c.policy} · ${c.n} msgs`,
+    facet(_t("Chats"), d.channels, c => el("span", {class: "chip", title: `${c.policy} · ${c.n} msgs`,
       onclick: () => goTag("channel:" + c.channel_name)}, srcBadge(c.source, c.account), " ", c.channel_name || c.channel, " ", el("i", {}, c.n))),
-    facet("Tags", d.tags, t => el("span", {class: "chip", onclick: () => goTag(t.tag)}, t.tag, " ", el("i", {}, t.n))));
+    facet(_t("Tags"), d.tags, t => el("span", {class: "chip", onclick: () => goTag(t.tag)}, t.tag, " ", el("i", {}, t.n))));
   const right = el("div", {class: "grid", style: "grid-template-columns:1fr"},
-    lane("Units", d.units.length, d.units.map(u => unitCard(u)), "No matching units."),
-    lane("Messages", d.messages.length, d.messages.map(m => msgCard(m, {teach: false})), "No matching messages."));
+    lane(_t("Units"), d.units.length, d.units.map(u => unitCard(u)), _t("No matching units.")),
+    lane(_t("Messages"), d.messages.length, d.messages.map(m => msgCard(m, {teach: false})), _t("No matching messages.")));
   $("main").replaceChildren(el("div", {class: "grid g2"},
-    lane(`Matches for “${q}”`, d.people.length + d.channels.length + d.tags.length, [left],
-      "No people, chats or tags matched."), right));
+    lane(_t("Matches for “{q}”", {q}), d.people.length + d.channels.length + d.tags.length, [left],
+      _t("No people, chats or tags matched.")), right));
   $("main").dataset.tab = "search";
   enhanceGrids($("main"));
 };
@@ -2307,7 +2926,7 @@ if (typeof document.addEventListener === "function") document.addEventListener("
 });
 // optional ?tab=&scope= on first load (shareable deep link)
 const _p = new URLSearchParams(location.search);
-if (VIEWER_MODE) { document.body.classList.add("viewer-mode"); TAB = "explore"; SCOPE = "all"; document.title = "Info Hub Viewer"; }
+if (VIEWER_MODE) { document.body.classList.add("viewer-mode"); TAB = "explore"; SCOPE = "all"; document.title = _t("Info Hub Viewer"); }
 if (_p.get("theme")) applyTheme(_p.get("theme"));
 if (_p.get("scope")) SCOPE = _p.get("scope");
 if (["graph", "list", "gantt"].includes(_p.get("view"))) EXPLORE_VIEW = _p.get("view");
@@ -2323,7 +2942,9 @@ if (_p.get("demo") === "chat") CHAT = [                      // a sample convers
 ];
 const _tab0 = _p.get("tab");
 api("/api/views").then(async v => {
-  VIEWS = v || []; if (_tab0 && !VIEWER_MODE) TAB = _tab0; await render(false);
+  VIEWS = v || [];
+  if (_tab0 && !VIEWER_MODE) TAB = ["todos", "calendar"].includes(_tab0) ? "today" : _tab0;
+  await render(false);
   const unit = _p.get('unit');
   if (unit && /^\d+$/.test(unit) && !VIEWER_MODE) await openUnit(Number(unit), {x:Math.max(8,innerWidth/2-190),y:100});
 });
@@ -2340,9 +2961,9 @@ async function checkDashboardBuild() {
     if (!WEB_BUILD) { WEB_BUILD = d.web; return; }
     if (d.web === WEB_BUILD || document.getElementById("update-banner")) return;
     const banner = el("div", {id: "update-banner", class: "update-banner"},
-      el("span", {}, "Info Hub was updated."),
-      el("button", {class: "b", onclick: () => location.reload()}, "Reload"),
-      el("button", {class: "b", title: "Dismiss", onclick: () => banner.remove()}, "✕"));
+      el("span", {}, _t("Info Hub was updated.")),
+      el("button", {class: "b", onclick: () => location.reload()}, _t("Reload")),
+      el("button", {class: "b", title: _t("Dismiss"), onclick: () => banner.remove()}, "✕"));
     document.body.append(banner);
   } catch (_) {}
 }

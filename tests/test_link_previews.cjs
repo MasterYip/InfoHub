@@ -6,14 +6,14 @@ const {chromium} = require('playwright');
 test('web links open directly without iframes; unit cards dismiss on focus loss', async () => {
   const browser = await chromium.launch({channel: 'msedge', headless: true});
   try {
-    const page = await browser.newPage({viewport: {width: 1280, height: 850}});
+    const page = await browser.newPage({locale: 'en-US', viewport: {width: 1280, height: 850}});
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/api/**', async route => {
       const path = new URL(route.request().url()).pathname;
       const data = path === '/api/unit/42'
         ? {id: 42, title: 'Preview topic', kind: 'topic', status: 'open', tags: []}
-        : path === '/api/today' ? {needs: [], events: [], unscheduled_events: [], unsorted: []}
+        : path === '/api/today' ? {todo:{overdue:[],upcoming:[],undated:[]},schedule:{now:[],upcoming:[],tbd:[],past:[]},recent:{days:7,units:[],units_total:0,messages:[],messages_total:0}}
         : path === '/api/health' ? {ok: true, app: 'infohub'} : [];
       await route.fulfill({json: data});
     });

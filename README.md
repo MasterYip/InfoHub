@@ -91,7 +91,7 @@ flowchart TB
   end
   subgraph L3["3 - Apps"]
     direction LR
-    DASH["Dashboard<br/>Today · Todos · Calendar · Groups · Explore"]
+    DASH["Dashboard<br/>Today · Groups · Explore"]
     REM["Reminders"]
     APIX["Agent API + brief"]
   end

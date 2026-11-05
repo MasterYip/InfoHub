@@ -250,44 +250,108 @@ def channel_messages(store, source: str, account: str, channel: str, hours: floa
             "messages": rows, "count": len(rows), "hours": hours}
 
 
-def today(store, mine: bool = False) -> dict:
-    """Three lanes, all info units except the last: things to do, things to attend,
-    and flagged messages the organizers have not turned into a unit yet."""
-    now = int(time.time())
-    dated = U.query(store, kind=["todo", "question", "decision"], status="open",
-                    due_before=now + 7 * 86400, order="due", limit=100, mine=mine)
-    seen = {u["id"] for u in dated}
-    recent = [u for u in U.query(store, kind=["todo", "question", "decision"], status="open",
-                                 since=now - 7 * 86400, limit=80, mine=mine) if u["id"] not in seen]
-    needs = dated + recent
-    if mine:
-        # Personal todos remain actionable until completed or ignored, regardless of age.
-        seen = {u["id"] for u in needs}
-        needs.extend(u for u in U.query(store, kind="todo", status="open", mine=True,
-                                       order="due", limit=-1) if u["id"] not in seen)
-        needs.sort(key=lambda u: (u["due_at"] is None, u["due_at"] or 0,
-                                  -(u["last_activity_at"] or u["updated_at"] or 0), -u["id"]))
+TODO_KINDS = ("todo", "question")
+RECENT_KINDS = ("topic", "decision", "announcement", "resource", "note")
+RECENT_DAYS = (7, 30, 0)
+
+
+def today(store, mine: bool = False, days: int = 7, limit: int = 30, msg_limit: int = 30, now=None,
+          hide=None) -> dict:
+    """The home page. Three lanes that share one scope (for me / everything):
+
+    * todo     - every open todo and question: overdue / upcoming (by due date) / no date.
+                 Age never hides an unfinished item.
+    * schedule - every open event, deadline and homework: now / upcoming / time TBD / past but
+                 never closed. The dashboard splits `upcoming` into local calendar ranges
+                 (today, tomorrow, 7 days, 30 days, later), so every date has a place.
+    * recent   - information to read: flagged messages nobody has organized yet and other units,
+                 limited by the chosen activity window (7 / 30 days / all). Paged, with totals.
+    Nothing is cut before it is counted: every group reports its full size.
+
+    `hide` maps a lane to type names switched off in its quick filter. A unit has several types
+    (its kind plus tags like deadline / homework) and stays visible while any of them is on.
+    Each lane reports `types`: unit counts per type before hiding, so the chips never vanish.
+    """
+    now = int(time.time() if now is None else now)
+    days = days if days in RECENT_DAYS else 7
+    due = lambda u: u["due_at"] or u["start_at"]
+    hide = {lane: set(hide.get(lane) or ()) for lane in ("todo", "schedule", "recent")} if hide else {}
+    type_map = U.type_map(store)
+    types_of = lambda uid, kind: type_map.get(uid, set()) | {kind}
+
+    def sift(lane, units):
+        counts, off, shown = {}, hide.get(lane, set()), []
+        for u in units:
+            mine_types = types_of(u["id"], u["kind"])
+            for t in mine_types:
+                counts[t] = counts.get(t, 0) + 1
+            if mine_types - off:
+                shown.append(u)
+        return shown, counts
+
+    todo = {"overdue": [], "upcoming": [], "undated": []}
+    todo_units, todo_types = sift("todo", U.query(store, kind=list(TODO_KINDS), status="open", order="due",
+                                                  limit=-1, mine=mine))
+    for u in todo_units:
+        at = due(u)
+        todo["undated" if not at else "overdue" if at < now else "upcoming"].append(u)
+    todo["undated"].sort(key=lambda u: (-(u["last_evidence_at"] or u["last_activity_at"] or u["created_at"] or 0), -u["id"]))
+
+    schedule = {"now": [], "upcoming": [], "tbd": [], "past": []}
+    seen = set()
+    events = U.query(store, kind="event", status="open", order="due", limit=-1, mine=mine)
+    # Obligations (deadline / homework tags) on non-task kinds, e.g. an announcement "report due Friday".
+    # Same tag namespace, so the two tags are OR-ed. Tagged todos/questions already sit in To do.
+    deadlines = [u for u in U.query(store, tags=["type:deadline", "type:homework"], status="open", order="due",
+                                    limit=-1, mine=mine) if u["kind"] not in TODO_KINDS + ("event",)]
+    candidates = []
+    for u in sorted(events + deadlines, key=lambda u: (due(u) is None, due(u) or 0, u["id"])):
+        if u["id"] not in seen:
+            seen.add(u["id"])
+            candidates.append(u)
+    schedule_units, schedule_types = sift("schedule", candidates)
+    for u in schedule_units:
+        at = u["start_at"] if u["kind"] == "event" else due(u)
+        end = (u["end_at"] or at + 3600) if at and u["kind"] == "event" else at
+        key = "tbd" if not at else "now" if at <= now <= end else "past" if end < now else "upcoming"
+        schedule[key].append(u)
+    schedule["past"].reverse()                                         # most recent first
+
+    since = now - days * 86400 if days else None
+    # A deadline announcement is already in Schedule (even when filtered out there); not listed again.
+    raw, stats = U.query_rows(store, kind=list(RECENT_KINDS), since=since, until=now if since else None,
+                              order="activity", mine=mine)
+    recent_rows, recent_types = sift("recent", [r for r in raw if r["id"] not in seen])
+    units = U.rows(store, recent_rows[:max(0, limit)], stats) if recent_rows else []
+    messages = unsorted_messages(store, mine, since)
+    return {"todo": todo, "schedule": schedule,
+            "types": {"todo": todo_types, "schedule": schedule_types, "recent": recent_types},
+            "recent": {"days": days, "units": units, "units_total": len(recent_rows),
+                       "messages": messages[:max(0, msg_limit)], "messages_total": len(messages)},
+            "scope": "mine" if mine else "all", "now": now}
+
+
+def unsorted_messages(store, mine: bool, since=None) -> list[dict]:
+    """Flagged messages that want attention but are not part of any unit yet.
+    For me: @mentions, one-to-one chats and VIP senders. Marking one Done removes it."""
     from ..sync.triage import actionable, trivial
-    rows = _rows(store.q("""SELECT id, source, account, channel, channel_name, sender, sender_name, sent_at,
-                             kind, text, link, flags, mentions_me, priority, rule FROM messages
-                           WHERE sent_at>=? AND priority IN ('P0','P1') AND done=0
-                             AND id NOT IN (SELECT message_id FROM unit_messages)
-                           ORDER BY priority, sent_at DESC LIMIT 400""", (now - 3 * 86400,)))
-    # Keep only messages that genuinely want attention: a real task, an @mention, or a
-    # substantive line from a VIP/watched person - never trivial acks or stickers.
-    unsorted_rows = [m for m in rows if not trivial(m) and (actionable(m) or m.get("mentions_me"))][:50]
-    for m in unsorted_rows:
+    where = ["m.priority IN ('P0','P1')", "m.done=0", "m.from_me=0",
+             "NOT EXISTS(SELECT 1 FROM unit_messages um WHERE um.message_id=m.id)"]
+    args = []
+    if since:
+        where.append("m.sent_at>=?")
+        args.append(int(since))
+    if mine:
+        where.append("(m.mentions_me=1 OR m.is_group=0 OR EXISTS(SELECT 1 FROM overrides o "
+                     "WHERE o.kind='vip' AND o.source=m.source AND o.value=m.sender))")
+    rows = _rows(store.q(f"""SELECT m.id, m.source, m.account, m.channel, m.channel_name, m.sender, m.sender_name,
+                             m.sent_at, m.kind, m.text, m.link, m.flags, m.mentions_me, m.priority, m.rule, m.is_group
+                             FROM messages m WHERE {' AND '.join(where)} ORDER BY m.sent_at DESC, m.id DESC""", args))
+    # Only messages that genuinely want attention: a real task or an @mention, never acks or stickers.
+    out = [m for m in rows if not trivial(m) and (actionable(m) or m.get("mentions_me"))]
+    for m in out:
         m.pop("flags", None)
-    return {"needs": needs,
-            "events": [u for u in U.query(store, kind="event", status="open", due_before=now + 7 * 86400, order="due",
-                                          limit=100, mine=mine) if (u["start_at"] or 0) >= now - 3600],
-            "unscheduled_events": U.query(store, kind="event", status="open", unscheduled=True,
-                                           limit=300, mine=mine),
-            "unsorted": unsorted_rows,
-            "scope": "mine" if mine else "all",
-            "counts": {"mine": store.q("SELECT count(*) FROM units WHERE for_me=1 AND status='open'").fetchone()[0],
-                       "all": store.q("SELECT count(*) FROM units WHERE status='open' AND kind!='digest'").fetchone()[0]},
-            "now": now}
+    return out
 
 
 def live(store) -> dict:
@@ -571,7 +635,15 @@ def serve(cfg, store, poll_fn):
                                                             int(qs.get("limit", 120))))
                 if u.path == "/api/today":
                     scope = qs.get("scope") or cfg["apps"].get("today_scope", "mine")
-                    return self._send(200, today(store, mine=scope == "mine"))
+                    try:
+                        days, limit, msg_limit = (int(qs.get(k, d)) for k, d in
+                                                  (("days", 7), ("limit", 30), ("msg_limit", 30)))
+                    except ValueError:
+                        return self._send(400, {"error": "days, limit and msg_limit must be integers"})
+                    hide = {lane: [t for t in qs.get("hide_" + lane, "").split(",") if t]
+                            for lane in ("todo", "schedule", "recent")}
+                    return self._send(200, today(store, mine=scope == "mine", days=days, hide=hide,
+                                                 limit=max(1, min(500, limit)), msg_limit=max(0, min(500, msg_limit))))
                 if u.path == "/api/live":
                     return self._send(200, live(store))
                 if u.path == "/api/channels":
@@ -802,6 +874,10 @@ def serve(cfg, store, poll_fn):
                         fields = unit_edit_fields(body, current)
                     except ValueError as exc:
                         return self._send(400, {"error": str(exc)})
+                    if "for_me" in body:                      # true / false pins it; null = automatic again
+                        if body["for_me"] not in (True, False, None):
+                            return self._send(400, {"error": "for_me must be true, false or null"})
+                        U.set_for_me(store, uid, body["for_me"])
                     # `type:<kind>` is reserved: adding one means "reclassify this unit", not a literal tag.
                     add = [t for t in (body.get("add_tags") or []) if isinstance(t, str)]
                     kind = body.get("kind")

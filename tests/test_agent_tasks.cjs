@@ -6,7 +6,7 @@ const {chromium} = require('playwright');
 test('agent settings save permissions and expose session links without rendering task HTML', async () => {
   const browser = await chromium.launch({channel: 'msedge', headless: true});
   try {
-    const page = await browser.newPage({viewport: {width: 1280, height: 900}});
+    const page = await browser.newPage({locale: 'en-US', viewport: {width: 1280, height: 900}});
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     const values = {'agent_tasks.enabled': true, 'agent_tasks.workspace': '', 'agent_tasks.sandbox': 'workspace-write', 'agent_tasks.codex_command':'codex'};
@@ -48,7 +48,7 @@ test('agent settings save permissions and expose session links without rendering
 test('Status tracks Codex sessions and todo status updates without replacing the card', async () => {
   const browser = await chromium.launch({channel:'msedge', headless:true});
   try {
-    const page = await browser.newPage({viewport:{width:1400,height:950}});
+    const page = await browser.newPage({locale: 'en-US', viewport:{width:1400,height:950}});
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     let task = {id:1,unit_id:7,message_id:9,prompt:'Find HumanPlus papers',status:'pending',updated_at:1793430573};
@@ -60,8 +60,8 @@ test('Status tracks Codex sessions and todo status updates without replacing the
       if (path === '/api/status') data = {totals:{messages:10,messages_24h:2,units:1,segments_open:0,channels:{},sources:{}},
         health:{ok:1,waiting:0,error:0},ai:{enabled:true,provider:'demo',model:'demo',spent_today_usd:0,budget_usd:5,usage:[]},
         jobs:{},failing:[],units:{todo:1},runs:[]};
-      if (path === '/api/today') data = {needs:[{id:7,kind:'todo',title:'Find HumanPlus papers',summary:'A personal task',
-        status:'open',tags:[],agent_task:{...task}}],events:[],unscheduled_events:[],unsorted:[]};
+      if (path === '/api/today') data = {todo:{overdue:[],upcoming:[],undated:[{id:7,kind:'todo',title:'Find HumanPlus papers',summary:'A personal task',
+        status:'open',tags:[],agent_task:{...task}}]},schedule:{now:[],upcoming:[],tbd:[],past:[]},recent:{days:7,units:[],units_total:0,messages:[],messages_total:0}};
       await route.fulfill({json:data});
     });
     await page.goto('http://127.0.0.1:8765/?tab=status');
@@ -93,7 +93,7 @@ test('Status tracks Codex sessions and todo status updates without replacing the
 test('compact queue controls start pause delete and open the matching session', async () => {
   const browser = await chromium.launch({channel:'msedge',headless:true});
   try {
-    const page=await browser.newPage({viewport:{width:1400,height:1000}});
+    const page=await browser.newPage({locale: 'en-US', viewport:{width:1400,height:1000}});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     let task={message_id:99,unit_id:7,prompt:'Find HumanPlus papers and download the PDF',status:'not_queued',
       error:'Message predates activation',updated_at:1793430573};

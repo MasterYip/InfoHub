@@ -139,10 +139,28 @@ def rollup_stats(store) -> dict[int, dict]:
     return stats
 
 
+# A manual "for me" / "not for me" choice outlives every automatic recomputation. It lives in
+# overrides (kind='unit_for_me', label '1' or '0') so recompute_for_me and AI upserts never erase it.
+_PINNED = "SELECT CAST(value AS INTEGER) FROM overrides WHERE kind='unit_for_me' AND label='{}'"
+MINE_SQL = (f"((u.for_me=1 AND u.id NOT IN ({_PINNED.format('0')})) OR u.id IN ({_PINNED.format('1')}))")
+
+
+def set_for_me(store, uid: int, value: bool | None) -> None:
+    """Pin a unit as for me (True) / not for me (False); None returns it to automatic detection."""
+    store.q("DELETE FROM overrides WHERE kind='unit_for_me' AND value=?", (str(uid),))
+    if value is not None:
+        store.q("INSERT INTO overrides VALUES('unit_for_me','unit',?,?,?)", (str(uid), "1" if value else "0", int(time.time())))
+
+
 def _rows(store, rows, stats=None) -> list[dict]:
     data = [dict(r) for r in rows]
     if not data:
         return []
+    pinned = {int(r[0]): r[1] == "1" for r in store.q("SELECT value, label FROM overrides WHERE kind='unit_for_me'")}
+    for d in data:
+        d["for_me_auto"] = bool(d.get("for_me"))
+        d["for_me_pinned"] = pinned.get(d["id"])           # True / False / None (automatic)
+        d["for_me"] = int(pinned.get(d["id"], d["for_me_auto"]))
     stats = rollup_stats(store) if stats is None else stats
     tags = {d["id"]: [] for d in data}
     evidence_times = _evidence_times(store, tuple(tags))
@@ -283,6 +301,29 @@ def _overlapping_rows(store, rows, since=None, until=None):
 
 def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before=None, roots_only=False,
           order="activity", limit=200, mine=False, unscheduled=False, until=None) -> list[dict]:
+    return _query(store, tags, kind, status, q, since, due_before, roots_only, order, limit, mine, unscheduled, until)
+
+
+def query_rows(store, **filters):
+    """Every matching raw row in order (no limit) and the rollup stats, so callers can filter further
+    and count before cutting a page; materialize a page with `rows()`."""
+    return _query(store, limit=None, raw=True, **filters)
+
+
+def rows(store, raw_rows, stats=None) -> list[dict]:
+    return _rows(store, raw_rows, stats)
+
+
+def type_map(store) -> dict[int, set[str]]:
+    """unit id -> its type names: the kind tag plus obligation tags such as deadline or homework."""
+    out = {}
+    for uid, tag in store.q("SELECT unit_id, tag FROM unit_tags WHERE tag LIKE 'type:%'"):
+        out.setdefault(uid, set()).add(tag[5:])
+    return out
+
+
+def _query(store, tags=(), kind=None, status=None, q=None, since=None, due_before=None, roots_only=False,
+           order="activity", limit=200, mine=False, unscheduled=False, until=None, raw=False):
     where, args = [], []
     groups = {}                                   # namespace -> [tags]: OR within a namespace, AND across
     for t in tags or ():
@@ -321,7 +362,7 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
         where.append("coalesce(u.due_at, u.start_at) IS NOT NULL AND coalesce(u.due_at, u.start_at) <= ?")
         args.append(int(due_before))
     if mine:
-        where.append("u.for_me=1")
+        where.append(MINE_SQL)
     if unscheduled:
         where.append("u.start_at IS NULL")
     # Whitespace-separated literal keywords use AND across title/summary matches.
@@ -342,20 +383,20 @@ def query(store, tags=(), kind=None, status=None, q=None, since=None, due_before
     }.get(order, "coalesce(u.last_activity_at,u.updated_at) DESC, u.id DESC")
     sql = prefix + f"SELECT u.* FROM units u {'WHERE ' + ' AND '.join(where) if where else ''}"
     metric = {"messages": "n_messages", "children": "n_children", "descendants": "n_descendants"}.get(order)
-    if metric or roots_only or since is not None or until is not None:
+    if raw or metric or roots_only or since is not None or until is not None:
         # Select the outermost matches and sort all candidates BEFORE applying the limit.
         rows = store.q(sql + f" ORDER BY {order_sql}", args).fetchall()
         if since is not None or until is not None:
             rows = _overlapping_rows(store, rows, since, until)
         if roots_only:
             rows = _top_level_matches(store, rows)
-        if not rows:
-            return []
-        stats = rollup_stats(store)
-        if metric:
+        stats = rollup_stats(store) if rows and (metric or raw) else None
+        if metric and rows:
             rows.sort(key=lambda row: (stats[row["id"]][metric], row["last_activity_at"] or row["updated_at"] or 0,
                                        row["id"]), reverse=True)
-        return _rows(store, rows[:max(0, int(limit))], stats)
+        if raw:
+            return rows, stats
+        return _rows(store, rows[:max(0, int(limit))], stats) if rows else []
     return _rows(store, store.q(sql + f" ORDER BY {order_sql} LIMIT ?", (*args, int(limit))))
 
 
