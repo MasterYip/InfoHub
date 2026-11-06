@@ -252,7 +252,7 @@ def channel_messages(store, source: str, account: str, channel: str, hours: floa
 
 TODO_KINDS = ("todo", "question")
 RECENT_KINDS = ("topic", "decision", "announcement", "resource", "note")
-RECENT_DAYS = (7, 30, 0)
+RECENT_DAYS = (1, 7, 30, 0)
 
 
 def today(store, mine: bool = False, days: int = 7, limit: int = 30, msg_limit: int = 30, now=None,
@@ -264,8 +264,8 @@ def today(store, mine: bool = False, days: int = 7, limit: int = 30, msg_limit: 
     * schedule - every open event, deadline and homework: now / upcoming / time TBD / past but
                  never closed. The dashboard splits `upcoming` into local calendar ranges
                  (today, tomorrow, 7 days, 30 days, later), so every date has a place.
-    * recent   - information to read: flagged messages nobody has organized yet and other units,
-                 limited by the chosen activity window (7 / 30 days / all). Paged, with totals.
+    * recent   - information to read: flagged messages nobody has organized yet and other open units,
+                 limited by the chosen activity window (1 / 7 / 30 days / all). Paged, with totals.
     Nothing is cut before it is counted: every group reports its full size.
 
     `hide` maps a lane to type names switched off in its quick filter. A unit has several types
@@ -319,7 +319,8 @@ def today(store, mine: bool = False, days: int = 7, limit: int = 30, msg_limit: 
 
     since = now - days * 86400 if days else None
     # A deadline announcement is already in Schedule (even when filtered out there); not listed again.
-    raw, stats = U.query_rows(store, kind=list(RECENT_KINDS), since=since, until=now if since else None,
+    # Only open items: done / ignored ones are finished business (Explore still has them).
+    raw, stats = U.query_rows(store, kind=list(RECENT_KINDS), status="open", since=since, until=now if since else None,
                               order="activity", mine=mine)
     recent_rows, recent_types = sift("recent", [r for r in raw if r["id"] not in seen])
     units = U.rows(store, recent_rows[:max(0, limit)], stats) if recent_rows else []

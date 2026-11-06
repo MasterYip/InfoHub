@@ -761,7 +761,8 @@ const I18N_ZH = {
   "Show every type": "全部显示",
   "Nothing matches the selected types.": "没有符合所选类别的条目。",
   "Within 7 days": "7 天内",
-  "Future": "7 天以后"
+  "Future": "7 天以后",
+  "1 day": "1 天"
 }; // end I18N_ZH
 let LANG = (() => {
   const saved = localStorage.getItem("lang");
@@ -1980,7 +1981,7 @@ async function copyText(text, btn) {
 
 // ---- Today: the one home page. One scope switch; unfinished things never age out; only the
 // reading lane has a time window. Every group shows its full count, nothing is cut silently.
-const RECENT_WINDOWS = [7, 30, 0];
+const RECENT_WINDOWS = [1, 7, 30, 0];
 let RECENT_DAYS = Number(localStorage.getItem("recentDays") ?? 7);
 if (!RECENT_WINDOWS.includes(RECENT_DAYS)) RECENT_DAYS = 7;
 const TODAY_PAGE = {units: 30, messages: 30}, PAGE_STEP = 30;
@@ -2076,7 +2077,7 @@ const TABS = {
     const windows = el("div", {class: "lane-tools"}, el("span", {class: "status"}, _t("Activity in")),
       ...RECENT_WINDOWS.map(days => el("button", {type: "button", class: "chip" + (RECENT_DAYS === days ? " on" : ""), onclick: () => {
         RECENT_DAYS = days; localStorage.setItem("recentDays", String(days)); TODAY_PAGE.units = TODAY_PAGE.messages = PAGE_STEP; render();
-      }}, days ? _t("{n} days", {n: days}) : _t("All time"))));
+      }}, days === 1 ? _t("1 day") : days ? _t("{n} days", {n: days}) : _t("All time"))));
     const promote = m => el("button", {class: "b", title: _t("Turn this message into a todo"), onclick: async e => {
       e.target.disabled = true; await api("/api/units", {from_message: m.id, kind: "todo"}); render();
     }}, _t("→ Todo"));

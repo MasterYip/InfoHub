@@ -8,7 +8,7 @@ three lanes that share a single **For me / Everything** switch. Old `?tab=todos`
 | --- | --- | --- |
 | **To do** | Open `todo` and `question` units | None. Grouped as Overdue, the date ranges below, No due date |
 | **Schedule** | Open `event` units, plus open units tagged `type:deadline` or `type:homework` that are not todos (e.g. an announcement with a due date) | None. Grouped as Happening now, the date ranges below, Time to be decided, Past but not closed (collapsed) |
-| **Recent** | Flagged messages not organized yet, then one flat list of topics, decisions, announcements, resources and notes, newest first | The only window: **7 days / 30 days / All time**, remembered per device |
+| **Recent** | Flagged messages not organized yet, then one flat list of topics, decisions, announcements, resources and notes, newest first | The only window: **1 day / 7 days / 30 days / All time**, remembered per device. Open items only; done and ignored ones stay in Explore |
 
 Date ranges cover every future date and follow local calendar days: **Within 7 days** (today and
 the next six days) and **Future** (everything after). Empty ranges are not shown; all
@@ -40,7 +40,7 @@ Rules that keep this predictable:
 - Completed items are one click away: **Completed in the last 30 days →** under To do (todos and
   questions) and under Schedule (events) opens Explore with that filter.
 
-API: `GET /api/today?scope=mine|all&days=7|30|0&limit=30&msg_limit=30&hide_todo=&hide_schedule=&hide_recent=` returns
+API: `GET /api/today?scope=mine|all&days=1|7|30|0&limit=30&msg_limit=30&hide_todo=&hide_schedule=&hide_recent=` returns
 `{todo: {overdue, upcoming, undated}, schedule: {now, upcoming, tbd, past},
 recent: {days, units, units_total, messages, messages_total}, types: {todo, schedule, recent}, scope, now}`.
 `POST /api/unit/<id>` with `{"for_me": true | false | null}` pins or unpins the relevance.

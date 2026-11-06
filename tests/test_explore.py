@@ -157,6 +157,17 @@ class Explore(unittest.TestCase):
         self.assertIn(old, self.ids(r30["units"]))
         self.assertEqual(r30["units_total"], len(r30["units"]))
         self.assertEqual(self.today(days=5)["recent"]["days"], 7)    # unknown windows fall back
+        # Only open units; a 1-day window keeps just the last day.
+        U.update(self.store, old, status="done")
+        self.assertNotIn(old, self.ids(self.today(mine=True, days=0, limit=500)["recent"]["units"]))
+        day_old = self.unit("Yesterday's note", kind="note", for_me=True)
+        self.store.q("UPDATE units SET last_activity_at=?, created_at=? WHERE id=?",
+                     (self.now - 2 * 86400, self.now - 2 * 86400, day_old))
+        self.store.db.commit()
+        r1 = self.today(mine=True, days=1, limit=500)["recent"]
+        self.assertEqual(r1["days"], 1)
+        self.assertNotIn(day_old, self.ids(r1["units"]))
+        self.assertIn(day_old, self.ids(self.today(mine=True, days=7, limit=500)["recent"]["units"]))
 
     def test_type_quick_filters_hide_per_lane_and_keep_counts(self):
         task = self.unit("Plain task", kind="todo", for_me=True)
